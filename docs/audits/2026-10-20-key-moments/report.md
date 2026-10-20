@@ -106,3 +106,23 @@ da sessão virtual somente em Linux. Não confundir worker pronto/atalho registr
 em Windows/macOS com certificação da entrega de cada tecla física nesses sistemas.
 Notificações, aplicativos externos em foco, permissões e instalação assinada
 mantêm os limites descritos na auditoria anterior.
+
+## Delay inicial independente — 12804c6
+
+O cadastro de Enquanto pressionada agora separa **Delay inicial (ms)**, de 0 a
+60.000, de **Repetir a cada (ms)**, de 100 a 60.000. Delay zero é preservado;
+configurações sem esse campo mantêm o intervalo anterior na primeira execução.
+A primeira tentativa pendente é cancelada ao soltar, inclusive quando agendada
+com zero. Repetições continuam aguardando a conclusão anterior, sem catch-up.
+
+**134 testes locais passaram**, com regressões de tempos diferentes, zero,
+cancelamento, ação lenta, limites, codec, leitura e exportação. O smoke completo
+passou com edição, reload e duplicação de delay 900/intervalo 250, validação dos
+limites e dos campos ocultos, e ambos os temas a 760×580 com zoom 100%/125%.
+
+[Platform audit 39484477174](https://github.com/raulaguila/key-tracker/actions/runs/39484477174)
+passou em Windows/macOS/Linux com delay 500 e repetição 125 persistidos de forma
+independente, hook compartilhado e saída limpa. O
+[Desktop 39484477197](https://github.com/raulaguila/key-tracker/actions/runs/39484477197)
+também passou: testes dos três sistemas, UI/eventos XTest no Linux e geração dos
+respectivos instaladores. Os limites de evidência e compatibilidade acima permanecem aplicáveis.
