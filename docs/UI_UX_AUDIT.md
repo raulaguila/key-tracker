@@ -101,20 +101,29 @@ captura global do sistema operacional continuam conforme README.md.
 
 Nenhum problema bloqueante conhecido ficou aberto no escopo inspecionado.
 
-## Próximas melhorias planejadas
+## Melhorias posteriores à auditoria — concluídas
 
-Solicitadas após a auditoria. Os itens abaixo estão planejados e ainda não foram
-implementados.
+Solicitadas e implementadas após a auditoria, em 20/10/2026.
 
-- [ ] **Sidebar recolhível:** permitir recolher e expandir a navegação por um
+- [x] **Sidebar recolhível:** permitir recolher e expandir a navegação por um
   controle explícito, acessível pelo teclado, e lembrar a preferência. No modo
   recolhido, manter ícones identificáveis com nomes acessíveis e dicas ao passar
   o mouse ou receber foco, destacar a tela atual e liberar espaço para o conteúdo.
-- [ ] **Interface mais minimalista:** reduzir textos auxiliares permanentes,
+- [x] **Interface mais minimalista:** reduzir textos auxiliares permanentes,
   bordas e elementos concorrentes; priorizar o conteúdo e a ação principal de
   cada tela. Apresentar opções secundárias sob demanda e simplificar a disposição
   das informações, mantendo visíveis o estado de execução e a camada em uso,
   além de preservar contraste, foco e feedback das ações.
 
-Na implementação, validar as quatro telas com a sidebar aberta e recolhida,
-incluindo navegação por teclado e janelas compactas.
+O painel de ações perdeu o cartão externo e a numeração redundante de camadas.
+Ajuda de uso e privacidade, caminhos de arquivos e permissões usam seções
+expansíveis. A captura local/global, avisos e resultados continuam explícitos.
+
+Validação: os 23 testes passaram. O smoke em Electron real no Linux verificou
+recolher por Enter, persistência após recarregar, dicas por foco e fechamento com
+Escape, preservação de rascunhos, acesso aos detalhes e **56 combinações** das
+quatro telas, sete larguras e dois estados de sidebar, sem overflow da página.
+Capturas adicionais: `artifacts/ui-audit/<tela>-<largura>-collapsed.png` e
+`<tela>-<largura>-expanded.png` (1280, 800 e 390 px). Abaixo de 580 px, ambos os
+estados mantêm a navegação horizontal com rótulos. As limitações da avaliação
+original continuam aplicáveis.

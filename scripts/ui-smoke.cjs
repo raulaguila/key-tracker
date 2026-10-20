@@ -107,9 +107,35 @@ async function main() {
     assert.equal(initial.tracking.enabled, false);
     await shot('layers');
 
+    // Sidebar is a visual preference: native keyboard control, reload persistence,
+    // accessible labels, and no configuration/draft changes.
+    await evaluate('document.querySelector("#sidebar-toggle").focus();');
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', windowsVirtualKeyCode: 13 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    assert.equal(await evaluate('return document.querySelector("#sidebar-toggle").getAttribute("aria-expanded")'), 'false');
+    const compactWidth = await evaluate('return document.querySelector(".workspace").getBoundingClientRect().width');
+    for (const name of ['layers', 'tracking', 'history', 'settings']) {
+      assert.ok(await evaluate('return Boolean(document.querySelector(\'#navigation [data-view="' + name + '"]\').getAttribute("aria-label"))'));
+    }
+    await evaluate('window.__qaBeforeReload = true;');
+    await cdp('Page.reload');
+    await until('!window.__qaBeforeReload && Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Reloaded UI');
+    assert.equal(await evaluate('return document.documentElement.dataset.sidebar'), 'collapsed', 'Sidebar preference survives reload');
+    await evaluate('document.querySelector(\'#navigation [data-view="tracking"]\').focus();');
+    assert.equal(await evaluate('return getComputedStyle(document.querySelector(\'#navigation [data-view="tracking"] .nav-label\')).visibility'), 'visible', 'Collapsed navigation has focus hints');
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    assert.equal(await evaluate('return getComputedStyle(document.querySelector(\'#navigation [data-view="tracking"] .nav-label\')).visibility'), 'hidden', 'Escape dismisses hints');
+    await click('#sidebar-toggle');
+    assert.ok(await evaluate('return document.querySelector(".workspace").getBoundingClientRect().width') < compactWidth, 'Collapsing frees content space');
+    assert.deepEqual((await nativeState()).config, initial.config, 'Visual preference does not modify actions');
+
     await click('[data-focus="new-layer"]');
     await fill('#field-name', 'Camada QA');
     await fill('#field-description', 'Validação de UI com dados locais');
+    await click('#sidebar-toggle');
+    assert.equal(await evaluate('return document.querySelector("#field-description").value'), 'Validação de UI com dados locais', 'Collapse preserves the draft');
+    await click('#sidebar-toggle');
     await save();
     await until('!document.querySelector("form[data-draft]")', 'Layer saved');
     let state = await nativeState();
@@ -190,6 +216,11 @@ async function main() {
     await until('document.querySelector("#draft-status")?.textContent === "Nenhuma alteração pendente"', 'Settings saved');
     assert.equal((await nativeState()).config.settings.layerShortcut, 'F9');
     await shot('settings');
+    assert.equal(await evaluate('return document.querySelector(".storage-details").open'), false);
+    await click('.storage-details summary');
+    assert.ok(await evaluate('return document.querySelector(".path-list").innerText.length > 0'), 'File locations remain available on demand');
+    await click('.support-details summary');
+    assert.ok(await evaluate('return document.querySelector(".platform-note").innerText.includes("Wayland")'), 'Platform guidance remains available');
 
     await click('[data-view="tracking"]');
     await click('input[role="switch"]');
@@ -248,10 +279,15 @@ async function main() {
 
     for (const width of [1440, 1280, 980, 800, 760, 580, 390]) {
       await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
-      for (const name of ['layers', 'tracking', 'history', 'settings']) {
-        await click('[data-view="' + name + '"]');
-        const dimensions = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
-        assert.ok(dimensions.scroll <= dimensions.width, 'No page overflow at ' + width + 'px, ' + name + ': ' + JSON.stringify(dimensions));
+      for (const collapsed of [false, true]) {
+        const current = await evaluate('return document.documentElement.dataset.sidebar === "collapsed"');
+        if (current !== collapsed) await click('#sidebar-toggle');
+        for (const name of ['layers', 'tracking', 'history', 'settings']) {
+          await click('[data-view="' + name + '"]');
+          const dimensions = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
+          assert.ok(dimensions.scroll <= dimensions.width, 'No page overflow at ' + width + 'px, ' + name + ', collapsed=' + collapsed + ': ' + JSON.stringify(dimensions));
+          if ([1280, 800, 390].includes(width)) await shot(name + '-' + width + (collapsed ? '-collapsed' : '-expanded'));
+        }
       }
       if ([1280, 800, 390].includes(width)) await shot('settings-' + width);
     }
@@ -260,7 +296,7 @@ async function main() {
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    console.log('UI smoke passed: CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, simultaneous key down/up + numpad, and 28 responsive combinations.');
+    console.log('UI smoke passed: sidebar keyboard control/persistence/draft protection, progressive help, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, simultaneous key down/up + numpad, and 56 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

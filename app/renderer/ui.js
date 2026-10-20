@@ -21,6 +21,7 @@ const paths = {
   pause: ['M8 5v14M16 5v14'],
   plus: ['M12 5v14M5 12h14'],
   back: ['m12 5-7 7 7 7M5 12h14'],
+  sidebar: ['M3 4h18v16H3V4ZM9 4v16', 'm15 9-3 3 3 3'],
   close: ['m6 6 12 12M6 18 18 6'],
   check: ['m5 12 4 4L19 6'],
   alert: ['m12 3 10 18H2L12 3Z', 'M12 9v4M12 17h.01'],
@@ -63,7 +64,7 @@ export function shortcut(value, platform = 'linux') {
 }
 
 export function heading(title, description, action) {
-  return el('div', { class: 'page-heading' }, el('div', {}, el('h1', {}, title), el('p', { class: 'page-description' }, description)), action);
+  return el('div', { class: 'page-heading' }, el('div', {}, el('h1', {}, title), description ? el('p', { class: 'page-description' }, description) : null), action);
 }
 
 export function field(name, label, value = '', options = {}) {

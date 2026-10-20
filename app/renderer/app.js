@@ -19,6 +19,29 @@ let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
 
+// Visual preferences stay on this computer, separate from exported actions.
+const sidebarPreference = 'keyboard-tracker.sidebar-collapsed';
+const sidebarToggle = document.querySelector('#sidebar-toggle');
+function setSidebarCollapsed(collapsed) {
+  document.documentElement.dataset.sidebar = collapsed ? 'collapsed' : 'expanded';
+  const label = collapsed ? 'Expandir menu' : 'Recolher menu';
+  sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+  sidebarToggle.setAttribute('aria-label', label);
+  sidebarToggle.replaceChildren(icon('sidebar'), el('span', { class: 'sidebar-toggle-label' }, label));
+}
+let savedSidebarCollapsed = false;
+try { savedSidebarCollapsed = localStorage.getItem(sidebarPreference) === 'true'; } catch { /* Storage may be unavailable; the control still works. */ }
+setSidebarCollapsed(savedSidebarCollapsed);
+sidebarToggle.addEventListener('click', () => {
+  const collapsed = document.documentElement.dataset.sidebar !== 'collapsed';
+  setSidebarCollapsed(collapsed);
+  try { localStorage.setItem(sidebarPreference, String(collapsed)); } catch { /* Keep the session preference. */ }
+});
+const sidebar = document.querySelector('#sidebar');
+document.addEventListener('keydown', event => { if (event.key === 'Escape') sidebar.classList.add('dismiss-hints'); });
+sidebar.addEventListener('pointerover', () => sidebar.classList.remove('dismiss-hints'));
+sidebar.addEventListener('focusin', () => sidebar.classList.remove('dismiss-hints'));
+
 const copyConfig = () => structuredClone(state.config);
 const layerById = (id = selectedLayerId) => state.config.layers.find(layer => layer.id === id);
 const newId = prefix => prefix + '-' + crypto.randomUUID();
@@ -148,22 +171,21 @@ function empty(title, description, action) {
 }
 
 function renderLayers() {
-  main.append(heading('Camadas e ações', 'Escolha uma camada para configurar o que cada tecla faz.',
+  main.append(heading('Camadas e ações', '',
     button('Nova camada', () => startEditor({ kind: 'layer', value: null }), '', { symbol: 'plus', 'data-focus': 'new-layer' })));
   const list = el('aside', { class: 'layer-list', 'aria-label': 'Escolher camada para edição' },
     el('div', { class: 'layer-list-heading' }, el('strong', {}, 'Suas camadas'), el('span', {}, state.config.layers.length)));
   const choices = el('div', { class: 'layer-choices' });
-  state.config.layers.forEach((layer, index) => choices.append(
+  state.config.layers.forEach(layer => choices.append(
     el('button', { type: 'button', class: 'layer-choice' + (layer.id === selectedLayerId ? ' selected' : ''), 'aria-pressed': String(layer.id === selectedLayerId), 'data-focus': 'layer-' + layer.id,
       onclick: () => {
         if (layer.id === selectedLayerId && !editor) return;
         void guardNavigation(() => { selectedLayerId = layer.id; editor = null; actionQuery = ''; render('layer-' + layer.id); });
       } },
-    el('span', { class: 'layer-index', 'aria-hidden': 'true' }, index + 1),
     el('span', { class: 'layer-choice-copy' }, el('strong', {}, layer.name), el('small', {}, layer.bindings.length + (layer.bindings.length === 1 ? ' ação' : ' ações'))),
     layer.id === state.activeLayerId ? el('span', { class: 'live-mark', title: 'Camada em uso pelos atalhos' }, 'Em uso') : null)
   ));
-  list.append(choices, el('div', { class: 'layer-list-help' }, icon('keyboard'), el('span', {}, 'Alternar camada', shortcut(state.config.settings.layerShortcut, state.platform))));
+  list.append(choices);
   const detail = el('section', { class: 'layer-detail', 'aria-label': editor ? 'Editor de configuração' : 'Ações de ' + layerById().name });
   if (editor) {
     detail.append(button('Voltar para as ações', closeEditor, 'quiet back-button', { symbol: 'back' }),
@@ -175,7 +197,7 @@ function renderLayers() {
     detail.append(el('div', { class: 'detail-heading' },
       el('div', {}, el('div', { class: 'title-line' }, el('h2', { id: 'layer-title' }, layer.name),
         el('span', { class: 'badge ' + (current ? 'success' : '') }, current ? 'Em uso' : 'Visualizando')),
-      el('p', {}, layer.description || 'Defina uma tecla e a ação que ela deve executar.')),
+      layer.description ? el('p', {}, layer.description) : null),
       el('div', { class: 'button-row' }, !current ? button('Usar esta camada', () => void perform(async () => { state = await api.setLayer(layer.id); render(); return state; }, 'Camada em uso: ' + layer.name), '', { symbol: 'layers' }) : null,
         button('Editar camada', () => startEditor({ kind: 'layer', value: layer }), 'quiet', { symbol: 'edit', 'data-focus': 'edit-layer' }))));
     if (!current) detail.append(el('p', { class: 'context-note' }, icon('layers'), 'Os atalhos continuam usando ' + layerById(state.activeLayerId).name + '. Clique em “Usar esta camada” para trocar.'));
@@ -185,10 +207,10 @@ function renderLayers() {
       button('Nova ação', () => startEditor({ kind: 'binding', value: null }), 'primary', { symbol: 'plus', 'data-focus': 'new-binding' })));
     if (layer.bindings.length) detail.append(el('div', { class: 'search-field' }, icon('search'), search.wrapper));
     detail.append(el('div', { id: 'bindings', class: 'binding-list' }),
-      el('p', { class: 'test-explanation' }, icon('play'), 'Executar teste realiza a ação de verdade, mesmo com os atalhos pausados.'));
+      el('p', { class: 'test-explanation' }, 'O teste executa a ação de verdade, mesmo com os atalhos pausados.'));
   }
   main.append(el('div', { class: 'layer-layout' }, list, detail),
-    el('div', { class: 'help-strip' }, el('div', {}, el('strong', {}, 'Controle pelo teclado'), el('span', {}, shortcut(state.config.settings.layerShortcut, state.platform), ' alterna a camada · ', shortcut(state.config.settings.pauseShortcut, state.platform), ' pausa ou retoma')),
+    el('details', { class: 'usage-help' }, el('summary', {}, 'Atalhos e uso'), el('p', {}, shortcut(state.config.settings.layerShortcut, state.platform), ' alterna a camada · ', shortcut(state.config.settings.pauseShortcut, state.platform), ' pausa ou retoma'),
       el('p', {}, 'Enquanto ativas, as teclas configuradas podem substituir a digitação em outros programas.')));
   if (!editor) updateBindings();
 }
@@ -493,7 +515,7 @@ function bindingForm(layer) {
 }
 
 function renderTracking() {
-  main.append(heading('Rastreio do teclado', 'Acompanhe as teclas enquanto são pressionadas e soltas.'));
+  main.append(heading('Rastreio do teclado'));
   const tracking = state.tracking;
   const mode = !tracking.enabled ? 'Desligado' : tracking.mode === 'global' ? 'Captura global' : tracking.mode === 'starting' ? 'Iniciando captura' : 'Somente nesta janela';
   const toggle = el('input', { type: 'checkbox', role: 'switch', checked: tracking.enabled, 'aria-label': 'Ativar rastreio do teclado', onchange: async () => {
@@ -511,7 +533,7 @@ function renderTracking() {
     keyboardView(state.platform, keyNodes),
     el('div', { class: 'keyboard-caption' }, el('span', { class: 'key-legend' }, el('span', { class: 'legend-square' }), 'Tecla pressionada'),
       el('span', {}, 'Referência física QWERTY · inclui teclado numérico')),
-    el('div', { class: 'privacy-note' }, icon('check'), el('p', {}, 'Visualização temporária: as teclas rastreadas não são gravadas em arquivo nem no histórico. As ações configuradas têm um controle independente na barra superior.')));
+    el('details', { class: 'usage-help' }, el('summary', {}, 'Privacidade e funcionamento'), el('p', {}, 'As teclas rastreadas não são gravadas. O rastreio é independente das ações controladas na barra superior.')));
   updateKeys();
 }
 
@@ -535,8 +557,8 @@ function updateKeys() {
 function clearPressed() { pressed.clear(); updateKeys(); }
 
 function renderHistory() {
-  main.append(heading('Histórico de execução', 'Confira o resultado das ações e identifique o que precisa de atenção.',
-    button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), '', { symbol: 'folder' })));
+  main.append(heading('Histórico de execução', '',
+    button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), 'quiet', { symbol: 'folder' })));
   const filters = [['all', 'Tudo'], ['action', 'Ações'], ['error', 'Erros']];
   const search = field('history-search', 'Buscar no histórico', historyQuery, { type: 'search', placeholder: 'Buscar por mensagem, camada ou tecla' });
   search.input.addEventListener('input', () => { historyQuery = search.input.value; updateHistory(); });
@@ -583,7 +605,7 @@ function defaultFilesPath() {
 }
 
 function renderSettings() {
-  main.append(heading('Configurações', 'Controle seus atalhos gerais, dados e permissões.'));
+  main.append(heading('Configurações'));
   const settings = state.config.settings;
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {
     const data = new FormData(form);
@@ -604,11 +626,12 @@ function renderSettings() {
     el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Levar a configuração para outro computador'), el('p', {}, 'Exporte uma cópia antes de importar ou substituir suas camadas.')),
       el('div', { class: 'button-row' }, button('Exportar', () => void perform(() => api.exportConfig()), '', { symbol: 'download' }),
         button('Importar', () => void guardNavigation(() => void importConfiguration()), '', { symbol: 'upload' }))),
-    el('div', { class: 'path-list' }, [['Dados do aplicativo', state.paths.data], ['Arquivos criados por padrão', defaultFilesPath()], ['Log de execução', state.paths.log]].map(([label, path]) =>
-      el('div', { class: 'path-row' }, el('strong', {}, label), el('code', {}, path)))),
-    button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), '', { symbol: 'folder' }),
+    el('details', { class: 'storage-details' }, el('summary', {}, 'Locais dos arquivos'),
+      el('div', { class: 'path-list' }, [['Dados do aplicativo', state.paths.data], ['Arquivos criados por padrão', defaultFilesPath()], ['Log de execução', state.paths.log]].map(([label, path]) =>
+        el('div', { class: 'path-row' }, el('strong', {}, label), el('code', {}, path)))),
+      button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), '', { symbol: 'folder' })),
     el('p', { class: 'hint token-note' }, 'Tokens de API ficam na configuração e na cópia exportada. Guarde o arquivo em um local de confiança.'));
-  const support = el('section', { class: 'settings-section' }, el('div', { class: 'section-heading' }, icon('keyboard'), el('div', {}, el('h2', {}, 'Captura e permissões'), el('p', {}, 'A disponibilidade da captura depende do sistema operacional.'))),
+  const support = el('details', { class: 'settings-section support-details' }, el('summary', {}, 'Captura e permissões'),
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
       el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. Para rastreio global integral, use uma sessão X11. Os atalhos globais dependem do portal do compositor.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'Atalhos ocupados por outro programa são informados na barra de avisos. O rastreio global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
@@ -683,7 +706,11 @@ document.querySelector('#navigation').addEventListener('click', event => {
   const target = event.target.closest('[data-view]');
   if (target && state) navigate(target.dataset.view);
 });
-for (const item of document.querySelectorAll('[data-view]')) item.prepend(icon({ layers: 'layers', tracking: 'keyboard', history: 'history', settings: 'settings' }[item.dataset.view]));
+for (const item of document.querySelectorAll('#navigation [data-view]')) {
+  const label = item.textContent;
+  item.setAttribute('aria-label', label);
+  item.replaceChildren(icon({ layers: 'layers', tracking: 'keyboard', history: 'history', settings: 'settings' }[item.dataset.view]), el('span', { class: 'nav-label', 'aria-hidden': 'true' }, label));
+}
 document.querySelector('#engine-toggle').addEventListener('click', () => void perform(async () => {
   state = await api.setEnabled(!state.enabled);
   const error = state.events[0];

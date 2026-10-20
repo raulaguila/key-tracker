@@ -20,6 +20,11 @@ O editor protege alterações não salvas, e os testes mostram execução e resu
 na própria ação. Headers e parâmetros HTTP são preenchidos como pares nome/valor;
 a configuração exportada continua usando o mesmo formato JSON.
 
+Use **Recolher menu** no rodapé da navegação para ganhar espaço. Os ícones mantêm
+dicas ao passar o mouse ou receber foco; **Expandir menu** restaura os rótulos.
+A preferência fica salva neste computador. Ajuda, locais dos arquivos e permissões
+podem ser abertos nas respectivas seções expansíveis.
+
 1. Em **Camadas**, cadastre ou edite suas camadas e ações.
 2. Na camada 1 inicial, `A` salva uma mensagem em log. Na camada 2, `A` cria
    uma nota em `Documentos/Keyboard Tracker`.

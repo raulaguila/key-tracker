@@ -15,7 +15,10 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
 
 ## Estrutura
 
-- Navegação lateral persistente: Camadas, Rastreio, Histórico e Configurações.
+- Navegação lateral recolhível: Camadas, Rastreio, Histórico e Configurações.
+  O controle no rodapé mantém o foco e lembra a preferência local entre sessões;
+  a preferência visual não faz parte da configuração exportada. Recolhida, usa
+  72 px, mantém nomes acessíveis, seleção e dicas por hover/foco (Escape as fecha).
 - Estado de execução e controle de pausa ficam sempre na barra superior.
 - Camadas usam navegação própria e painel de ações. “Em uso” identifica a camada
   dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
@@ -29,6 +32,10 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
   retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
 - Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de
   percorrer listas. A ação principal do painel é criar uma ação; remover é terciário.
+- O painel de ações é aberto, sem cartão externo ou numeração decorativa de
+  camadas. Títulos e espaços organizam a informação; divisores separam ações.
+  Ajuda de uso, privacidade, locais de arquivos e permissões ficam em seções
+  expansíveis. Estado, camada em uso, avisos e resultados continuam visíveis.
 - Rastreio é opt-in e independente do motor de ações. Teclas simultâneas são
   destacadas por código físico e chips textuais. O modo global/local aparece antes
   do teclado, que inclui numpad; rótulos QWERTY são uma referência visual.
@@ -47,7 +54,8 @@ família única de ícones SVG e representação de teclas adaptada ao SO.
 
 Em larguras intermediárias, camadas ficam em uma faixa acima do painel. O teclado
 preserva o tamanho legível das teclas em uma região com rolagem horizontal própria.
-Abaixo de 580 px, a navegação vira uma barra horizontal. Botões, formulários e textos
+Abaixo de 580 px, a navegação vira uma barra horizontal com rótulos; o controle de
+recolher fica oculto e a preferência desktop é mantida. Botões, formulários e textos
 longos quebram linhas. Avisos ficam afastados da área principal de salvamento. Não há
 dependência de fontes externas, bibliotecas ou scripts inline.
 

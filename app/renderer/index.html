@@ -11,7 +11,7 @@
   <body>
     <a class="skip-link" href="#main">Pular para o conteúdo</a>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="Navegação principal">
+      <aside id="sidebar" class="sidebar" aria-label="Navegação principal">
         <div class="brand"><img src="../assets/icon.svg" width="36" height="36" alt=""><span>Keyboard<strong>Tracker</strong></span></div>
         <nav id="navigation">
           <button type="button" data-view="layers" aria-current="page">Camadas</button>
@@ -19,7 +19,10 @@
           <button type="button" data-view="history">Histórico</button>
           <button type="button" data-view="settings">Configurações</button>
         </nav>
-        <div class="sidebar-footer"><span class="device-label">Tudo neste computador.</span><span id="platform-label">Aplicativo desktop</span></div>
+        <div class="sidebar-bottom">
+          <button id="sidebar-toggle" class="button quiet" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Recolher menu"></button>
+          <div class="sidebar-footer"><span id="platform-label">Aplicativo desktop</span></div>
+        </div>
       </aside>
       <div class="workspace">
         <header class="topbar">
