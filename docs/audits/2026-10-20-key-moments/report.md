@@ -126,3 +126,31 @@ independente, hook compartilhado e saída limpa. O
 [Desktop 39484477197](https://github.com/raulaguila/key-tracker/actions/runs/39484477197)
 também passou: testes dos três sistemas, UI/eventos XTest no Linux e geração dos
 respectivos instaladores. Os limites de evidência e compatibilidade acima permanecem aplicáveis.
+
+## Delay entre etapas — e9d0889
+
+Sequências têm **Delay entre etapas (ms)**, opcional no arquivo, de 0 a 60.000.
+Ausência mantém zero sem inflar configurações legadas. A espera assíncrona ocorre
+após uma etapa terminar e antes da próxima; não ocorre antes da primeira, após a
+última ou após falha. A sequência mantém uma vaga de execução durante a espera.
+Prévia congela o intervalo; teste manual o respeita. Duração total inclui esperas,
+enquanto a duração de cada etapa mede apenas sua execução. Histórico e exportação
+incluem o intervalo efetivo, sem conteúdo privado.
+
+**139 testes locais passaram**, incluindo tempos reais, zero/legado/limites,
+falha parcial, persistência, token congelado e concorrência durante a espera.
+Sintaxe, UI completa, XTest Linux e pacote/integração Electron passaram. UI cobre
+edição, duplicação, reload, troca de tipo, reordenação e os dois temas a 760×580
+com zoom 100%/125%; quatro capturas do novo campo foram inspecionadas.
+
+- [Desktop 39502962038](https://github.com/raulaguila/key-tracker/actions/runs/39502962038):
+  testes e builds nos três sistemas, UI/XTest no Linux e instaladores gerados.
+- [Platform audit 39502962353](https://github.com/raulaguila/key-tracker/actions/runs/39502962353):
+  os três relatórios JSON do SHA e9d088991123422addd89e95e3e6896024a992fc foram
+  conferidos. Persistência, prévia, duas etapas bem-sucedidas, clipboard final,
+  integridade do ASAR e três saídas limpas por sistema passaram. Para intervalo
+  configurado de 80 ms, duração total observada foi 82 ms em Windows/Linux e
+  84 ms no macOS. São sondas funcionais, sem comparação controlada de performance.
+
+Essa prova usa o source de produção no Electron e inspeciona o pacote; não
+substitui testes do instalador assinado, permissões e teclados físicos em cada SO.
