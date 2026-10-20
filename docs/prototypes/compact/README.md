@@ -1,8 +1,9 @@
 # Proposta de interface compacta
 
-Protótipo navegável anterior à aplicação do novo design no aplicativo.
+Protótipo navegável preservado como referência do design adotado no aplicativo.
 Tema claro e rosa do produto preservados; foco em densidade, alinhamento e
-controle por mouse/teclado. A implementação atual do Electron não foi alterada.
+controle por mouse/teclado. Esta pasta continua sendo uma prévia independente;
+o aplicativo em `app/` utiliza ações reais e preserva suas validações e proteções.
 
 ## Experimentar
 
@@ -21,7 +22,7 @@ importação/exportação e configurações são simulados e identificados como 
 
 ## Direção visual
 
-| Elemento | Aplicativo atual | Proposta |
+| Elemento | Antes da adoção | Proposta adotada |
 | --- | --- | --- |
 | Barra superior | Mínimo de 80 px | 48 px |
 | Menu recolhido | 72 px | 52 px |
@@ -64,8 +65,10 @@ da camada em uso, nova ação, edição simulada, feedback de simulação, layou
 manuais/automático e down/up simultâneos. As confirmações e validações completas
 da versão desktop devem ser preservadas ao aplicar a proposta.
 
-A próxima etapa é integrar o layout à captura nativa e aplicar a direção visual
-ao aplicativo depois da revisão deste protótipo, como solicitado.
+A direção foi aprovada e aplicada ao desktop, incluindo seleção de layout e
+legendas para a captura nativa. O aplicativo também oferece correção manual do
+padrão físico, além das opções desta prévia. A validação abaixo é histórica e
+se refere ao protótipo; a prova da integração está em `docs/UI_UX_AUDIT.md`.
 
 ## Validação da prévia
 

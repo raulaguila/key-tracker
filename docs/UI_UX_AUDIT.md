@@ -127,3 +127,42 @@ Capturas adicionais: `artifacts/ui-audit/<tela>-<largura>-collapsed.png` e
 `<tela>-<largura>-expanded.png` (1280, 800 e 390 px). Abaixo de 580 px, ambos os
 estados mantêm a navegação horizontal com rótulos. As limitações da avaliação
 original continuam aplicáveis.
+
+## Adoção do protótipo compacto — concluída
+
+A proposta em `docs/prototypes/compact/` foi aprovada e aplicada ao aplicativo.
+Barra superior de 48 px, navegação recolhida de 52 px, títulos de 18 px, controles
+de 30–32 px e ações/histórico em tabelas com linhas a partir de 44 px. O editor
+abre lateralmente em janelas largas; em janelas menores ocupa o espaço da tabela.
+O contexto de camada, pausa, conflitos e resultados permanece explícito. As
+confirmações de descarte e os formulários completos foram preservados. Ao contrário
+da versão anterior, a navegação continua lateral nas larguras exploratórias pequenas.
+
+Rastreio integra legendas automáticas quando fornecidas pelo Chromium, cinco
+layouts manuais, três tamanhos e correção de geometria ANSI/ISO/ABNT2. As escolhas
+visuais persistem localmente e não alteram a configuração exportada das ações.
+Falha ou timeout da leitura automática usam US como referência explícita; respostas
+atrasadas não sobrescrevem uma seleção manual. O formato físico não é detectado
+como hardware. Variantes/IMEs e emissão de teclas internacionais pelo hook nativo
+continuam sujeitos às limitações do sistema.
+
+Provas desta integração:
+
+- 27 testes passaram, incluindo leitura ausente/bloqueada/vazia/timeout,
+  normalização de preferências, legendas e códigos físicos do hook.
+- Electron real: CRUD, HTTP local 201/503, preservação dos parâmetros, proteção
+  de rascunhos no fechamento/navegação e persistência das configurações.
+- Cinco layouts, três formatos, geometria manual, persistência após recarregar,
+  fallback automático e resposta atrasada após seleção manual.
+- Down/up simultâneos de `Ç` e `IntlRo` com destaque visual em ABNT2, além de numpad.
+- 56 combinações de quatro telas, sete larguras e sidebar aberta/recolhida,
+  sem overflow horizontal da página; capturas em 1280, 800 e 390 px.
+- X11 isolado: evento real via XTest chegou pelo hook global como `KeyQ`,
+  apareceu como `A` no layout AZERTY e foi limpo no keyup.
+- axe-core 4.12.1: zero violações WCAG A/AA em Camadas e Rastreio. Os símbolos
+  que exigiram revisão manual mantêm as cores de texto e tecla já contrastadas.
+- Build local Linux gerou AppImage e DEB. A inspeção visual e o teste de hook
+  desta etapa ocorreram em Linux; builds Windows/macOS são verificados pelo CI.
+
+Capturas desta fase permanecem em `artifacts/ui-audit/` (ignorado pelo Git), incluindo
+`tracking-abnt2.png`, `native-azerty.png` e as quatro telas em três larguras.

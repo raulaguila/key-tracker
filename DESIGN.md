@@ -18,12 +18,16 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
 - Navegação lateral recolhível: Camadas, Rastreio, Histórico e Configurações.
   O controle no rodapé mantém o foco e lembra a preferência local entre sessões;
   a preferência visual não faz parte da configuração exportada. Recolhida, usa
-  72 px, mantém nomes acessíveis, seleção e dicas por hover/foco (Escape as fecha).
-- Estado de execução e controle de pausa ficam sempre na barra superior.
+  52 px, mantém nomes acessíveis, seleção e dicas por hover/foco (Escape as fecha).
+  Instalações novas começam recolhidas; preferências existentes são preservadas.
+- Barra superior de 48 px com estado e pausa. Camada em uso, atalhos e plataforma
+  ficam na barra inferior compacta. Durante edição, o rodapé informa a suspensão.
 - Camadas usam navegação própria e painel de ações. “Em uso” identifica a camada
   dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
   Escolher uma camada para editar não muda a camada em uso.
-- O editor substitui o conteúdo do painel, com contexto e retorno explícitos.
+- Ações usam tabela com linhas a partir de 44 px, controles de 30–32 px e título
+  de 18 px. O editor abre à direita em janelas largas; em janelas menores substitui
+  a tabela, com contexto e retorno explícitos. A tabela fica inerte durante edição.
   Nome/tecla precedem a ação. Parâmetros e headers HTTP usam pares nome/valor em
   uma seção expansível; rascunhos são preservados ao alternar o tipo de ação.
 - Ações destrutivas e descarte de alterações usam um diálogo nativo HTML com foco
@@ -38,7 +42,10 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
   expansíveis. Estado, camada em uso, avisos e resultados continuam visíveis.
 - Rastreio é opt-in e independente do motor de ações. Teclas simultâneas são
   destacadas por código físico e chips textuais. O modo global/local aparece antes
-  do teclado, que inclui numpad; rótulos QWERTY são uma referência visual.
+  do teclado. Layout automático usa as legendas disponíveis no Chromium; BR ABNT2,
+  US ANSI, PT ISO, FR AZERTY e DE QWERTZ também podem ser escolhidos manualmente.
+  Formato completo, TKL e compacto, além de correção do padrão físico, são
+  preferências locais separadas das ações. Indisponibilidade automática é explícita.
 - A página aberta fora do Electron explica que o aplicativo desktop é necessário;
   não simula captura, persistência ou execução.
 
@@ -52,17 +59,19 @@ camada/ação mantém a suspensão enquanto o formulário está aberto. A barra 
 permanece visível ao rolar e distingue pausa, edição e digitação. A interface usa uma
 família única de ícones SVG e representação de teclas adaptada ao SO.
 
-Em larguras intermediárias, camadas ficam em uma faixa acima do painel. O teclado
-preserva o tamanho legível das teclas em uma região com rolagem horizontal própria.
-Abaixo de 580 px, a navegação vira uma barra horizontal com rótulos; o controle de
-recolher fica oculto e a preferência desktop é mantida. Botões, formulários e textos
+Camadas usam uma coluna de 176 px (144 px em janelas intermediárias); abaixo de
+580 px ficam em uma faixa acima da tabela. A navegação continua lateral e
+recolhível. O teclado usa teclas de 32 px em uma região com rolagem própria.
+Em ponteiros de toque, controles crescem para 44 px. Botões, formulários e textos
 longos quebram linhas. Avisos ficam afastados da área principal de salvamento. Não há
 dependência de fontes externas, bibliotecas ou scripts inline.
 
 ## Limites
 
-A visualização física usa referência QWERTY, navegação e numpad; teclados ABNT2
-e ISO podem ter legendas e posições diferentes. Os códigos recebidos
-continuam aparecendo no indicador textual de teclas pressionadas. Captura global
+A leitura de layout informa legendas, não identifica o teclado conectado. Os
+formatos físicos são referências ajustáveis. Variantes de fabricantes, Shift/AltGr
+e IMEs não são integralmente representados. Teclas internacionais podem não ser
+emitidas pelo hook em todos os sistemas. Os códigos recebidos continuam aparecendo
+no indicador textual de teclas pressionadas. Captura global
 e execução dependem da integração nativa e das permissões do sistema, informadas
 pelo estado vindo do processo principal.

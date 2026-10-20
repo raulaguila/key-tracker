@@ -12,7 +12,7 @@
     <a class="skip-link" href="#main">Pular para o conteúdo</a>
     <div class="app-shell">
       <aside id="sidebar" class="sidebar" aria-label="Navegação principal">
-        <div class="brand"><img src="../assets/icon.svg" width="36" height="36" alt=""><span>Keyboard<strong>Tracker</strong></span></div>
+        <div class="brand"><img src="../assets/icon.svg" width="24" height="24" alt=""><span>Keyboard Tracker</span></div>
         <nav id="navigation">
           <button type="button" data-view="layers" aria-current="page">Camadas</button>
           <button type="button" data-view="tracking">Rastreio</button>
@@ -21,17 +21,17 @@
         </nav>
         <div class="sidebar-bottom">
           <button id="sidebar-toggle" class="button quiet" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Recolher menu"></button>
-          <div class="sidebar-footer"><span id="platform-label">Aplicativo desktop</span></div>
         </div>
       </aside>
       <div class="workspace">
         <header class="topbar">
-          <div class="engine-status"><span id="engine-dot" class="status-dot" aria-hidden="true"></span><div><strong id="engine-status" role="status">Carregando aplicativo…</strong><span id="engine-detail">Preparando suas camadas</span></div></div>
-          <div class="topbar-actions"><div class="active-layer-context"><span>Camada em uso</span><strong id="active-layer-label">—</strong></div><button id="engine-toggle" class="button primary" type="button" disabled>Ativar ações</button></div>
+          <strong id="page-name">Camadas</strong>
+          <div class="topbar-actions"><div class="engine-status"><span id="engine-dot" class="status-dot" aria-hidden="true"></span><strong id="engine-status" role="status" aria-describedby="engine-detail">Carregando…</strong></div><button id="engine-toggle" class="button" type="button" disabled>Ativar ações</button></div>
         </header>
         <div id="notice" class="notice" role="alert" hidden></div>
         <div id="shortcut-warning" class="shortcut-warning" role="status" hidden></div>
         <main id="main" tabindex="-1"><div class="loading-state" aria-busy="true"><div class="skeleton heading-skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
+        <footer class="statusbar"><span class="active-layer-context">Em uso: <strong id="active-layer-label">—</strong></span><span id="control-shortcuts"></span><span id="engine-detail" class="sr-only">Preparando suas camadas</span><span id="platform-label">Aplicativo desktop</span></footer>
       </div>
     </div>
     <div id="announcement" class="sr-only" aria-live="polite"></div>

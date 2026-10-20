@@ -2,7 +2,7 @@ const { spawnSync } = require('node:child_process');
 const { readdirSync } = require('node:fs');
 const path = require('node:path');
 function collect(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? collect(path.join(directory, entry.name)) : /\.(cjs|js)$/.test(entry.name) ? [path.join(directory, entry.name)] : []);
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? collect(path.join(directory, entry.name)) : /\.(cjs|mjs|js)$/.test(entry.name) ? [path.join(directory, entry.name)] : []);
 }
 let failed = false;
 for (const file of [...collect('app'), ...collect('scripts'), ...collect('test')]) {

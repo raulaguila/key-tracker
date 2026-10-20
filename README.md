@@ -15,15 +15,24 @@ npm start
 
 O aplicativo começa com as ações pausadas e o rastreio desligado.
 
-A interface distingue a camada em uso da camada aberta para configuração.
-O editor protege alterações não salvas, e os testes mostram execução e resultado
+A interface compacta usa ações em tabela e editor lateral. Distingue a camada
+em uso da camada aberta para configuração. O editor protege alterações não salvas,
+e os testes mostram execução e resultado
 na própria ação. Headers e parâmetros HTTP são preenchidos como pares nome/valor;
 a configuração exportada continua usando o mesmo formato JSON.
 
-Use **Recolher menu** no rodapé da navegação para ganhar espaço. Os ícones mantêm
-dicas ao passar o mouse ou receber foco; **Expandir menu** restaura os rótulos.
+Instalações novas começam com o menu recolhido. **Expandir menu** restaura os
+rótulos e **Recolher menu** libera espaço. Os ícones mantêm dicas por mouse ou foco.
 A preferência fica salva neste computador. Ajuda, locais dos arquivos e permissões
 podem ser abertos nas respectivas seções expansíveis.
+
+Em **Rastreio**, escolha **Automático (sistema)** ou BR ABNT2, US, PT, AZERTY e
+QWERTZ. Se a leitura automática não estiver disponível, a tela informa e usa US
+como referência provisória. O formato pode ser completo, TKL ou compacto; o
+padrão físico pode ser corrigido na seção **Layout, privacidade e funcionamento**.
+As escolhas ficam salvas neste computador e não alteram o mapeamento das ações.
+A detecção fornece legendas, não identifica o modelo físico conectado. Algumas
+teclas internacionais dependem do suporte do hook; variantes e IMEs podem diferir.
 
 1. Em **Camadas**, cadastre ou edite suas camadas e ações.
 2. Na camada 1 inicial, `A` salva uma mensagem em log. Na camada 2, `A` cria
@@ -127,9 +136,8 @@ somente para a instância isolada de QA.
 
 Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
 
-Uma proposta navegável de interface mais compacta e seleção de layout do teclado
-está em [docs/prototypes/compact](docs/prototypes/compact/README.md). É uma prévia
-separada, com dados de exemplo, anterior à aplicação das mudanças no desktop.
+O protótipo que orientou o design adotado está preservado em
+[docs/prototypes/compact](docs/prototypes/compact/README.md), com dados de exemplo.
 
 Validação local: testes automatizados de ações e persistência, app Electron e
 captura nativa em display Linux/X11 isolado. Windows/macOS e portais Wayland ainda

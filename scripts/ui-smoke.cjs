@@ -106,6 +106,8 @@ async function main() {
     assert.equal(initial.enabled, false);
     assert.equal(initial.tracking.enabled, false);
     await shot('layers');
+    assert.equal(await evaluate('return document.documentElement.dataset.sidebar'), 'collapsed', 'New installations use the compact rail');
+    await click('#sidebar-toggle');
 
     // Sidebar is a visual preference: native keyboard control, reload persistence,
     // accessible labels, and no configuration/draft changes.
@@ -142,7 +144,7 @@ async function main() {
     const layer = state.config.layers.find(layer => layer.name === 'Camada QA');
     assert.ok(layer);
     assert.equal(state.activeLayerId, initial.activeLayerId, 'Editing another layer never changes the active layer');
-    await click('.detail-heading .button-row .button');
+    await evaluate('Array.from(document.querySelectorAll(".detail-heading button")).find(button => button.textContent.includes("Usar esta camada")).click();');
     await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Explicit use changes the active layer');
 
     await click('[data-focus="new-binding"]');
@@ -239,6 +241,62 @@ async function main() {
     await click('input[role="switch"]');
     assert.equal((await nativeState()).tracking.enabled, false);
 
+    const configBeforePreview = (await nativeState()).config;
+    for (const [layout, code, label] of [['br', 'Semicolon', 'Ç'], ['us', 'Semicolon', ';'], ['pt', 'Quote', 'º'], ['fr', 'KeyQ', 'A'], ['de', 'KeyY', 'Z']]) {
+      await select('#field-keyboard-layout', layout);
+      assert.equal(await evaluate('return document.querySelector(\'.keycap[data-code="' + code + '"]\').textContent'), label, 'Layout legends: ' + layout);
+    }
+    await select('#field-keyboard-layout', 'br');
+    assert.ok(await evaluate('return Boolean(document.querySelector(".iso-enter") && document.querySelector(\'.keycap[data-code="IntlRo"]\'))'), 'ABNT2 includes ISO Enter and the extra slash');
+    for (const size of ['compact', 'tkl', 'full']) {
+      await select('#field-keyboard-size', size);
+      assert.equal(await evaluate('return Boolean(document.querySelector(".keyboard-numpad"))'), size === 'full');
+      assert.equal(await evaluate('return Boolean(document.querySelector(".keyboard-navigation"))'), size !== 'compact');
+    }
+    await click('input[role="switch"]');
+    await until('(await window.keyboardTracker.getState()).tracking.mode === "local"', 'Local capture ready for international keys');
+    await evaluate('document.activeElement.blur();');
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ç', code: 'Semicolon', windowsVirtualKeyCode: 186 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: '/', code: 'IntlRo', windowsVirtualKeyCode: 193 });
+    assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 2);
+    assert.ok(await evaluate('return document.querySelector("#pressed-keys").textContent.includes("ç")'));
+    await delay(180);
+    assert.notEqual(await evaluate('return getComputedStyle(document.querySelector(".keycap.pressed")).backgroundColor'), await evaluate('return getComputedStyle(document.querySelector(\'.keycap[data-code="KeyQ"]\')).backgroundColor'), 'Pressed keys have a distinct visible fill');
+    await shot('tracking-abnt2');
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ç', code: 'Semicolon', windowsVirtualKeyCode: 186 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: '/', code: 'IntlRo', windowsVirtualKeyCode: 193 });
+    await click('input[role="switch"]');
+    await click('.keyboard-help summary');
+    await select('#field-keyboard-geometry', 'ansi');
+    assert.equal(await evaluate('return Boolean(document.querySelector(".iso-enter"))'), false, 'Physical reference can override the language layout');
+    await select('#field-keyboard-size', 'compact');
+    await evaluate('window.__qaBeforeReload = true;');
+    await cdp('Page.reload');
+    await until('!window.__qaBeforeReload && Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Preview preferences reload');
+    await click('[data-view="tracking"]');
+    assert.equal(await evaluate('return document.querySelector("#field-keyboard-layout").value'), 'br');
+    assert.equal(await evaluate('return document.querySelector("#field-keyboard-size").value'), 'compact');
+    assert.equal(await evaluate('return document.querySelector("#field-keyboard-geometry").value'), 'ansi');
+    assert.deepEqual((await nativeState()).config, configBeforePreview, 'Keyboard preview preferences never modify exported action data');
+    await click('.keyboard-help summary');
+    await select('#field-keyboard-geometry', 'auto');
+    await select('#field-keyboard-size', 'full');
+
+    // Exercise the real Electron API first, then permission/timeout fallback and
+    // a late result arriving after a manual choice. No native IPC is replaced.
+    await select('#field-keyboard-layout', 'auto');
+    await until('!document.querySelector("#layout-status").textContent.includes("Lendo")', 'System layout read settles');
+    await evaluate('window.__qaKeyboard = navigator.keyboard; Object.defineProperty(navigator,"keyboard",{configurable:true,value:{getLayoutMap:async()=>{throw new Error("QA denied");}}});');
+    await select('#field-keyboard-layout', 'us');
+    await select('#field-keyboard-layout', 'auto');
+    await until('document.querySelector("#layout-status").textContent.includes("indisponível")', 'Unavailable layout is explicit');
+    await evaluate('Object.defineProperty(navigator,"keyboard",{configurable:true,value:{getLayoutMap:()=>new Promise(resolve=>{window.__qaResolveMap=resolve;})}});');
+    await select('#field-keyboard-layout', 'us');
+    await select('#field-keyboard-layout', 'auto');
+    await select('#field-keyboard-layout', 'br');
+    await evaluate('window.__qaResolveMap(new Map([["Semicolon","x"]])); Object.defineProperty(navigator,"keyboard",{configurable:true,value:window.__qaKeyboard});');
+    assert.equal(await evaluate('return document.querySelector(\'.keycap[data-code="Semicolon"]\').textContent'), 'Ç', 'Late system responses cannot replace a manual layout');
+
     await click('[data-view="layers"]');
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'Log QA');
@@ -296,7 +354,7 @@ async function main() {
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    console.log('UI smoke passed: sidebar keyboard control/persistence/draft protection, progressive help, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, simultaneous key down/up + numpad, and 56 responsive combinations.');
+    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, and 56 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

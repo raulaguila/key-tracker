@@ -26,9 +26,9 @@ pressionadas e soltas em um teclado visual.
 ## Decisões desta implementação
 
 Interface em português, de ferramenta utilitária, com aparência clara e controles
-familiares. Texto legível, foco visível e movimento reduzido. Preferências visuais
-não foram especificadas; estas são escolhas de implementação, não preferências
-confirmadas do usuário.
+familiares. O usuário aprovou o protótipo compacto: menos espaçamento, controles
+menores, tabela de ações, editor lateral e sidebar recolhível. Texto legível,
+foco visível e movimento reduzido continuam sendo critérios da implementação.
 
 ## Fora da primeira versão
 

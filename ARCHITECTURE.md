@@ -20,9 +20,13 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/storage.cjs`: configuração atômica e log serializado com rotação.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
+- `app/native-keycodes.cjs`: normalização dos códigos físicos, inclusive numpad
+  sem NumLock e constantes internacionais conhecidas do libuiohook.
 - `app/renderer/`: interface e renderização de códigos físicos do teclado.
 - `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
-- `app/renderer/keyboard.js`: representação física QWERTY, navegação e numpad.
+- `app/renderer/keyboard.js`: geometrias de referência ANSI/ISO/ABNT2 e tamanhos.
+- `app/renderer/keyboard-layouts.mjs`: legendas manuais, resolução do mapa do
+  sistema, normalização das preferências e leitura com timeout/fallback.
 
 Contrato de dados e API em `CONTRACT.md`. O processo principal é o único dono
 da configuração. Escritas de configuração são serializadas. Configuração é
@@ -50,6 +54,16 @@ tecla por IPC; eventos de repetição são descartados. Nenhum desses eventos va
 ao histórico ou ao disco. Encerrar/desligar termina o worker. Falha nativa oferece
 modo local em vez de derrubar a janela. No Wayland o hook integral é evitado;
 atalhos dependem do portal do compositor e do identificador desktop instalado.
+
+Legendas automáticas vêm de `navigator.keyboard.getLayoutMap()` no renderer;
+não alteram atalhos registrados. A leitura tem timeout de 2 s e proteção contra
+respostas atrasadas após uma escolha manual. Ao recuperar foco, a prévia pode ser
+atualizada sem reconstruir os formulários nem perder foco ou rolagem. O evento
+`layoutchange` é usado somente quando exposto pelo ambiente. A API não identifica
+o formato físico nem garante a fonte ativa de outro aplicativo/IME.
+Layout, tamanho, geometria e sidebar usam armazenamento visual local; não mudam o
+contrato JSON das ações e o mapa do sistema não é persistido. As legendas da
+captura global são resolvidas por código físico; a captura local usa o evento do SO.
 
 ## I/O e erros
 
