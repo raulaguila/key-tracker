@@ -1,5 +1,9 @@
 # Auditoria e melhorias de UI/UX
 
+> Histórico da primeira rodada de melhorias. A análise atual do sistema, com
+> achados ainda abertos e medições do executável, está na
+> [auditoria de UI/UX e performance de 20/10/2026](audits/2026-10-20/report.md).
+
 Data: 20/10/2026.
 Escopo: Camadas, editores de camada/ação, Rastreio, Histórico, Configurações,
 estados assíncronos, navegação, fechamento e adaptação de layout.

@@ -189,6 +189,8 @@ executa esse teste no job Linux; o processo de teste em CI usa `--no-sandbox`
 somente para a instância isolada de QA.
 
 Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
+Análise atual, problemas reproduzidos e medições do executável:
+[auditoria de UI/UX e performance](docs/audits/2026-10-20/report.md).
 
 O protótipo que orientou o design adotado está preservado em
 [docs/prototypes/compact](docs/prototypes/compact/README.md), com dados de exemplo.

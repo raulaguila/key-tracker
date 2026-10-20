@@ -1,0 +1,8 @@
+{
+  "environment": "Isolated Xvfb :105 owned by audit Electron process 3462707",
+  "layout": "fr via setxkbmap; restored us after test",
+  "eventSource": "libXtst XTestFakeKeyEvent physical X11 keycode 24",
+  "observedNativeEvent": { "key": "a", "code": "KeyQ", "isTrusted": true },
+  "capturedShortcut": "Q",
+  "visualEditorShortcutForSameCodeInFrenchLayout": "A"
+}

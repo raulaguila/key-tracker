@@ -1,0 +1,558 @@
+[
+  {
+    "theme": "light",
+    "view": "layers",
+    "inapplicable": 32,
+    "incomplete": [],
+    "passes": 28,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "tracking",
+    "inapplicable": 34,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 9,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<label for=\"field-keyboard-layout\">Layout</label>",
+            "target": [
+              "label[for=\"field-keyboard-layout\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"Digit6\" title=\"Digit6\" style=\"--key-span: 4;\">−</span>",
+            "target": [
+              "span[data-code=\"Digit6\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace\" style=\"--key-span: 8;\">⌫</span>",
+            "target": [
+              ".u-2"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"ArrowUp\" style=\"--key-span: 4;\">↑</span>",
+            "target": [
+              "span[data-code=\"ArrowUp\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"ArrowLeft\" style=\"--key-span: 4;\">←</span>",
+            "target": [
+              "span[data-code=\"ArrowLeft\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"ArrowDown\" style=\"--key-span: 4;\">↓</span>",
+            "target": [
+              "span[data-code=\"ArrowDown\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"ArrowRight\" style=\"--key-span: 4;\">→</span>",
+            "target": [
+              "span[data-code=\"ArrowRight\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"NumpadSubtract\" title=\"NumpadSubtract\" style=\"--key-span: 4;\">−</span>",
+            "target": [
+              "span[data-code=\"NumpadSubtract\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 tall\" data-code=\"NumpadEnter\" title=\"NumpadEnter\" style=\"--key-span: 4;\">↵</span>",
+            "target": [
+              "span[data-code=\"NumpadEnter\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 26,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "history",
+    "inapplicable": 34,
+    "incomplete": [],
+    "passes": 26,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "settings",
+    "inapplicable": 35,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<label for=\"field-layerShortcut\">Alternar camada<span class=\"required-label\" aria-hidden=\"true\"> *</span></label>",
+            "target": [
+              "label[for=\"field-layerShortcut\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 25,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "layers",
+    "inapplicable": 32,
+    "incomplete": [],
+    "passes": 28,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "tracking",
+    "inapplicable": 34,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 9,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<label for=\"field-keyboard-layout\">Layout</label>",
+            "target": [
+              "label[for=\"field-keyboard-layout\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"Digit6\" title=\"Digit6\" style=\"--key-span: 4;\">−</span>",
+            "target": [
+              "span[data-code=\"Digit6\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace\" style=\"--key-span: 8;\">⌫</span>",
+            "target": [
+              ".u-2"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"ArrowUp\" style=\"--key-span: 4;\">↑</span>",
+            "target": [
+              "span[data-code=\"ArrowUp\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"ArrowLeft\" style=\"--key-span: 4;\">←</span>",
+            "target": [
+              "span[data-code=\"ArrowLeft\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"ArrowDown\" style=\"--key-span: 4;\">↓</span>",
+            "target": [
+              "span[data-code=\"ArrowDown\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"ArrowRight\" style=\"--key-span: 4;\">→</span>",
+            "target": [
+              "span[data-code=\"ArrowRight\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 \" data-code=\"NumpadSubtract\" title=\"NumpadSubtract\" style=\"--key-span: 4;\">−</span>",
+            "target": [
+              "span[data-code=\"NumpadSubtract\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<span class=\"keycap u-1 tall\" data-code=\"NumpadEnter\" title=\"NumpadEnter\" style=\"--key-span: 4;\">↵</span>",
+            "target": [
+              "span[data-code=\"NumpadEnter\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 26,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "history",
+    "inapplicable": 34,
+    "incomplete": [],
+    "passes": 26,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "settings",
+    "inapplicable": 35,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 1,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<label for=\"field-layerShortcut\">Alternar camada<span class=\"required-label\" aria-hidden=\"true\"> *</span></label>",
+            "target": [
+              "label[for=\"field-layerShortcut\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 25,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "settings-pointer-parked",
+    "inapplicable": 35,
+    "incomplete": [],
+    "passes": 25,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "keyboard",
+    "inapplicable": 32,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 6,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"Digit6\" title=\"Minus: Criar ação\" data-focus=\"visual-key-Digit6\" data-shortcut=\"Minus\" aria-label=\"Minus: Criar ação\" style=\"--key-span: 4;\">−</button>",
+            "target": [
+              "button[data-code=\"Digit6\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace: Criar ação\" data-focus=\"visual-key-Backspace\" data-shortcut=\"Backspace\" aria-label=\"Backspace: Criar ação\" style=\"--key-span: 8;\">⌫</button>",
+            "target": [
+              ".u-2"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"Up: Criar ação\" data-focus=\"visual-key-ArrowUp\" data-shortcut=\"Up\" aria-label=\"Up: Criar ação\" style=\"--key-span: 4;\">↑</button>",
+            "target": [
+              "button[data-code=\"ArrowUp\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"Left: Criar ação\" data-focus=\"visual-key-ArrowLeft\" data-shortcut=\"Left\" aria-label=\"Left: Criar ação\" style=\"--key-span: 4;\">←</button>",
+            "target": [
+              "button[data-code=\"ArrowLeft\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"Down: Criar ação\" data-focus=\"visual-key-ArrowDown\" data-shortcut=\"Down\" aria-label=\"Down: Criar ação\" style=\"--key-span: 4;\">↓</button>",
+            "target": [
+              "button[data-code=\"ArrowDown\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"Right: Criar ação\" data-focus=\"visual-key-ArrowRight\" data-shortcut=\"Right\" aria-label=\"Right: Criar ação\" style=\"--key-span: 4;\">→</button>",
+            "target": [
+              "button[data-code=\"ArrowRight\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 28,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "binding-drawer",
+    "inapplicable": 44,
+    "incomplete": [],
+    "passes": 16,
+    "violations": []
+  },
+  {
+    "theme": "light",
+    "view": "preview-drawer",
+    "inapplicable": 43,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 2,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements",
+            "html": "<pre>/home/raulaguila/Documents/Keyboard Tracker/nota-2026-10-20T17-25-58-670Z.txt</pre>",
+            "target": [
+              "dd:nth-child(4) > pre"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<pre>Criado pela tecla A na Camada 2.\n</pre>",
+            "target": [
+              "dd:nth-child(6) > pre"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 17,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "settings-pointer-parked",
+    "inapplicable": 35,
+    "incomplete": [],
+    "passes": 25,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "keyboard",
+    "inapplicable": 32,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 6,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"Digit6\" title=\"Minus: Criar ação\" data-focus=\"visual-key-Digit6\" data-shortcut=\"Minus\" aria-label=\"Minus: Criar ação\" style=\"--key-span: 4;\">−</button>",
+            "target": [
+              "button[data-code=\"Digit6\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace: Criar ação\" data-focus=\"visual-key-Backspace\" data-shortcut=\"Backspace\" aria-label=\"Backspace: Criar ação\" style=\"--key-span: 8;\">⌫</button>",
+            "target": [
+              ".u-2"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"Up: Criar ação\" data-focus=\"visual-key-ArrowUp\" data-shortcut=\"Up\" aria-label=\"Up: Criar ação\" style=\"--key-span: 4;\">↑</button>",
+            "target": [
+              "button[data-code=\"ArrowUp\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"Left: Criar ação\" data-focus=\"visual-key-ArrowLeft\" data-shortcut=\"Left\" aria-label=\"Left: Criar ação\" style=\"--key-span: 4;\">←</button>",
+            "target": [
+              "button[data-code=\"ArrowLeft\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"Down: Criar ação\" data-focus=\"visual-key-ArrowDown\" data-shortcut=\"Down\" aria-label=\"Down: Criar ação\" style=\"--key-span: 4;\">↓</button>",
+            "target": [
+              "button[data-code=\"ArrowDown\"]"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+            "html": "<button type=\"button\" tabindex=\"-1\" class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"Right: Criar ação\" data-focus=\"visual-key-ArrowRight\" data-shortcut=\"Right\" aria-label=\"Right: Criar ação\" style=\"--key-span: 4;\">→</button>",
+            "target": [
+              "button[data-code=\"ArrowRight\"]"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 28,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "binding-drawer",
+    "inapplicable": 44,
+    "incomplete": [],
+    "passes": 16,
+    "violations": []
+  },
+  {
+    "theme": "dark",
+    "view": "preview-drawer",
+    "inapplicable": 43,
+    "incomplete": [
+      {
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI",
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodeCount": 2,
+        "nodes": [
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements",
+            "html": "<pre>/home/raulaguila/Documents/Keyboard Tracker/nota-2026-10-20T17-26-39-932Z.txt</pre>",
+            "target": [
+              "dd:nth-child(4) > pre"
+            ]
+          },
+          {
+            "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+            "html": "<pre>Criado pela tecla A na Camada 2.\n</pre>",
+            "target": [
+              "dd:nth-child(6) > pre"
+            ]
+          }
+        ],
+        "tags": [
+          "cat.color",
+          "wcag2aa",
+          "wcag143",
+          "TTv5",
+          "TT13.c",
+          "EN-301-549",
+          "EN-9.1.4.3",
+          "ACT",
+          "RGAAv4",
+          "RGAA-3.2.1"
+        ]
+      }
+    ],
+    "passes": 17,
+    "violations": []
+  }
+]
