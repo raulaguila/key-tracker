@@ -1,0 +1,37 @@
+{
+  "name": "keyboard-tracker",
+  "version": "0.1.0",
+  "description": "Atalhos por camadas, ações locais e rastreio visual do teclado.",
+  "author": { "name": "Raul del Aguila", "email": "38803643+raulaguila@users.noreply.github.com" },
+  "homepage": "https://github.com/raulaguila/key-tracker",
+  "repository": { "type": "git", "url": "https://github.com/raulaguila/key-tracker.git" },
+  "license": "MIT",
+  "main": "app/main.cjs",
+  "desktopName": "io.keyboardtracker.app.desktop",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "check": "node scripts/check.cjs",
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "dependencies": { "uiohook-napi": "1.5.5" },
+  "devDependencies": { "electron": "44.9.1", "electron-builder": "26.15.3" },
+  "build": {
+    "appId": "io.keyboardtracker.app",
+    "productName": "Keyboard Tracker",
+    "asar": true,
+    "npmRebuild": false,
+    "icon": "app/assets/icon.png",
+    "asarUnpack": ["node_modules/uiohook-napi/**/*", "node_modules/node-gyp-build/**/*"],
+    "files": ["app/**/*", "package.json", "LICENSE"],
+    "directories": { "output": "dist" },
+    "linux": { "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
+    "win": { "target": ["nsis"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }
+  }
+}
