@@ -1,6 +1,40 @@
 # Contrato interno
 
-Status: accepted — escopo autorizado pelo usuário em “Faça tudo”.
+<!-- bridge:contract-schema 1 -->
+
+## Status
+
+accepted
+
+Escopo autorizado pelo usuário em “Faça tudo” e nas expansões abaixo.
+
+## Auth
+
+Aplicativo desktop local, sem login ou servidor. Main aceita IPC apenas do
+renderer principal, no arquivo de entrada autorizado. Renderer isolado, sandboxed
+e sem Node; somente a API preload descrita neste contrato é exposta.
+
+## Mocks policy
+
+Produção usa APIs reais. Substituições ficam nas bordas nativas dos testes
+unitários; testes de integração usam perfis temporários e serviços locais reais.
+Não apresentar fixtures, dados de exemplo ou respostas simuladas em produção.
+
+## APIs
+
+Transporte local Electron IPC via `window.keyboardTracker`; assinaturas detalhadas
+nas seções abaixo, sem endpoints HTTP.
+
+| Operação preload | Resultado |
+| --- | --- |
+| getState, saveConfig, importConfig, exportConfig | State completo |
+| setEnabled, setEditing, setLayer, setTracking | State completo |
+| previewBinding | Prévia sem I/O e token efêmero |
+| runBinding | State completo com resultado sanitizado |
+| chooseDirectory, chooseApplication, chooseActionTarget | Caminho ou cancelamento |
+| exportHistory, openDataDirectory, showWindow | Operação nativa sem resultado de dados |
+| confirmClose, cancelClose | Conclusão ou cancelamento do fechamento pendente |
+| onState, onKey, onCloseRequested | Assinatura com função de cancelamento |
 
 ## Expansão aprovada: ações de produtividade (20/10/2026)
 

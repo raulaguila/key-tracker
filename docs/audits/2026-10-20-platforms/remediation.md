@@ -48,3 +48,68 @@ feedback por ação, menus, foco e atualização de handlers após editar dados.
 A proposta para o cadastro de sequências está em [action-flow-ux.md](action-flow-ux.md).
 Estas correções preservam a interface atual; o documento descreve a próxima
 alteração de produto, sem introduzir novos tipos de execução.
+
+## Pacote final Linux: comparação no mesmo host
+
+Código `1336247`, executável `linux-unpacked` reconstruído. Mesma máquina,
+controlador, flags e tamanhos de fixture da auditoria anterior. Perfis temporários
+novos e Xvfb; caches do SO e concorrência da máquina não são controlados.
+Dados: [antes](linux-performance.json), [depois](linux-performance-fixed.json).
+
+| Medida | Antes | Depois |
+| --- | ---: | ---: |
+| Edição IPC p95, 2.500 ações, 40 chamadas | 15,0 ms | 10,8 ms |
+| Salvar conteúdo idêntico p95, 2.500 ações, 5 chamadas | 46,0 ms | 37,3 ms |
+| Tamanho persistido, 2.500 ações | 548.895 bytes | 254.920 bytes |
+| Elementos após interações, 100 ações visíveis | 4.033 | 2.833 |
+| Nós após GC, antes/depois de cinco ciclos | 5.498 / 5.498 | 3.998 / 3.998 |
+| Listeners antes/depois dos mesmos ciclos | 653 / 653 | 553 / 553 |
+| PSS base pausado | 219,1 MiB | 218,5 MiB |
+| Inicialização mediana, cinco processos | 277,3 ms | 286,3 ms |
+
+As melhorias não são uniformes nem constituem uma garantia de latência. Com 100
+ações, o p95 de saves idênticos variou de 4,4 para 5,4 ms; a mediana caiu de 3,6
+para 2,6 ms. Com apenas cinco saves, p95 corresponde ao maior valor. A rodada
+final observou duas long tasks de 103 e 50 ms; não certifica ausência de pausas.
+A memória após muitas interações caiu na amostra, mas PSS antes de GC não prova
+um vazamento nem sua correção. Após GC, nós/listeners ficaram estáveis nos ciclos
+exercitados e o heap usado não cresceu nessa amostra. O IPC de teclas medido é
+sintético e não equivale à latência de um teclado físico.
+
+## Validação e distribuição
+
+- **102 testes locais passaram**, incluindo limites de configuração, processos
+  reais, aliases de arquivo, cooldown, pausa, ordem de estados e fechamento.
+  Sintaxe e `git diff --check` passaram.
+- Smoke completo em Electron Linux passou: CRUD, produtividade, HTTP real,
+  rascunhos, foco, temas, 90 geometrias de teclado, 14 tamanhos de drawer,
+  112 combinações responsivas e regressões de reutilização de DOM.
+- [Platform audit 39479659479](https://github.com/raulaguila/key-tracker/actions/runs/39479659479)
+  aprovou o código `1336247` em **Windows x64, macOS ARM64 e Linux x64**.
+  Cada job construiu o pacote, conferiu 15 arquivos ASAR e executou Electron real
+  a partir do mesmo source, em perfil temporário.
+- O diagnóstico exigiu configuração canônica de 254.920 bytes, leitura do backup
+  legado de 548.895 bytes, reload do renderer/preload, estados completos/ordenados
+  e saída limpa com código 0 das três instâncias de cada sistema.
+- [Desktop 39479659642](https://github.com/raulaguila/key-tracker/actions/runs/39479659642)
+  também passou nos três sistemas: testes e sintaxe, smoke de UI em Linux e
+  geração dos instaladores Windows NSIS, macOS DMG/ZIP e Linux AppImage/DEB.
+  Os instaladores estão nos artifacts desse run; não foram publicados em release.
+
+| Evidência | Windows x64 | macOS ARM64 | Linux x64 |
+| --- | --- | --- | --- |
+| Abertura/IPC/persistência/clipboard/lançamento/ASAR (`corePassed`) | Passou | Passou | Passou |
+| Backup canônico e legado formatado | Passou | Passou | Passou |
+| Estado completo e revisões ordenadas | Passou | Passou | Passou |
+| Saída limpa, três instâncias | Passou | Passou | Passou |
+| Worker de rastreio | Global/ready | Global/ready | Global/ready |
+| Notificação | API confirmou exibição | Exibição não confirmada | Indisponível no runner |
+| Bandeja | Disponível | Disponível | Sem host no display |
+| Aplicativo externo em foco | Não identificado nesta sonda | Não identificado nesta sonda | Ferramentas X11 ausentes |
+
+JSONs: [Windows](platform-win32-x64-fixed.json),
+[macOS](platform-darwin-arm64-fixed.json), [Linux](platform-linux-x64-fixed.json).
+O build instalado/assinado, permissões concedidas por usuário, entrega de tecla
+física, IMEs, todos os layouts e compositores Wayland continuam exigindo hardware
+e ambientes de distribuição. A aprovação acima não transforma essas pendências
+em suporte integral certificado.

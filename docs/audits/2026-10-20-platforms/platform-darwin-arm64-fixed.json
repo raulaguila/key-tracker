@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "date": "2026-10-20T19:00:27.599Z",
+  "commit": "1336247effe593854d83994ccee63df57c81d471",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "25.6.0",
+    "cpu": "Apple M2 Pro (Virtual)",
+    "logicalCpus": 5,
+    "ramGiB": 14,
+    "node": "v24.21.0",
+    "electron": "44.9.1",
+    "ci": true,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "error",
+      "message": "Notifica\u00e7\u00e3o de auditoria: O sistema n\u00e3o confirmou a exibi\u00e7\u00e3o da notifica\u00e7\u00e3o.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": true,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas n\u00e3o s\u00e3o salvas."
+    },
+    "applicationMonitor": {
+      "status": "ready",
+      "message": "Aguardando aplicativo em foco.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": true
+    },
+    "canonicalPersistence": {
+      "bytes": 254920,
+      "legacyBytes": 548895,
+      "canonicalMatches": true,
+      "legacyReadable": true,
+      "rendererReloaded": true
+    },
+    "stateTransport": {
+      "complete": true,
+      "sameConfigRevision": true,
+      "ordered": true
+    }
+  },
+  "startupsMs": [
+    1723.85925,
+    428.55283299999974,
+    351.8436670000001
+  ],
+  "shutdowns": [
+    {
+      "graceful": true,
+      "elapsedMs": 393.0122919999999,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 299.9781250000001,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 202.746083,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "package": {
+    "archive": "dist/mac-arm64/Keyboard Tracker.app/Contents/Resources/app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/preload.cjs": true,
+      "app/config.cjs": true,
+      "app/storage.cjs": true,
+      "app/engine.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/safe-export.cjs": true,
+      "app/application-monitor.cjs": true,
+      "app/application-reader.cjs": true,
+      "app/native-process-scope.cjs": true,
+      "app/desktop-tray.cjs": true,
+      "app/window-lifecycle.cjs": true,
+      "app/renderer/app.js": true,
+      "app/renderer/action-editor.js": true
+    },
+    "nativeFiles": [
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-arm64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-x64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-9-darwin-unknown-arm64/node-get-windows.node",
+      "/node_modules/get-windows/main",
+      "/node_modules/uiohook-napi/prebuilds/darwin-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/darwin-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-loong64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-x64/uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 428.55283299999974,
+    "p95": 1723.85925,
+    "max": 1723.85925,
+    "mean": 834.7519166666666
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.3072571353204176,
+      "p95": 0.5708070197674103,
+      "max": 0.5708070197674103,
+      "mean": 0.2903015648708031
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 413.171875,
+      "p95": 414.125,
+      "max": 414.125,
+      "mean": 413.45625
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 0.8000000000029104,
+        "p95": 1.1999999999970896,
+        "max": 1.5,
+        "mean": 0.8949999999997089
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 1,
+        "p95": 1.5,
+        "max": 1.5,
+        "mean": 1.0750000000007276
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 8.900000000008731,
+        "p95": 13,
+        "max": 15.69999999999709,
+        "mean": 9.415000000000145
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 28.30000000000291,
+        "p95": 33,
+        "max": 33,
+        "mean": 29.75
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

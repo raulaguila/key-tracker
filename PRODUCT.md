@@ -1,5 +1,7 @@
 # Keyboard Tracker
 
+<!-- bridge:product-schema 1 -->
+
 ## Register
 
 product
