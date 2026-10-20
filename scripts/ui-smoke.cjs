@@ -28,7 +28,7 @@ async function main() {
   await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
   const port = listener.address().port;
   await new Promise(resolve => listener.close(resolve));
-  const electron = spawn(require('electron'), [root, '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.KEY_TRACKER_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
+  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.KEY_TRACKER_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
     cwd: root,
     env: { ...process.env, KEYBOARD_TRACKER_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -86,6 +86,13 @@ async function main() {
       throw new Error(message + '\n' + await evaluate('return document.body.innerText'));
     }
     const click = selector => evaluate('document.querySelector(' + JSON.stringify(selector) + ').click();');
+    async function pointerClick(selector) {
+      const point = await evaluate('const node=document.querySelector(' + JSON.stringify(selector) + ');node.scrollIntoView({block:"center",inline:"nearest"});const rect=node.getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2};');
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+      await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
+      await delay(75); // Let focus/IPC state settle while the physical button is held.
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
+    }
     async function fill(selector, value) {
       await evaluate('const input=document.querySelector(' + JSON.stringify(selector) + ');input.value=' + JSON.stringify(value) + ';input.dispatchEvent(new Event("input",{bubbles:true}));');
     }
@@ -99,6 +106,27 @@ async function main() {
     async function backdropClick() {
       await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 20, y: 80, button: 'left', clickCount: 1 });
       await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 20, y: 80, button: 'left', clickCount: 1 });
+    }
+    async function nativeClose() {
+      // Exercise BrowserWindow.close in the actual main process. Renderer
+      // window.close follows Chromium's direct destruction path instead.
+      const address = output.match(/Debugger listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/)?.[1];
+      assert.ok(address, 'Main process inspector is isolated on loopback');
+      const mainSocket = new WebSocket(address);
+      await new Promise((resolve, reject) => { mainSocket.addEventListener('open', resolve, {once:true});mainSocket.addEventListener('error',reject,{once:true}); });
+      try {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Native close timeout')), 3000);
+          mainSocket.addEventListener('message', event => {
+            const response=JSON.parse(event.data);
+            if(response.id!==1)return;
+            clearTimeout(timer);
+            if(response.error || response.result?.exceptionDetails) reject(new Error(JSON.stringify(response)));
+            else resolve();
+          });
+          mainSocket.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:'process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].close()'}}));
+        });
+      } finally { mainSocket.close(); }
     }
     const nativeState = () => evaluate('return await window.keyboardTracker.getState();');
     const save = () => evaluate('document.querySelector("form[data-draft]").requestSubmit();');
@@ -270,22 +298,121 @@ async function main() {
     assert.deepEqual(binding.action.query, { origem: 'teclado {{key}}' });
     assert.equal(binding.key, 'B');
 
-    await click('[data-focus="test-' + binding.id + '"]');
-    assert.equal(await evaluate('return document.querySelector("[data-focus=\\"test-' + binding.id + '\\"]").disabled'), true, 'Pending execution disables repeated test');
-    await until('!document.querySelector("[data-focus=\\"test-' + binding.id + '\\"]").disabled', 'HTTP test completed');
+    async function more(id) {
+      await click('[data-focus="more-' + id + '"]');
+      await until('Boolean(document.querySelector(".action-menu-content:popover-open"))', 'Action options visible');
+    }
+    async function deleteAction(id) {
+      await more(id);
+      await click('[data-focus="remove-' + id + '"]');
+      await click('#confirm-dialog .danger-solid');
+      await until('!(await window.keyboardTracker.getState()).config.layers.some(layer => layer.bindings.some(binding => binding.id === ' + JSON.stringify(id) + '))', 'Temporary action deleted');
+    }
+    const savedBinding = async id => (await nativeState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === id);
+    await more(binding.id);
+    await click('[data-focus="toggle-' + binding.id + '"]');
+    await until('(await window.keyboardTracker.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === false', 'Individual action disabled');
+    assert.ok(await evaluate('return Boolean(document.querySelector(".binding-disabled .disabled-label"))'));
+    await more(binding.id);
+    await click('[data-focus="toggle-' + binding.id + '"]');
+    await until('(await window.keyboardTracker.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === true', 'Individual action reenabled');
+    await more(binding.id);
+    await click('[data-focus="duplicate-' + binding.id + '"]');
+    assert.equal(await evaluate('return document.querySelector("#field-key").value'), '', 'Duplicate requires a new shortcut');
+    assert.equal(await evaluate('return document.querySelector("#field-url").value'), endpoint);
+    await fill('#field-name', 'HTTP duplicada QA');
+    await fill('#field-key', 'Control+B');
+    await save();
+    await until('!document.querySelector("#editor-drawer")', 'Duplicated action saved');
+    const copy = (await nativeState()).config.layers.find(item => item.id === layer.id).bindings.find(item => item.name === 'HTTP duplicada QA');
+    assert.notEqual(copy.id, binding.id);
+    assert.deepEqual(copy.action, binding.action);
+    await deleteAction(copy.id);
+
+    await click('[data-focus="view-keyboard"]');
+    await select('#field-editor-keyboard-layout', 'us');
+    await until('Boolean(document.querySelector("[data-focus=visual-key-KeyB]"))', 'Visual action keyboard ready');
+    assert.equal(await evaluate('return document.querySelector("[data-focus=visual-key-KeyB]").dataset.bindingId'), binding.id);
+    await pointerClick('[data-focus="visual-key-KeyB"]');
+    await until('Boolean(document.querySelector("#editor-drawer:modal"))', 'Native pointer opens visual key after focus/IPC update');
+    assert.equal(await evaluate('return document.querySelector("#field-name").value'), 'HTTP QA');
+    await click('[data-drawer-close]');
+    await select('#field-keyboard-modifiers', 'Control');
+    await click('[data-focus="visual-key-KeyK"]');
+    assert.equal(await evaluate('return document.querySelector("#field-key").value'), 'Control+K');
+    await fill('#field-name', 'Teclado QA');
+    await fill('#field-message', 'Criada pelo teclado visual');
+    await save();
+    await until('!document.querySelector("#editor-drawer")', 'Visual keyboard action saved');
+    const visualBinding = (await nativeState()).config.layers.find(item => item.id === layer.id).bindings.find(item => item.name === 'Teclado QA');
+    await more(visualBinding.id);
+    await click('[data-focus="toggle-' + visualBinding.id + '"]');
+    await until('Boolean(document.querySelector("[data-focus=visual-key-KeyK].mapped-disabled"))', 'Disabled mapping has separate visual state');
+    await shot('layers-visual-keyboard');
+    await evaluate('window.__qaBeforeReload = true;');
+    await cdp('Page.reload');
+    await until('!window.__qaBeforeReload && Boolean(document.querySelector("[data-focus=view-table]"))', 'Visual preference reload');
+    assert.equal(await evaluate('return document.querySelector("[data-focus=view-keyboard]").getAttribute("aria-pressed")'), 'true');
+    await click('[data-focus="view-table"]');
+    await deleteAction(visualBinding.id);
+
+    await click('[data-focus="edit-layer"]');
+    await fill('#field-applications', 'com.keyboardtracker.qa');
+    await save();
+    await until('!document.querySelector("#editor-drawer")', 'Application association saved');
+    await click('[data-focus="duplicate-layer"]');
+    assert.equal(await evaluate('return document.querySelector("#field-applications").value'), '', 'Duplicated layer never steals application association');
+    await fill('#field-name', 'Camada duplicada QA');
+    await save();
+    await until('!document.querySelector("#editor-drawer")', 'Duplicated layer saved');
+    const copiedLayer = (await nativeState()).config.layers.find(item => item.name === 'Camada duplicada QA');
+    assert.equal(copiedLayer.bindings.length, 1);
+    assert.notEqual(copiedLayer.bindings[0].id, binding.id);
+    assert.deepEqual(copiedLayer.bindings[0].action, binding.action);
+    assert.equal((await nativeState()).activeLayerId, layer.id);
+    await click('[data-focus="edit-layer"]');
+    await click('.danger-zone button');
+    await click('#confirm-dialog .danger-solid');
+    await until('!(await window.keyboardTracker.getState()).config.layers.some(layer => layer.id === ' + JSON.stringify(copiedLayer.id) + ')', 'Duplicated layer removed');
+    await select('#active-layer-picker', initial.activeLayerId);
+    await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(initial.activeLayerId), 'Direct picker selects layer');
+    await select('#active-layer-picker', layer.id);
+    await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Direct picker restores layer');
+    assert.ok(await evaluate('return document.querySelector("#toast").textContent.includes("Camada QA")'));
+
+    async function openPreview(id) {
+      await click('[data-focus="test-' + id + '"]');
+      await until('Boolean(document.querySelector("[data-focus=execute-preview]")) && !document.querySelector("[data-focus=execute-preview]").disabled', 'Resolved preview ready');
+      await delay(180);
+    }
+    await openPreview(binding.id);
+    assert.equal(request, undefined, 'Opening preview never sends HTTP');
+    assert.ok(await evaluate('return document.querySelector(".preview-values").textContent.includes("teclado+B")'));
+    assert.ok(await evaluate(`return document.querySelector(".preview-values").textContent.includes('"key":"B"')`));
+    await shot('http-test-preview');
+    await click('[data-focus="execute-preview"]');
+    assert.equal(await evaluate('return document.querySelector("[data-focus=execute-preview]").disabled'), true, 'Pending execution disables repeated test');
+    await until('Boolean(document.querySelector("[data-test-result=success]"))', 'HTTP test completed');
     assert.equal(request.method, 'POST');
     assert.equal(request.url, '/event?origem=teclado+B');
     assert.equal(request.headers['content-type'], 'application/json');
     assert.equal(request.body, '{"key":"B"}');
     assert.match(await evaluate('return document.querySelector("#toast").textContent'), /HTTP 201/);
+    assert.ok(await evaluate('return document.querySelector("[data-test-result]").textContent.includes("ms")'));
+    await click('[data-drawer-close]');
 
     responseStatus = 503;
-    await click('[data-focus="test-' + binding.id + '"]');
-    await until('Boolean(document.querySelector(".binding-result.error"))', 'Failed HTTP visible inline');
+    await openPreview(binding.id);
+    await click('[data-focus="execute-preview"]');
+    await until('Boolean(document.querySelector("[data-test-result=error]"))', 'Failed HTTP visible in preview');
     assert.equal(await evaluate('return document.querySelector("#toast").classList.contains("error")'), true);
     await shot('execution-error');
+    await click('[data-drawer-close]');
+    assert.ok(await evaluate('return Boolean(document.querySelector(".binding-result.error"))'), 'Execution result remains inline');
 
-    await click('[data-focus="test-' + binding.id + '"]');
+    await openPreview(binding.id);
+    await click('[data-focus="execute-preview"]');
+    await click('[data-drawer-close]');
     await click('[data-focus="edit-' + binding.id + '"]');
     await until('Boolean(document.querySelector("#editor-drawer > #toast.error:not([hidden])"))', 'Async error feedback stays visible above the modal');
     await press('Escape', 'Escape', 27);
@@ -294,8 +421,7 @@ async function main() {
 
     await click('[data-focus="edit-' + binding.id + '"]');
     await fill('#field-name', 'Alteração não salva');
-    const closeAttempt = evaluate('window.close();');
-    closeAttempt.catch(() => {});
+    const closeAttempt = await nativeClose();
     await until('document.querySelector("#confirm-dialog").open', 'Closing the desktop window protects unsaved changes');
     await click('#confirm-dialog [data-cancel]');
     await closeAttempt;
@@ -322,6 +448,15 @@ async function main() {
     await save();
     await until('document.querySelector("#draft-status")?.textContent === "Nenhuma alteração pendente"', 'Settings saved');
     assert.equal((await nativeState()).config.settings.layerShortcut, 'F9');
+    await click('#field-autoSwitchLayers');
+    await save();
+    await until('(await window.keyboardTracker.getState()).application.status === "unavailable"', 'Wayland profile limitation explicit');
+    assert.ok(await evaluate('return document.querySelector("#application-status").textContent.includes("Wayland")'));
+    await click('#field-autoSwitchLayers');
+    await save();
+    await until('(await window.keyboardTracker.getState()).application.status === "off"', 'Application monitor can be disabled');
+    assert.equal(await evaluate('return document.querySelector("#field-closeToTray").disabled'), !(await nativeState()).desktop.trayAvailable);
+
     await shot('settings');
     assert.equal(await evaluate('return document.querySelector(".storage-details").open'), false);
     await click('.storage-details summary');
@@ -484,9 +619,11 @@ async function main() {
     await save();
     await until('!document.querySelector("form[data-draft]")', 'Binding edit saved');
     assert.equal((await nativeState()).config.layers.find(item => item.id === layer.id).bindings.find(item => item.id === logBinding.id).name, 'Log QA atualizado');
+    await click('[data-focus="more-' + logBinding.id + '"]');
     await click('[data-focus="remove-' + logBinding.id + '"]');
     await click('#confirm-dialog [data-cancel]');
     assert.ok((await nativeState()).config.layers.find(item => item.id === layer.id).bindings.some(item => item.id === logBinding.id));
+    await click('[data-focus="more-' + logBinding.id + '"]');
     await click('[data-focus="remove-' + logBinding.id + '"]');
     await click('#confirm-dialog .danger-solid');
     await until('!(await window.keyboardTracker.getState()).config.layers.find(item => item.id === ' + JSON.stringify(layer.id) + ').bindings.some(item => item.id === ' + JSON.stringify(logBinding.id) + ')', 'Binding deleted only after confirmation');
@@ -553,12 +690,40 @@ async function main() {
         await click('[data-drawer-close]');
       }
     }
+    await click('[data-view="layers"]');
+    await click('[data-focus="view-keyboard"]');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      for (const width of [1280, 800, 390]) {
+        await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+        const bounds = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
+        assert.ok(bounds.scroll <= bounds.width, 'Keyboard editor scroll stays inside its region at ' + width);
+        await shot('keyboard-editor-' + width + '-' + theme);
+        await evaluate('document.querySelector(".keyboard-interactive button:not(:disabled)").focus();');
+        const focused = await evaluate('return document.activeElement.dataset.code');
+        await press('ArrowRight', 'ArrowRight', 39);
+        assert.notEqual(await evaluate('return document.activeElement.dataset.code'), focused, 'Arrow navigation moves between visual keys');
+      }
+    }
+    await click('[data-focus="view-table"]');
     await cdp('Emulation.clearDeviceMetricsOverride');
     assert.equal(exceptions.length, 0, 'No uncaught renderer exceptions: ' + JSON.stringify(exceptions));
+    if ((await nativeState()).desktop.trayAvailable) {
+      const beforeTray = (await nativeState()).config;
+      const trayConfig = structuredClone(beforeTray);
+      trayConfig.settings.closeToTray = true;
+      await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(trayConfig) + ');document.activeElement.blur();');
+      await nativeClose();
+      await until('document.hidden', 'Native close hides to tray');
+      assert.equal((await nativeState()).editing, false, 'Hidden window never keeps shortcuts suspended');
+      await evaluate('await window.keyboardTracker.showWindow();');
+      await until('!document.hidden', 'Tray restores same window');
+      await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(beforeTray) + ');');
+    }
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
+    console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

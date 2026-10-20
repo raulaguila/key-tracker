@@ -90,3 +90,26 @@ emitidas pelo hook em todos os sistemas. Os códigos recebidos continuam aparece
 no indicador textual de teclas pressionadas. Captura global
 e execução dependem da integração nativa e das permissões do sistema, informadas
 pelo estado vindo do processo principal.
+
+## Produtividade aprovada
+
+A tabela é a visão inicial. O seletor Tabela/Teclado reutiliza a geometria do
+Rastreio como editor: clicar abre o mesmo drawer; combinações são escolhidas em
+um seletor compacto. Teclas reservadas/sem acelerador compatível ficam indisponíveis,
+e todas as ações continuam acessíveis na lista abaixo. Destaque rosa identifica
+mapeamento ativo; contorno tracejado e texto identificam ação desativada.
+
+Cada linha mantém Testar, Editar e Mais opções. O popover agrupa ativar/desativar,
+duplicar e remover. Duplicação abre rascunho; ações pedem uma nova tecla e camadas
+não herdam associações de aplicativo. O seletor de camada fica junto a “Em uso”
+no rodapé; mudanças mostram feedback textual discreto.
+
+Testar abre drawer de prévia, sem execução automática. Destino e conteúdo
+resolvidos precedem o botão explícito Executar teste; resultado inclui duração,
+status e erro. Headers ficam mascarados. O painel pode fechar durante execução,
+e o resultado continua acessível no Histórico.
+
+Associações de aplicativos ficam em seção expansível no drawer da camada.
+Configurações concentra opt-in de troca automática e comportamento da bandeja,
+com disponibilidade real e texto explicando o fallback manual. Mantêm a direção
+visual, temas e densidade aprovados; não criam outra tela de administração.

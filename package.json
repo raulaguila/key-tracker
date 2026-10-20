@@ -19,7 +19,7 @@
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never"
   },
-  "dependencies": { "uiohook-napi": "1.5.5" },
+  "dependencies": { "get-windows": "9.3.0", "uiohook-napi": "1.5.5" },
   "devDependencies": { "electron": "44.9.1", "electron-builder": "26.15.3" },
   "build": {
     "appId": "io.keyboardtracker.app",
@@ -27,12 +27,13 @@
     "asar": true,
     "npmRebuild": false,
     "icon": "app/assets/icon.png",
-    "asarUnpack": ["node_modules/uiohook-napi/**/*", "node_modules/node-gyp-build/**/*"],
+    "asarUnpack": ["node_modules/uiohook-napi/**/*", "node_modules/node-gyp-build/**/*", "node_modules/get-windows/**/*"],
     "files": ["app/**/*", "package.json", "LICENSE"],
     "directories": { "output": "dist" },
     "linux": { "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
     "win": { "target": ["nsis"] },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
     "mac": { "target": ["dmg", "zip"], "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }
-  }
+  },
+  "overrides": { "tar": "7.5.22" }
 }

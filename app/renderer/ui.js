@@ -13,6 +13,9 @@ export function el(tag, attrs = {}, ...children) {
 }
 
 const paths = {
+  copy: ['M9 9h12v12H9V9ZM15 5V3H3v12h2'],
+  more: ['M5 12h.01M12 12h.01M19 12h.01'],
+  list: ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
   layers: ['M12 3 2 8l10 5 10-5-10-5Z', 'm2 12 10 5 10-5', 'm2 16 10 5 10-5'],
   keyboard: ['M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10'],
   history: ['M3 11a9 9 0 1 1 2.5 7', 'M3 4v7h7', 'M12 7v5l3 2'],

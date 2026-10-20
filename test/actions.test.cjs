@@ -51,9 +51,11 @@ test('HTTP real envia método, parâmetros, headers e corpo; não segue redirect
   t.after(() => new Promise(resolve => server.close(resolve)));
   const url = `http://127.0.0.1:${server.address().port}`;
   const action = { type: 'http', method: 'POST', url: url + '/action', query: { key: '{{key}}', value: 'á b' }, headers: { 'X-Test': 'test-header' }, body: '{"key":"{{key}}"}' };
-  assert.match(await executeAction(action, context, {}), /HTTP 201/);
+  const statuses = [];
+  assert.match(await executeAction(action, context, { onHttpStatus: status => statuses.push(status) }), /HTTP 201/);
+  assert.deepEqual(statuses, [201]);
   assert.deepEqual(captured, { method: 'POST', url: '/action?key=A&value=%C3%A1+b', token: 'test-header', body: '{"key":"A"}' });
-  await assert.rejects(executeAction({ ...action, url: url + '/redirect' }, context, {}), /Redirecionamentos/);
+  await assert.rejects(executeAction({ ...action, url: url + '/redirect' }, context, {}), error => error.httpStatus === 302 && /Redirecionamentos/.test(error.message));
   assert.ok(captured.url.startsWith('/redirect'));
 });
 
@@ -87,4 +89,27 @@ test('log grava mensagem interpolada', async t => {
   await executeAction({ type: 'log', message: '{{key}} na {{layer}}' }, context, { storage });
   const result = JSON.parse((await fs.readFile(storage.logPath, 'utf8')).trim());
   assert.equal(result.message, 'A na Camada 1');
+});
+
+test('preparação não cria arquivos; execução usa os valores exatos da prévia', async t => {
+  const { prepareAction, previewAction } = require('../app/actions.cjs');
+  const root = await directory(t);
+  const action = { type: 'file', directory: '', filename: 'nota-{{timestamp}}-{{layer}}.txt', content: '{{key}} em {{date}} / {{timestamp}}', mode: 'create' };
+  const prepared = prepareAction(action, { key: 'A', layer: 'pasta/filha' }, { documents: root }, new Date('2026-10-20T12:00:00.000Z'));
+  assert.deepEqual(await fs.readdir(root), []);
+  assert.match(prepared.filename, /nota-2026-10-20T12-00-00-000Z-pasta_filha/);
+  assert.equal(previewAction(prepared).target, prepared.target);
+  await executeAction(action, context, { documents: root, preparedAction: prepared });
+  assert.equal(await fs.readFile(prepared.target, 'utf8'), 'A em 2026-10-20 / 2026-10-20T12-00-00-000Z');
+});
+
+test('prévia HTTP mascara todos os headers e preserva valores privados para execução', () => {
+  const { prepareAction, previewAction } = require('../app/actions.cjs');
+  const action = { type: 'http', method: 'POST', url: 'https://example.test/test?original=1', query: { key: '{{key}}' }, headers: { Authorization: 'Bearer secret', 'X-Custom': '{{layer}}' }, body: '{{date}}' };
+  const prepared = prepareAction(action, context, {}, new Date('2026-10-20T12:00:00.000Z'));
+  const preview = previewAction(prepared);
+  assert.equal(preview.url, 'https://example.test/test?original=1&key=A');
+  assert.equal(preview.body, '2026-10-20');
+  assert.deepEqual(preview.headers, { Authorization: '••••••', 'X-Custom': '••••••' });
+  assert.equal(prepared.headers.Authorization, 'Bearer secret');
 });

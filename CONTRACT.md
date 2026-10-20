@@ -1,5 +1,7 @@
 # Contrato interno
 
+Status: accepted — escopo autorizado pelo usuário em “Faça tudo”.
+
 Electron main controla dados, ações e APIs nativas. Renderer sem Node, isolado e
 sandboxed. Somente `window.keyboardTracker` é exposto pelo preload. Sem servidor
 HTTP, serviços externos, mocks ou dados fictícios em produção.
@@ -53,3 +55,56 @@ Histórico limitado a 100 entradas, sem corpo/headers HTTP nem teclas rastreadas
 Atalhos são globais e podem substituir a digitação enquanto ativos. Nada inicia
 automaticamente. Após primeira ativação, o controle global de pausa permanece
 para permitir retomar. Rastreio e execução de ações têm controles independentes.
+
+## Expansão aprovada: produtividade e contexto por aplicativo
+
+Escopo: editor visual alternável com tabela; habilitar/desabilitar ação; duplicar
+sem colisões; seletor direto da camada ativa; tray; prévia antes do teste; perfis
+por aplicativo. A direção visual compacta e os drawers existentes são preservados.
+
+Compatibilidade: configuração continua versão 1. Campos ausentes são normalizados:
+`binding.enabled = true`, `layer.applications = []`,
+`settings.autoSwitchLayers = false`, `settings.closeToTray = false`.
+`applications` contém identificadores exatos de aplicativo (nome, executável,
+caminho completo ou bundleId); não contém títulos de janelas ou URLs. IDs de todas
+as cópias são novos. Duplicar ação abre rascunho exigindo outro atalho; duplicar
+camada copia ações com novos IDs e não copia associações de aplicativos.
+Ações desabilitadas não registram atalhos; teste manual explícito continua possível.
+
+Novos métodos preload:
+- `previewBinding(layerId, bindingId)` → prévia resolvida, sem I/O de ação;
+  `{previewId, expiresAt, action}`. Action inclui valores interpolados e destino;
+  headers sensíveis são mascarados na apresentação. Token efêmero congela os
+  valores até a execução, expira após 5 minutos, invalida ao salvar configuração.
+- `runBinding(layerId, bindingId, previewId?)` → State. Token fornecido é validado,
+  vinculado à ação e consumido uma vez. Chamada antiga sem token é preservada.
+- `chooseApplication()` → string|null, seleção nativa de executável/.app.
+- `showWindow()` → void, restaura janela pelo renderer quando necessário.
+- `onCloseRequested(callback)` → unsubscribe, recebe `{toTray:boolean}` quando
+  fechar/ocultar/sair requer verificar rascunhos; `confirmClose()` conclui a
+  solicitação pendente, `cancelClose()` mantém janela e rascunho.
+
+Resultado de execução em events ganha `bindingId`, `durationMs`, `httpStatus`
+quando aplicável, preservando campos existentes. Nunca grava prévia, headers,
+corpos HTTP ou eventos de aplicativo em disco. UI mostra detalhes no drawer de
+prévia/teste e execução só ocorre pelo botão explícito “Executar teste”.
+
+State ganha `application: {status:'off'|'ready'|'unavailable'|'error', message,
+current:null|{name,path,bundleId?}}` e `desktop:{trayAvailable:boolean}`.
+Monitor recebe somente dono do aplicativo em foco; dispensa título e URL,
+ignora o próprio processo. Ativado apenas com autoSwitchLayers. Camada associada
+vence durante o foco; ao sair para app sem regra, retorna à última camada manual.
+Troca manual dura até próxima mudança de aplicativo. Durante edição não troca a
+camada, aplicando contexto pendente ao sair. Pausa nunca é removida pela automação.
+Conflitos de associação são rejeitados na validação. Falha de detecção mantém
+controle manual e fica explícita na UI. Wayland informa indisponibilidade.
+
+Tray oferece abrir janela, ativar/pausar, camada direta, desligar rastreio e sair.
+Fechar continua encerrando por padrão; closeToTray é opt-in e só oculta janela
+quando há tray funcional, preservando a proteção de rascunhos. Sair sempre encerra
+monitor, hooks e atalhos. Menu/tooltip refletem alterações do motor.
+
+Aceite: fluxos reais Electron, persistência legada, conflitos e defaults, nenhuma
+execução durante prévia, token/TTL, camadas automáticas e retorno manual, tray e
+fechamento com rascunhos; builds nos três OS e inspeção visual Linux claro/escuro.
+Mocks somente nas bordas nativas dos testes unitários; produção usa APIs reais.

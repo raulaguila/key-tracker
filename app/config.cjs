@@ -1,4 +1,5 @@
 const { randomUUID } = require('node:crypto');
+const path = require('node:path');
 
 const MAX_CONFIG_BYTES = 256 * 1024;
 const MODIFIERS = ['CommandOrControl', 'Control', 'Command', 'Alt', 'Shift', 'Super'];
@@ -40,6 +41,20 @@ function stringMap(value, label) {
   return result;
 }
 
+function optionalBoolean(value, label, fallback) {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') throw new Error(`${label} deve ser verdadeiro ou falso.`);
+  return value;
+}
+
+function applicationIdentity(value, platform = process.platform) {
+  let identity = text(value, 'Aplicativo', 4000).trim();
+  if (/[\x00-\x1f\x7f]/.test(identity)) throw new Error('Identificador de aplicativo inválido.');
+  if (platform === 'win32' && /[/\\]/.test(identity)) identity = path.win32.normalize(identity).replace(/\\$/, '');
+  else if (identity.includes('/')) identity = path.posix.normalize(identity).replace(/\/$/, '');
+  return platform === 'linux' ? identity : identity.toLowerCase();
+}
+
 function validateAction(action) {
   if (!action || typeof action !== 'object') throw new Error('Configure uma ação.');
   switch (action.type) {
@@ -73,25 +88,35 @@ function validateConfig(value, platform = process.platform) {
   const settings = value.settings || {};
   const result = {
     version: 1,
-    settings: { layerShortcut: normalizeShortcut(settings.layerShortcut), pauseShortcut: normalizeShortcut(settings.pauseShortcut), cooldownMs: settings.cooldownMs },
+    settings: { layerShortcut: normalizeShortcut(settings.layerShortcut), pauseShortcut: normalizeShortcut(settings.pauseShortcut), cooldownMs: settings.cooldownMs,
+      autoSwitchLayers: optionalBoolean(settings.autoSwitchLayers, 'Troca por aplicativo', false), closeToTray: optionalBoolean(settings.closeToTray, 'Minimizar na bandeja', false) },
     layers: []
   };
   if (!Number.isInteger(settings.cooldownMs) || settings.cooldownMs < 100 || settings.cooldownMs > 10000) throw new Error('Intervalo entre ações deve ser de 100 a 10000 ms.');
   const reserved = [result.settings.layerShortcut, result.settings.pauseShortcut].map(k => effectiveShortcut(k, platform));
   if (reserved[0] === reserved[1]) throw new Error('Os atalhos de camada e pausa devem ser diferentes.');
   const ids = new Set();
+  const associations = new Set();
   const id = value => { text(value, 'ID', 100); if (ids.has(value)) throw new Error('IDs duplicados na configuração.'); ids.add(value); return value; };
   for (const layer of value.layers) {
     if (!Array.isArray(layer.bindings) || layer.bindings.length > 100) throw new Error('Cada camada aceita até 100 ações.');
+    const applications = layer.applications ?? [];
+    if (!Array.isArray(applications) || applications.length > 30) throw new Error('Cada camada aceita até 30 aplicativos.');
+    const normalizedApplications = applications.map(application => {
+      const identity = applicationIdentity(application, platform);
+      if (associations.has(identity)) throw new Error(`Aplicativo ${application} associado a mais de uma camada ou duplicado.`);
+      associations.add(identity);
+      return application.trim();
+    });
     const keys = new Set();
     const bindings = layer.bindings.map(binding => {
       const key = normalizeShortcut(binding.key);
       const effective = effectiveShortcut(key, platform);
       if (keys.has(effective) || reserved.includes(effective)) throw new Error(`Atalho ${key} duplicado ou reservado na camada ${layer.name}.`);
       keys.add(effective);
-      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), action: validateAction(binding.action) };
+      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true), action: validateAction(binding.action) };
     });
-    result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), bindings });
+    result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), applications: normalizedApplications, bindings });
   }
   return result;
 }
@@ -99,16 +124,16 @@ function validateConfig(value, platform = process.platform) {
 function defaultConfig() {
   return {
     version: 1,
-    settings: { layerShortcut: 'F8', pauseShortcut: 'CommandOrControl+Shift+F12', cooldownMs: 400 },
+    settings: { layerShortcut: 'F8', pauseShortcut: 'CommandOrControl+Shift+F12', cooldownMs: 400, autoSwitchLayers: false, closeToTray: false },
     layers: [
-      { id: randomUUID(), name: 'Camada 1', description: 'Mensagens e automações do dia a dia.', bindings: [
-        { id: randomUUID(), key: 'A', name: 'Registrar mensagem', action: { type: 'log', message: 'Tecla {{key}} pressionada na {{layer}} em {{timestamp}}.' } }
+      { id: randomUUID(), name: 'Camada 1', description: 'Mensagens e automações do dia a dia.', applications: [], bindings: [
+        { id: randomUUID(), key: 'A', name: 'Registrar mensagem', enabled: true, action: { type: 'log', message: 'Tecla {{key}} pressionada na {{layer}} em {{timestamp}}.' } }
       ] },
-      { id: randomUUID(), name: 'Camada 2', description: 'Criação de arquivos em Documentos.', bindings: [
-        { id: randomUUID(), key: 'A', name: 'Criar uma nota', action: { type: 'file', directory: '', filename: 'nota-{{timestamp}}.txt', content: 'Criado pela tecla {{key}} na {{layer}}.\n', mode: 'create' } }
+      { id: randomUUID(), name: 'Camada 2', description: 'Criação de arquivos em Documentos.', applications: [], bindings: [
+        { id: randomUUID(), key: 'A', name: 'Criar uma nota', enabled: true, action: { type: 'file', directory: '', filename: 'nota-{{timestamp}}.txt', content: 'Criado pela tecla {{key}} na {{layer}}.\n', mode: 'create' } }
       ] }
     ]
   };
 }
 
-module.exports = { validateConfig, validateAction, normalizeShortcut, effectiveShortcut, electronShortcut, defaultConfig, MAX_CONFIG_BYTES };
+module.exports = { validateConfig, validateAction, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, MAX_CONFIG_BYTES };

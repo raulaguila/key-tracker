@@ -22,6 +22,12 @@ pressionadas e soltas em um teclado visual.
 - Rastreio é opt-in, mostra down/up simultâneos e não grava teclas em disco.
 - Ambiente sem suporte global informa a limitação e oferece rastreio local.
 - Scripts e workflow preparam instaladores nos três sistemas operacionais.
+- Tabela/teclado permitem configurar ações; ativação individual e duplicação
+  preservam parâmetros e exigem atalhos únicos.
+- Seletor direto de camada e bandeja facilitam o uso fora da janela principal.
+- Prévia resolve variáveis sem executar; teste explícito mostra duração/status.
+- Associações opcionais por aplicativo trocam camada e retornam à seleção manual;
+  indisponibilidade da detecção é explícita e não remove a pausa.
 
 ## Decisões desta implementação
 

@@ -1,5 +1,6 @@
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
+import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
 const api = window.keyboardTracker;
@@ -16,6 +17,10 @@ let capture = null;
 let actionQuery = '';
 let historyQuery = '';
 let historyFilter = 'all';
+let bindingView = 'table';
+try { bindingView = localStorage.getItem('keyboard-tracker.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
+let visualModifiers = '';
+let previewGeneration = 0;
 let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
@@ -72,7 +77,7 @@ function changeKeyboardPreference(name, value) {
 
 function refreshKeyboardPreview() {
   const container = document.querySelector('#keyboard-preview');
-  if (!container) return;
+  if (!container) { if (view === 'layers' && bindingView === 'keyboard') updateBindings(); return; }
   const layout = currentKeyboardLayout();
   const focused = container.contains(document.activeElement);
   const scrollLeft = container.querySelector('.keyboard-scroll')?.scrollLeft || 0;
@@ -128,7 +133,7 @@ function requestEditing(value) {
 }
 
 function syncEditing() {
-  requestEditing(Boolean(editor || capture || isDirty() || textFocus()));
+  requestEditing(Boolean(editor || capture || isDirty() || textFocus() || document.activeElement?.closest('.keyboard-interactive')));
   const status = document.querySelector('#draft-status');
   if (status) status.textContent = isDirty() ? 'Alterações não salvas' : 'Nenhuma alteração pendente';
 }
@@ -139,16 +144,29 @@ function updateStatus() {
   if (!state) return;
   const suspended = state.enabled && state.editing;
   const editingForm = Boolean(editor || isDirty());
+  const navigatingKeyboard = Boolean(document.activeElement?.closest('.keyboard-interactive'));
   document.querySelector('.engine-status').dataset.status = suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length ? 'limited' : 'active' : 'paused';
-  document.querySelector('#engine-status').textContent = suspended ? editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
-  document.querySelector('#engine-detail').textContent = suspended ? editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
+  document.querySelector('#engine-status').textContent = suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
+  document.querySelector('#engine-detail').textContent = suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
   document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing);
   document.querySelector('#control-shortcuts').hidden = state.editing;
   document.querySelector('#control-shortcuts').textContent = state.config.settings.layerShortcut + ' alternar · ' + state.config.settings.pauseShortcut.replace('CommandOrControl', state.platform === 'darwin' ? '⌘' : 'Ctrl') + ' pausar';
   toggle.replaceChildren(icon(state.enabled ? 'pause' : 'play'), el('span', {}, state.enabled ? 'Pausar ações' : 'Ativar ações'));
   toggle.setAttribute('aria-pressed', String(state.enabled));
-  toggle.title = toggle.disabled && state.editing ? 'Salve ou cancele a edição para ativar.' : '';
+  toggle.title = toggle.disabled && state.editing ? navigatingKeyboard ? 'Saia do teclado visual para ativar os atalhos.' : editingForm ? 'Salve ou cancele a edição para ativar.' : 'Clique fora do campo para ativar os atalhos.' : '';
   document.querySelector('#active-layer-label').textContent = layerById(state.activeLayerId)?.name || '—';
+  const picker = document.querySelector('#active-layer-picker');
+  if (picker) {
+    const signature = JSON.stringify(state.config.layers.map(({ id, name }) => [id, name]));
+    if (picker.dataset.options !== signature) { picker.replaceChildren(...state.config.layers.map(layer => el('option', { value: layer.id }, layer.name))); picker.dataset.options = signature; }
+    picker.value = state.activeLayerId;
+  }
+  updateApplicationStatus();
+  const closeToTray = document.querySelector('#field-closeToTray');
+  if (closeToTray) {
+    closeToTray.disabled = !state.desktop?.trayAvailable;
+    document.querySelector('#field-closeToTray-hint').textContent = state.desktop?.trayAvailable ? 'Use “Sair” no menu da bandeja para encerrar o aplicativo.' : 'A bandeja não está disponível nesta sessão. Fechar a janela encerra o aplicativo.';
+  }
   const names = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' };
   document.querySelector('#platform-label').textContent = (names[state.platform] || state.platform) + (state.session === 'native' ? '' : ' · ' + (state.session === 'wayland' ? 'Wayland' : 'X11'));
   const warning = document.querySelector('#shortcut-warning');
@@ -179,7 +197,8 @@ function render(focusKey) {
   const drawer = main.querySelector('#editor-drawer');
   if (drawer) {
     drawer.showModal();
-    drawer.querySelector('form input')?.focus({ preventScroll: true });
+    (drawer.querySelector('form input') || drawer.querySelector('[data-initial-focus]') || drawer.querySelector('button'))?.focus({ preventScroll: true });
+    if (editor.kind === 'test') { updateTestPreview(); if (!editor.preview && !editor.loading && !editor.result && !editor.error) void loadTestPreview(); }
   }
   restoreFocus(previousFocus);
   updateStatus();
@@ -204,7 +223,7 @@ function navigate(next) {
 
 function startEditor(value) {
   void guardNavigation(() => {
-    editor = { ...value, returnFocus: document.activeElement?.dataset.focus || (value.kind === 'binding' ? 'new-binding' : 'new-layer'), scrollY: window.scrollY };
+    editor = { ...value, returnFocus: value.returnFocus || document.activeElement?.dataset.focus || (value.kind === 'binding' ? 'new-binding' : 'new-layer'), scrollY: window.scrollY };
     requestEditing(true);
     render();
   });
@@ -221,6 +240,92 @@ function closeEditor() {
 
 function empty(title, description, action) {
   return el('div', { class: 'empty-state' }, icon('layers'), el('h3', {}, title), el('p', {}, description), action);
+}
+
+function duplicateBinding(binding) {
+  startEditor({ kind: 'binding', value: null, returnFocus: 'more-' + binding.id, seed: { ...structuredClone(binding), id: undefined, key: '', name: (binding.name.slice(0, 92) + ' · cópia') } });
+}
+
+function duplicateLayer(layer) {
+  startEditor({ kind: 'layer', value: null, seed: { name: layer.name.slice(0, 72) + ' · cópia', description: layer.description, applications: [], bindings: layer.bindings.map(binding => ({ ...structuredClone(binding), id: newId('binding') })) } });
+}
+
+function checkboxField(name, label, checked, hint, disabled = false) {
+  return el('div', { class: 'checkbox-field' }, el('label', {}, el('input', { id: 'field-' + name, name, type: 'checkbox', checked, disabled, 'aria-describedby': 'field-' + name + '-hint' }), el('span', {}, label)),
+    el('small', { id: 'field-' + name + '-hint', class: 'hint' }, hint));
+}
+
+function applicationRules(applications) {
+  const item = field('applications', 'Aplicativos associados', applications.join('\n'), { multiline: true, spellcheck: 'false', placeholder: 'Ex.: code\nfirefox', hint: 'Um nome, caminho de executável ou bundle ID por linha. Correspondência exata, sem títulos de janelas. Ative a troca automática em Configurações.' });
+  return el('details', { class: 'advanced-fields', open: applications.length > 0 }, el('summary', {}, 'Trocar por aplicativo', applications.length ? el('span', {}, applications.length + ' associado(s)') : null), item.wrapper,
+    button('Escolher aplicativo', () => void perform(async () => {
+      const selected = await api.chooseApplication();
+      if (!selected) return;
+      const values = item.input.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+      if (!values.includes(selected)) values.push(selected);
+      item.input.value = values.join('\n');
+      syncEditing();
+    }), '', { symbol: 'folder', 'data-focus': 'choose-application' }));
+}
+
+function updateApplicationStatus() {
+  const node = document.querySelector('#application-status');
+  if (!node) return;
+  const application = state.application;
+  if (!application || application.status === 'off') { node.textContent = 'Detecção desligada. Salve a configuração para aplicar mudanças.'; node.dataset.status = 'off'; return; }
+  node.dataset.status = application.status;
+  const current = application.current;
+  node.textContent = application.message + (current ? ' Aplicativo: ' + (current.name || current.path || current.bundleId) + '.' : '');
+}
+
+function renderBindingKeyboard(container, layer, matches) {
+  const layout = currentKeyboardLayout();
+  const names = value => value ? value.replaceAll('Control', 'Ctrl').replaceAll('Command', '⌘').replaceAll('Super', state.platform === 'darwin' ? '⌘' : 'Win') : 'Sem modificadores';
+  const combinations = new Set(['', 'Control', 'Alt', 'Shift', 'Control+Shift', ...(state.platform === 'darwin' ? ['Command', 'Command+Shift'] : ['Super'])]);
+  for (const binding of layer.bindings) combinations.add(shortcutModifiers(binding.key, state.platform));
+  combinations.add(visualModifiers);
+  const modifiers = field('keyboard-modifiers', 'Combinação', visualModifiers, { choices: [...combinations].map(value => [value, names(value)]) });
+  modifiers.input.dataset.focus = 'keyboard-modifiers';
+  modifiers.input.addEventListener('change', () => { visualModifiers = modifiers.input.value; updateBindings(); });
+  const layoutChoice = field('editor-keyboard-layout', 'Layout', keyboardPreference.layout, { choices: [['auto', 'Automático'], ...Object.entries(layouts).map(([id, item]) => [id, item.name])] });
+  layoutChoice.input.dataset.focus = 'editor-keyboard-layout';
+  layoutChoice.input.addEventListener('change', () => changeKeyboardPreference('layout', layoutChoice.input.value));
+  const nodes = new Map();
+  const keyboard = keyboardView(state.platform, nodes, { layout, size: keyboardPreference.size, interactive: true, onKey: code => {
+    const key = shortcutForCode(code, layout);
+    if (!key) return;
+    const value = [visualModifiers, key].filter(Boolean).join('+');
+    const existing = layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers);
+    startEditor({ kind: 'binding', value: existing || null, seed: existing ? undefined : { key: value } });
+  } });
+  const matched = new Set(matches.map(binding => binding.id));
+  for (const [code, node] of nodes) {
+    const key = shortcutForCode(code, layout);
+    const binding = key && layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers);
+    if (!key) { node.disabled = true; node.title = 'Use “Nova ação” para capturar combinações compatíveis.'; node.setAttribute('aria-label', (node.textContent || code) + ': sem atalho simples compatível'); continue; }
+    const value = [visualModifiers, key].filter(Boolean).join('+');
+    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut].some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
+    if (reserved) { node.disabled = true; node.title = 'Reservada para controlar as camadas ou pausar as ações.'; node.setAttribute('aria-label', value + ': reservada para controle'); continue; }
+    node.classList.toggle('mapped', Boolean(binding));
+    node.classList.toggle('mapped-disabled', binding?.enabled === false);
+    node.classList.toggle('unmatched', Boolean(actionQuery && (!binding || !matched.has(binding.id))));
+    node.dataset.focus = 'visual-key-' + code;
+    node.dataset.shortcut = value;
+    if (binding) node.dataset.bindingId = binding.id;
+    const label = value + ': ' + (binding ? binding.name + (binding.enabled === false ? ' · desativada' : '') + '. Editar ação' : 'Criar ação');
+    node.setAttribute('aria-label', label);
+    node.title = label;
+  }
+  container.classList.remove('table-scroll');
+  container.append(el('div', { class: 'binding-visual-toolbar' }, modifiers.wrapper, layoutChoice.wrapper), keyboard,
+    el('div', { class: 'keyboard-caption' }, el('span', {}, 'Clique em uma tecla para configurar. Use as setas para navegar.'), el('span', {}, 'Rosa: ativada · tracejado: desativada')),
+    el('p', { class: 'hint visual-layout-note' }, keyboardPreference.layout === 'auto' ? layoutStatus : layout.name + '. O layout visual não altera os atalhos salvos.'),
+    el('div', { class: 'visual-binding-list', role: 'list', 'aria-label': 'Todas as ações, incluindo outras combinações' }, matches.map(binding => el('div', { class: 'visual-binding-item' + (binding.enabled === false ? ' binding-disabled' : ''), role: 'listitem' },
+      button(binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet visual-binding-edit', { 'data-focus': 'edit-' + binding.id }), shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null,
+      button('Executar teste: ' + binding.name, () => runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, disabled: pendingBindings.has(binding.id), 'data-focus': 'test-' + binding.id }), bindingMenu(layer, binding)))));
+  const first = [...nodes.values()].find(node => !node.disabled);
+  if (first) first.tabIndex = 0;
+  if (!matches.length) container.append(el('p', { class: 'hint' }, actionQuery ? 'Nenhuma ação corresponde à busca. Limpe a busca ou clique em uma tecla para criar.' : 'Ainda não há ações nesta camada. Escolha uma tecla para começar.'));
 }
 
 function renderLayers() {
@@ -247,22 +352,24 @@ function renderLayers() {
       el('span', { class: 'badge ' + (current ? 'success' : '') }, current ? 'Em uso' : 'Visualizando')),
     layer.description ? el('p', {}, layer.description) : null),
     el('div', { class: 'button-row' }, !current ? button('Usar esta camada', () => void perform(async () => { state = await api.setLayer(layer.id); render(); return state; }, 'Camada em uso: ' + layer.name), '', { symbol: 'layers' }) : null,
+      button('Duplicar camada', () => duplicateLayer(layer), 'quiet', { symbol: 'copy', iconOnly: true, title: 'Duplicar camada', 'data-focus': 'duplicate-layer' }),
       button('Editar camada', () => startEditor({ kind: 'layer', value: layer }), 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar camada', 'data-focus': 'edit-layer' }),
       button('Nova ação', () => startEditor({ kind: 'binding', value: null }), 'primary', { symbol: 'plus', 'data-focus': 'new-binding' }))));
   const search = field('action-search', 'Buscar ações', actionQuery, { type: 'search', placeholder: 'Buscar ação, tecla ou tipo…' });
   search.input.addEventListener('input', () => { actionQuery = search.input.value; updateBindings(); });
-  detail.append(el('div', { class: 'section-toolbar' }, el('div', { class: 'search-field' }, icon('search'), search.wrapper), el('span', { id: 'action-count' })),
+  const modes = el('div', { class: 'filter-group binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('keyboard-tracker.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
+  detail.append(el('div', { class: 'section-toolbar' }, el('div', { class: 'search-field' }, icon('search'), search.wrapper), modes, el('span', { id: 'action-count' })),
     el('div', { id: 'bindings', class: 'binding-list table-scroll' }),
-    el('p', { class: 'test-explanation' }, 'O teste executa a ação de verdade, mesmo com os atalhos pausados.'),
+    el('p', { class: 'test-explanation' }, 'Confira a prévia antes de executar um teste. A execução funciona mesmo com os atalhos pausados.'),
     el('details', { class: 'usage-help' }, el('summary', {}, 'Atalhos e uso'), el('p', {}, 'Selecionar uma camada abre suas ações para edição. “Usar esta camada” troca a camada dos atalhos. Enquanto ativas, as teclas configuradas podem substituir a digitação em outros programas.')));
   const workspace = el('div', { class: 'layer-workspace' }, detail);
   main.append(el('div', { class: 'layer-layout' }, list, workspace));
   if (editor) {
-    const form = editor.kind === 'layer' ? layerForm() : bindingForm(layer);
+    const form = editor.kind === 'layer' ? layerForm() : editor.kind === 'test' ? testPreviewPanel(layer) : bindingForm(layer);
     const header = form.querySelector('.editor-heading');
     header.querySelector('h2').id = 'drawer-title';
     header.querySelector('p').id = 'drawer-description';
-    header.prepend(el('p', { class: 'editor-context' }, editor.kind === 'binding' ? 'Camada: ' + layer.name : 'Organização das camadas'));
+    header.prepend(el('p', { class: 'editor-context' }, editor.kind !== 'layer' ? 'Camada: ' + layer.name : 'Organização das camadas'));
     header.append(button('Fechar editor', closeEditor, 'quiet drawer-close', { symbol: 'close', iconOnly: true, 'data-drawer-close': '' }));
     const danger = form.querySelector('.danger-zone');
     if (danger) form.querySelector('.form-fields').append(danger);
@@ -302,6 +409,12 @@ function updateBindings() {
   const focus = document.activeElement?.dataset.focus;
   document.querySelector('#action-count').textContent = query ? matches.length + ' de ' + layer.bindings.length + ' ações encontradas' : layer.bindings.length + (layer.bindings.length === 1 ? ' ação nesta camada' : ' ações nesta camada');
   container.replaceChildren();
+  container.classList.toggle('table-scroll', bindingView === 'table');
+  if (bindingView === 'keyboard') {
+    renderBindingKeyboard(container, layer, matches);
+    restoreFocus(focus);
+    return;
+  }
   if (!matches.length) {
     container.append(query
       ? empty('Nenhuma ação encontrada', 'Tente outro nome, tecla ou tipo.', button('Limpar busca', () => { actionQuery = ''; render(); }))
@@ -314,34 +427,121 @@ function updateBindings() {
       el('thead', {}, el('tr', {}, [['Tecla', 'binding-key'], ['Nome', ''], ['Tipo', 'type-column'], ['Destino / conteúdo', 'summary-column'], ['Ações', 'controls-column']].map(([label, className]) => el('th', { scope: 'col', class: className }, label)))), body));
     for (const binding of matches) {
       const pending = pendingBindings.has(binding.id);
-      const lastResult = state.events.find(event => event.kind === 'action' && event.layer === layer.name && event.key === binding.key);
+      const lastResult = state.events.find(event => event.kind === 'action' && (event.bindingId ? event.bindingId === binding.id : event.layer === layer.name && event.key === binding.key));
       const result = pending ? el('p', { class: 'binding-result info', role: 'status' }, 'Executando ação…') : lastResult ? el('p', { class: 'binding-result ' + lastResult.status },
         icon(lastResult.status === 'error' ? 'alert' : 'check'), lastResult.message) : null;
-      body.append(el('tr', { class: 'binding-row' },
-        el('td', { class: 'binding-key' }, shortcut(binding.key, state.platform)),
+      body.append(el('tr', { class: 'binding-row' + (binding.enabled === false ? ' binding-disabled' : ''), 'data-binding-id': binding.id },
+        el('td', { class: 'binding-key' }, shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null),
         el('td', { class: 'binding-copy' }, el('strong', {}, binding.name), result),
         el('td', { class: 'type-column', title: labels[binding.action.type] }, { http: 'HTTP', file: 'Arquivo', log: 'Log' }[binding.action.type]),
         el('td', { class: 'summary-column' }, el('span', { class: 'binding-summary', title: actionSummary(binding.action) }, actionSummary(binding.action))),
         el('td', { class: 'controls-column' }, el('div', { class: 'binding-actions' },
           button(pending ? 'Executando…' : 'Executar teste: ' + binding.name, () => void runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, title: 'Executar teste: ' + binding.name, disabled: pending, 'data-focus': 'test-' + binding.id }),
           button('Editar ação: ' + binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar ação: ' + binding.name, 'data-focus': 'edit-' + binding.id }),
-          button('Remover ação: ' + binding.name, () => void removeBinding(layer, binding), 'quiet danger', { symbol: 'trash', iconOnly: true, title: 'Remover ação: ' + binding.name, 'data-focus': 'remove-' + binding.id })))));
+          bindingMenu(layer, binding)))));
     }
   }
   restoreFocus(focus);
 }
 
-async function runBinding(layer, binding) {
+function bindingMenu(layer, binding) {
+  const menu = el('div', { class: 'action-menu-content', popover: 'auto', role: 'group', id: 'menu-' + binding.id, 'aria-label': 'Mais opções de ' + binding.name });
+  menu.append(button(binding.enabled === false ? 'Ativar ação' : 'Desativar ação', () => { menu.hidePopover(); void toggleBinding(layer, binding); }, 'quiet', { symbol: binding.enabled === false ? 'play' : 'pause', 'data-focus': 'toggle-' + binding.id }),
+    button('Duplicar ação', () => { menu.hidePopover(); duplicateBinding(binding); }, 'quiet', { symbol: 'copy', 'data-focus': 'duplicate-' + binding.id }),
+    button('Remover ação: ' + binding.name, () => { menu.hidePopover(); void removeBinding(layer, binding); }, 'quiet danger', { symbol: 'trash', 'data-focus': 'remove-' + binding.id }));
+  return el('span', { class: 'action-menu' }, button('Mais opções: ' + binding.name, () => {}, 'quiet', { symbol: 'more', iconOnly: true, title: 'Mais opções: ' + binding.name, popovertarget: menu.id, 'data-focus': 'more-' + binding.id }), menu);
+}
+
+async function toggleBinding(layer, binding) {
+  await guardNavigation(() => void perform(async () => {
+    const config = copyConfig();
+    config.layers.find(item => item.id === layer.id).bindings.find(item => item.id === binding.id).enabled = binding.enabled === false;
+    return saveConfiguration(config, 'more-' + binding.id);
+  }, binding.enabled === false ? 'Ação ativada.' : 'Ação desativada.'));
+}
+
+function runBinding(layer, binding) {
   if (pendingBindings.has(binding.id)) return;
-  pendingBindings.add(binding.id);
+  startEditor({ kind: 'test', value: binding, layerId: layer.id, preview: null, loading: false, result: null });
+}
+
+async function loadTestPreview() {
+  const target = editor;
+  if (target?.kind !== 'test' || target.loading) return;
+  const generation = ++previewGeneration;
+  target.loading = true;
+  target.error = null;
+  target.result = null;
+  updateTestPreview();
+  try {
+    const preview = await api.previewBinding(target.layerId, target.value.id);
+    if (editor !== target || generation !== previewGeneration) return;
+    target.preview = preview;
+    target.resolvedAction = preview.action;
+  } catch (error) { if (editor === target) target.error = error.message; }
+  finally { if (editor === target) { target.loading = false; updateTestPreview(); } }
+}
+
+async function executePreview() {
+  const target = editor;
+  if (target?.kind !== 'test' || !target.preview || target.running) return;
+  target.running = true;
+  target.result = null;
+  target.error = null;
+  pendingBindings.add(target.value.id);
   const previous = new Set(state.events.map(event => event.id));
+  const token = target.preview.previewId;
+  target.preview = null; // Tokens are consumed once, including failed executions.
+  updateTestPreview();
   updateBindings();
   try {
-    state = await api.runBinding(layer.id, binding.id);
-    const result = state.events.find(event => !previous.has(event.id) && event.kind === 'action' && event.key === binding.key && event.layer === layer.name);
-    if (result) toast(result.message, result.status);
-  } catch (error) { toast(error.message, 'error'); }
-  finally { pendingBindings.delete(binding.id); updateBindings(); }
+    state = await api.runBinding(target.layerId, target.value.id, token);
+    target.result = state.events.find(event => !previous.has(event.id) && event.kind === 'action' && event.bindingId === target.value.id);
+    if (target.result) toast(target.result.message, target.result.status);
+  } catch (error) { target.error = error.message; }
+  finally {
+    target.running = false;
+    pendingBindings.delete(target.value.id);
+    if (editor === target) updateTestPreview();
+    updateBindings();
+    updateStatus();
+  }
+}
+
+function testPreviewPanel(layer) {
+  return el('section', { class: 'editor test-preview', 'aria-label': 'Prévia e teste da ação' },
+    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, 'Confira os valores resolvidos. A ação só será executada ao escolher “Executar teste”.')),
+    el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
+    el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
+      el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));
+}
+
+function updateTestPreview() {
+  const target = editor;
+  const content = document.querySelector('#test-preview-content');
+  if (!content || target?.kind !== 'test') return;
+  content.replaceChildren();
+  const execute = document.querySelector('[data-focus="execute-preview"]');
+  const refresh = document.querySelector('[data-focus="refresh-preview"]');
+  execute.disabled = !target.preview || target.running || target.loading;
+  execute.setAttribute('aria-busy', String(Boolean(target.running)));
+  execute.querySelector('span').textContent = target.running ? 'Executando…' : 'Executar teste';
+  refresh.disabled = target.running || target.loading;
+  if (target.loading) content.append(el('p', { class: 'hint' }, 'Resolvendo variáveis…'));
+  if (target.resolvedAction) {
+    const action = target.resolvedAction;
+    const entries = action.type === 'http' ? [['Método', action.method], ['URL final', action.url], ['Headers', Object.entries(action.headers || {}).map(([key, value]) => key + ': ' + value).join('\n') || 'Sem headers'], ['Corpo', action.body || 'Sem corpo']]
+      : action.type === 'file' ? [['Operação', action.mode === 'append' ? 'Acrescentar ao final' : 'Criar sem sobrescrever'], ['Arquivo', action.target], ['Conteúdo', action.content || 'Arquivo vazio']]
+        : [['Mensagem', action.message]];
+    content.append(el('dl', { class: 'preview-values' }, entries.map(([label, value]) => [el('dt', {}, label), el('dd', {}, el('pre', {}, value))])),
+      el('p', { class: 'hint' }, target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'), ...(action.type === 'http' ? [el('p', { class: 'hint' }, 'Valores de headers ficam ocultos. A execução usa os valores completos.')] : []));
+  }
+  if (target.running) content.append(el('p', { class: 'context-note' }, icon('play'), 'Executando a ação… Você pode fechar este painel; o resultado ficará no Histórico.'));
+  if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
+    el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
+    el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.')));
+  if (target.error) content.append(el('div', { class: 'form-errors', role: 'alert' }, icon('alert'), target.error));
+  if (!target.preview && !target.loading && !target.running && !target.result && !target.error) content.append(el('p', { class: 'hint' }, 'Aguardando a prévia…'));
 }
 
 async function removeBinding(layer, binding) {
@@ -439,11 +639,12 @@ function formShell(title, description, submit, ...content) {
 
 function layerForm() {
   const current = editor.value;
-  const form = formShell(current ? 'Editar camada' : 'Nova camada', 'Dê um nome que ajude a reconhecer o contexto destas teclas.', async form => {
+  const initial = current || editor.seed;
+  const form = formShell(current ? 'Editar camada' : editor.seed ? 'Duplicar camada' : 'Nova camada', 'Dê um nome que ajude a reconhecer o contexto destas teclas.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     if (!name) invalid('Informe um nome para a camada.', 'name');
-    const value = { id: current?.id || newId('layer'), name, description: String(data.get('description')).trim(), bindings: current?.bindings || [] };
+    const value = { id: current?.id || newId('layer'), name, description: String(data.get('description')).trim(), bindings: initial?.bindings || [], applications: String(data.get('applications') || '').split(/\r?\n/).map(value => value.trim()).filter(Boolean) };
     const config = copyConfig();
     if (current) config.layers[config.layers.findIndex(layer => layer.id === current.id)] = value;
     else config.layers.push(value);
@@ -452,8 +653,9 @@ function layerForm() {
     await saveConfiguration(config, 'edit-layer');
     toast('Camada salva.');
   },
-    field('name', 'Nome da camada', current?.name || '', { required: true, maxlength: 80, placeholder: 'Ex.: Trabalho, reuniões ou arquivos' }).wrapper,
-    field('description', 'Descrição', current?.description || '', { maxlength: 240, placeholder: 'Para que você vai usar esta camada?', hint: 'Opcional. Aparece junto das ações.' }).wrapper);
+    field('name', 'Nome da camada', initial?.name || '', { required: true, maxlength: 80, placeholder: 'Ex.: Trabalho, reuniões ou arquivos' }).wrapper,
+    field('description', 'Descrição', initial?.description || '', { maxlength: 240, placeholder: 'Para que você vai usar esta camada?', hint: 'Opcional. Aparece junto das ações.' }).wrapper,
+    applicationRules(initial?.applications || []));
   if (current && state.config.layers.length > 1) form.append(el('div', { class: 'danger-zone' }, el('div', {}, el('h3', {}, 'Remover camada'), el('p', {}, 'Remove também as ' + current.bindings.length + ' ações cadastradas nela.')),
     button('Remover camada', () => void removeLayer(current), 'danger', { symbol: 'trash' })));
   return form;
@@ -499,7 +701,8 @@ function readMap(container, name) {
 
 function bindingForm(layer) {
   const current = editor.value;
-  const currentAction = current?.action || { type: 'log', message: '' };
+  const initial = current || editor.seed;
+  const currentAction = initial?.action || { type: 'log', message: '' };
   const actionFields = el('div', { class: 'action-fields' });
   const type = field('type', 'O que esta tecla deve fazer?', currentAction.type, { choices: Object.entries(labels).map(([key, value]) => [key, value === 'Arquivo' ? 'Criar ou acrescentar em um arquivo' : value === 'Log' ? 'Salvar uma mensagem no log' : value]) });
   const drafts = {};
@@ -561,7 +764,7 @@ function bindingForm(layer) {
   }
   type.input.addEventListener('change', () => { rememberFields(); showActionFields(type.input.value); });
   showActionFields(currentAction.type);
-  return formShell(current ? 'Editar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
+  return formShell(current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     const key = String(data.get('key')).trim();
@@ -577,7 +780,7 @@ function bindingForm(layer) {
       action = { type: 'http', method: data.get('method'), url, headers: readMap(form, 'headers'), query: readMap(form, 'query'), body: data.get('body') || '' };
     } else if (actionType === 'file') action = { type: 'file', directory: String(data.get('directory')).trim(), filename: String(data.get('filename')).trim(), mode: data.get('mode'), content: data.get('content') };
     else action = { type: 'log', message: data.get('message') };
-    const binding = { id: current?.id || newId('binding'), name, key, action };
+    const binding = { id: current?.id || newId('binding'), name, key, action, enabled: data.get('enabled') === 'on' };
     const config = copyConfig();
     const bindings = config.layers.find(item => item.id === layer.id).bindings;
     if (current) bindings[bindings.findIndex(item => item.id === current.id)] = binding;
@@ -585,8 +788,9 @@ function bindingForm(layer) {
     await saveConfiguration(config, 'edit-' + binding.id);
     toast('Ação salva em ' + layer.name + '.');
   },
-    el('div', { class: 'form-grid' }, field('name', 'Nome da ação', current?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Enviar evento de início' }).wrapper,
-      shortcutField('key', 'Tecla ou combinação', current?.key || '', 'Capture a combinação ou digite, por exemplo, Control+Shift+A.')),
+    el('div', { class: 'form-grid' }, field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Enviar evento de início' }).wrapper,
+      shortcutField('key', 'Tecla ou combinação', initial?.key || '', 'Capture a combinação ou digite, por exemplo, Control+Shift+A.')),
+    checkboxField('enabled', 'Ação ativada', initial?.enabled !== false, 'Desative para guardar a configuração sem registrar este atalho.'),
     el('section', { class: 'action-configuration' }, type.wrapper, actionFields),
     el('details', { class: 'variable-help' }, el('summary', {}, 'Personalizar com variáveis'), el('p', {}, 'Use nos valores de parâmetros, headers, mensagens, corpo e conteúdo de arquivos.'),
       el('dl', {}, [['{{key}}', 'Tecla configurada'], ['{{layer}}', 'Nome da camada'], ['{{date}}', 'Data UTC: ano-mês-dia'], ['{{timestamp}}', 'Instante UTC, seguro para nomes de arquivo']].map(([term, description]) => [el('dt', {}, el('code', {}, term)), el('dd', {}, description)]))));
@@ -703,12 +907,16 @@ function renderSettings() {
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {
     const data = new FormData(form);
     const config = copyConfig();
-    config.settings = { ...settings, layerShortcut: String(data.get('layerShortcut')).trim(), pauseShortcut: String(data.get('pauseShortcut')).trim(), cooldownMs: Number(data.get('cooldownMs')) };
+    config.settings = { ...settings, layerShortcut: String(data.get('layerShortcut')).trim(), pauseShortcut: String(data.get('pauseShortcut')).trim(), cooldownMs: Number(data.get('cooldownMs')), autoSwitchLayers: data.get('autoSwitchLayers') === 'on', closeToTray: state.desktop?.trayAvailable ? data.get('closeToTray') === 'on' : Boolean(settings.closeToTray) };
     await saveConfiguration(config, 'save-settings');
     toast('Configurações salvas.');
   },
     el('div', { class: 'form-grid' }, shortcutField('layerShortcut', 'Alternar camada', settings.layerShortcut, 'Percorre suas camadas na ordem da lista.'),
       shortcutField('pauseShortcut', 'Pausar ou retomar ações', settings.pauseShortcut, 'Disponível após a primeira ativação pelo botão.')),
+    el('section', { class: 'behavior-settings' }, el('h3', {}, 'Comportamento'),
+      checkboxField('autoSwitchLayers', 'Trocar camadas conforme o aplicativo em foco', settings.autoSwitchLayers, 'Associe aplicativos no editor de cada camada. Ao sair, a última camada manual é retomada.'),
+      el('p', { id: 'application-status', class: 'application-status', role: 'status' }),
+      checkboxField('closeToTray', 'Manter na bandeja ao fechar a janela', settings.closeToTray, state.desktop?.trayAvailable ? 'Use “Sair” no menu da bandeja para encerrar o aplicativo.' : 'A bandeja não está disponível nesta sessão. Fechar a janela encerra o aplicativo.', !state.desktop?.trayAvailable)),
     el('details', { class: 'advanced-fields' }, el('summary', {}, 'Repetição das ações'),
       field('cooldownMs', 'Intervalo mínimo (milissegundos)', settings.cooldownMs, { type: 'number', required: true, min: 100, max: 10000, step: 1, hint: '400 ms = 0,4 segundo. Uma tecla mantida pressionada pode disparar novamente depois deste intervalo.' }).wrapper));
   shortcutForm.classList.add('settings-form');
@@ -804,6 +1012,18 @@ for (const item of document.querySelectorAll('#navigation [data-view]')) {
   item.setAttribute('aria-label', label);
   item.replaceChildren(icon({ layers: 'layers', tracking: 'keyboard', history: 'history', settings: 'settings' }[item.dataset.view]), el('span', { class: 'nav-label', 'aria-hidden': 'true' }, label));
 }
+document.querySelector('#active-layer-picker').addEventListener('change', event => {
+  const id = event.target.value;
+  event.target.value = state.activeLayerId;
+  void guardNavigation(() => void perform(async () => {
+    state = await api.setLayer(id);
+    editor = null;
+    if (view === 'layers') selectedLayerId = id;
+    render();
+    toast('Camada em uso: ' + layerById(id).name, 'info');
+  }));
+});
+
 document.querySelector('#engine-toggle').addEventListener('click', () => void perform(async () => {
   state = await api.setEnabled(!state.enabled);
   const error = state.events[0];
@@ -818,6 +1038,17 @@ if (!api) {
 } else {
   try {
     state = await api.getState();
+    api.onCloseRequested?.(async ({ toTray }) => {
+      if (isDirty() && !await confirmDialog({ title: toTray ? 'Ocultar sem salvar?' : 'Sair sem salvar?', message: 'Você tem alterações que ainda não foram salvas.', confirmLabel: toTray ? 'Descartar e ocultar' : 'Descartar e sair', cancelLabel: 'Continuar editando', danger: true })) { await api.cancelClose(); return; }
+      editor = null;
+      stopCapture();
+      render();
+      requestEditing(false);
+      await editingQueue;
+      closingAllowed = !toTray;
+      await api.confirmClose();
+      if (toTray) closingAllowed = false;
+    });
     selectedLayerId = state.activeLayerId;
     render();
     api.onState(next => {
@@ -825,12 +1056,15 @@ if (!api) {
       const configChanged = JSON.stringify(previous.config) !== JSON.stringify(next.config);
       const layerChanged = previous.activeLayerId !== next.activeLayerId;
       const trackingChanged = JSON.stringify(previous.tracking) !== JSON.stringify(next.tracking);
+      const eventsChanged = JSON.stringify(previous.events) !== JSON.stringify(next.events);
       state = next;
       updateStatus();
       if (trackingChanged) clearPressed();
+      if (layerChanged) toast('Camada em uso: ' + (layerById(next.activeLayerId)?.name || '—'), 'info');
+      if (editor?.kind === 'test' && configChanged) { ++previewGeneration; editor.loading = false; editor.preview = null; editor.error = 'A configuração mudou. Atualize a prévia antes de executar.'; updateTestPreview(); }
       if (layerChanged && !editor && selectedLayerId === previous.activeLayerId) { selectedLayerId = next.activeLayerId; actionQuery = ''; }
       if (view === 'history') updateHistory();
-      if (view === 'layers' && !editor && !layerChanged && !configChanged) updateBindings();
+      if (view === 'layers' && !editor && !layerChanged && !configChanged && eventsChanged) updateBindings();
       if (!editor && !isDirty() && !textFocus() && (configChanged || layerChanged || (view === 'tracking' && trackingChanged))) render();
     });
     api.onKey(keyEvent);

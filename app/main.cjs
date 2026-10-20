@@ -6,6 +6,9 @@ const { Storage } = require('./storage.cjs');
 const { Engine } = require('./engine.cjs');
 const { Tracker } = require('./tracking.cjs');
 const { MAX_CONFIG_BYTES } = require('./config.cjs');
+const { ApplicationMonitor } = require('./application-monitor.cjs');
+const { DesktopTray, trayHostAvailable } = require('./desktop-tray.cjs');
+const { WindowLifecycle } = require('./window-lifecycle.cjs');
 
 if (!app.isPackaged && process.env.KEYBOARD_TRACKER_DATA_DIR) app.setPath('userData', path.resolve(process.env.KEYBOARD_TRACKER_DATA_DIR));
 app.setName('Keyboard Tracker');
@@ -17,6 +20,9 @@ else {
   let window;
   let engine;
   let tracker;
+  let monitor;
+  let tray;
+  let lifecycle;
   const entry = path.join(__dirname, 'renderer', 'index.html');
   const entryURL = pathToFileURL(entry).href;
   function isAppURL(value) {
@@ -42,6 +48,14 @@ else {
     if (window && !window.isDestroyed()) window.webContents.send(`tracker:${channel}`, payload);
   }
 
+  function showWindow() {
+    if (!window || window.isDestroyed()) return;
+    if (window.isMinimized()) window.restore();
+    window.show(); window.focus();
+  }
+
+  function requestQuit() { if (lifecycle) lifecycle.request(true); else app.quit(); }
+
   function createWindow() {
     window = new BrowserWindow({
       width: 1280, height: 860, minWidth: 760, minHeight: 580,
@@ -51,7 +65,11 @@ else {
     });
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     window.webContents.on('will-navigate', (event, url) => { if (!isAppURL(url)) event.preventDefault(); });
-    window.webContents.on('render-process-gone', () => { engine.dispose(); tracker.set(false); });
+    lifecycle = new WindowLifecycle({ window,
+      shouldHide: () => engine.config.settings.closeToTray && tray?.available,
+      requestConfirmation: payload => send('close-requested', payload),
+      beforeHide: () => engine.setEditing(false), quit: () => app.quit() });
+    window.webContents.on('render-process-gone', () => { engine.dispose(); tracker.set(false); lifecycle.forceQuit(); });
     window.webContents.on('did-start-loading', () => { engine.setEnabled(false); engine.setEditing(false); });
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => {
@@ -62,8 +80,11 @@ else {
     void window.loadFile(entry);
   }
 
-  app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
-  app.on('will-quit', () => { tracker?.stop(); engine?.dispose(); });
+  app.on('second-instance', showWindow);
+  app.on('before-quit', event => {
+    if (window && lifecycle && !lifecycle.allowClose) { event.preventDefault(); lifecycle.request(true); }
+  });
+  app.on('will-quit', () => { monitor?.dispose(); tray?.dispose(); tracker?.stop(); engine?.dispose(); });
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
@@ -79,10 +100,22 @@ else {
     handle('set-enabled', enabled => engine.setEnabled(enabled));
     handle('set-layer', id => engine.setLayer(id));
     handle('set-editing', editing => engine.setEditing(editing));
-    handle('run-binding', (layerId, bindingId) => engine.runBinding(layerId, bindingId));
+    handle('preview-binding', (layerId, bindingId) => engine.previewBinding(layerId, bindingId));
+    handle('run-binding', (layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId));
+    handle('show-window', showWindow);
+    handle('confirm-close', () => lifecycle?.confirm());
+    handle('cancel-close', () => lifecycle?.cancel());
     handle('set-tracking', enabled => tracker.set(enabled));
     handle('choose-directory', async () => {
       const result = await dialog.showOpenDialog(window, { title: 'Escolher pasta para os arquivos', properties: ['openDirectory', 'createDirectory'] });
+      return result.canceled ? null : result.filePaths[0];
+    });
+    handle('choose-application', async () => {
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Escolher aplicativo para esta camada',
+        properties: ['openFile'],
+        ...(process.platform === 'win32' ? { filters: [{ name: 'Aplicativos', extensions: ['exe'] }] } : {})
+      });
       return result.canceled ? null : result.filePaths[0];
     });
     handle('open-data-directory', async () => {
@@ -112,10 +145,17 @@ else {
     const template = [
       ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { role: 'quit', label: 'Sair' }] }
+      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
     createWindow();
+    const { Tray, nativeImage } = require('electron');
+    const hostAvailable = await trayHostAvailable();
+    tray = new DesktopTray({ Tray, Menu, nativeImage, engine, tracker, showWindow, quit: requestQuit, platform: process.platform, hostAvailable });
+    engine.desktop = { trayAvailable: tray.available };
+    monitor = new ApplicationMonitor({ engine, platform: process.platform, session });
+    monitor.configure();
+    engine.publish();
   }).catch(error => {
     dialog.showErrorBox('Não foi possível iniciar o Keyboard Tracker', error.message);
     app.quit();

@@ -54,3 +54,16 @@ test('hook normaliza posições internacionais e numpad sem NumLock', () => {
   assert.equal(map(0x0E45).code, 'Pause');
   assert.equal(map(-1), null);
 });
+
+test('editor visual mapeia legendas lógicas sem confundir rastreio físico', async () => {
+  const { shortcutForCode, shortcutModifiers } = await import('../app/renderer/keyboard-bindings.mjs');
+  const { resolveKeyboardLayout } = await data;
+  const layout = name => resolveKeyboardLayout({ layout: name });
+  assert.equal(shortcutForCode('KeyQ', layout('fr')), 'A');
+  assert.equal(shortcutForCode('KeyY', layout('de')), 'Z');
+  assert.equal(shortcutForCode('Backslash', layout('br')), 'BracketRight');
+  assert.equal(shortcutForCode('Semicolon', layout('br')), null);
+  assert.equal(shortcutForCode('NumpadDecimal', layout('us')), null);
+  assert.equal(shortcutModifiers('CommandOrControl+Shift+A', 'darwin'), 'Command+Shift');
+  assert.equal(shortcutModifiers('CommandOrControl+Shift+A', 'win32'), 'Control+Shift');
+});

@@ -111,3 +111,49 @@ com Xvfb; não são substitutos para QA de hardware em Windows/macOS/Wayland.
 Workflow `Desktop`: testes nos três sistemas em push/PR; instaladores em push
 na main ou `workflow_dispatch`, sem publicação automática. Assinatura/notarização requer
 certificados do distribuidor e deve ser configurada antes de uma release pública.
+
+## Produtividade e contexto por aplicativo
+
+Config v1 aceita campos adicionais opcionais: bindings habilitados por padrão,
+applications vazio por camada, autoSwitchLayers e closeToTray desligados. Arquivos
+legados continuam válidos. Duplicação é rascunho no renderer; novos IDs são gerados
+para cada item e associações de aplicativo não são copiadas. A validação central
+continua rejeitando atalhos e identificadores de aplicativos conflitantes.
+
+`keyboard-bindings.mjs` converte legendas em atalhos lógicos no editor visual,
+sem confundir os códigos físicos usados pelo rastreio. A tabela e o teclado são
+visões da mesma configuração. A grade interativa tem foco itinerante e navegação
+por setas; campos/teclado em foco suspendem as ações globais. Atualizações de
+estado não recriam a tecla entre pointerdown e pointerup.
+
+`prepareAction` é a resolução pura compartilhada entre execução e prévia.
+O Engine guarda até dez prévias, por cinco minutos, com valores congelados,
+vinculadas à ação e consumidas uma vez. Salvar configuração invalida os tokens;
+erro de persistência preserva configuração e tokens anteriores. O renderer recebe
+uma cópia com todos os valores de headers mascarados. Não há I/O de ação na
+prévia. Os resultados incluem bindingId, duração e status HTTP, sem corpo/header.
+
+`application-monitor.cjs` inicia `application-reader.cjs` somente após opt-in.
+O worker consulta get-windows e publica apenas owner (nome/caminho/bundleId).
+O polling de 1 s não sobrepõe chamadas e tem deadline de 2,5 s; falha encerra o
+worker e resultados atrasados são descartados. Não há histórico de aplicativos.
+O próprio processo é ignorado, preservando o contexto anterior durante edição.
+Windows/macOS usam integração nativa; macOS desativa solicitações de acesso a
+URL/título e executa o helper Swift do diretório físico app.asar.unpacked.
+Linux/X11 usa xprop/xwininfo; Wayland retorna indisponibilidade explícita.
+
+O Engine escolhe primeiro identidade de caminho/bundle/executável, depois nome
+exato. Preserva a última camada manual como fallback e adia contexto durante
+edição. Troca manual só cede ao próximo aplicativo, sem reativar o motor.
+
+`desktop-tray.cjs` mantém menus, ícone PNG e tooltip sincronizados com o motor.
+No Linux, `trayHostAvailable` consulta DBus com deadline de 1,5 s; ausência de
+host StatusNotifier/utility impede ocultação. `window-lifecycle.cjs` intercepta
+fechar/sair e pede ao renderer a mesma confirmação de rascunhos antes de concluir.
+Confirmar ocultação encerra edição e mantém a janela recuperável; sair encerra
+monitor, worker de rastreio, tray e atalhos. Falha de render libera encerramento.
+
+Dependência get-windows é fixada em 9.3.0 e extraída do ASAR junto aos helpers.
+Override de tar 7.5.22 corrige os alertas altos/críticos nos instaladores transitivos
+introduzidos pela dependência; permanecem os alertas moderados de desenvolvimento
+já documentados. Nenhum shell arbitrário ou serviço remoto foi adicionado.

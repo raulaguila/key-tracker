@@ -52,10 +52,56 @@ teclas internacionais dependem do suporte do hook; variantes e IMEs podem diferi
 
 Com ações ativas, as teclas registradas podem substituir a digitação em outros
 aplicativos. Ao editar formulários, as ações são suspensas. O botão **Testar**
-executa a ação real mesmo pausado; o resultado aparece em **Histórico**. Pausar
+abre uma prévia sem executar nada. **Executar teste** confirma a execução real,
+mesmo pausado; o resultado aparece no drawer, na ação e em **Histórico**. Pausar
 impede novos disparos, mas não cancela uma ação já iniciada. Intervalo mínimo
 reduz repetições; uma tecla segurada pode voltar a disparar após esse intervalo.
-Fechar a janela encerra o app e todos os hooks.
+Por padrão, fechar a janela encerra o app e todos os hooks. A opção de manter
+na bandeja permite continuar usando os atalhos com a janela oculta.
+
+## Configurar e usar mais rápido
+
+- **Tabela ou teclado:** em Camadas, escolha **Teclado** e clique numa tecla para
+  criar/editar sua ação. O seletor de combinação mostra Ctrl, Shift e outras
+  combinações cadastradas. Teclas mapeadas ganham destaque; ações desativadas
+  usam contorno tracejado. Setas navegam pelas teclas e Enter abre o editor.
+  A tabela continua disponível e a preferência fica salva neste computador.
+- **Ativação individual:** em **Mais opções** da ação, escolha Ativar/Desativar.
+  A configuração continua salva; o atalho desativado deixa de ser registrado.
+- **Duplicação:** Mais opções → Duplicar ação preserva seus parâmetros e pede
+  outra tecla. Duplicar camada copia as ações com novos IDs, sem copiar as
+  associações de aplicativos. As cópias podem ser revisadas antes de salvar.
+- **Troca rápida:** o seletor “Em uso”, no rodapé, escolhe diretamente a camada.
+  Trocas pelo seletor ou atalho mostram um aviso discreto.
+- **Bandeja:** oferece abrir, ativar/pausar, escolher camada, desligar rastreio e
+  sair. Em Configurações, **Manter na bandeja ao fechar a janela** é opcional;
+  rascunhos continuam protegidos. No Linux, ocultar só fica disponível quando
+  `dbus-send` confirma um host StatusNotifier, como os oferecidos pelo ambiente
+  desktop. Se a bandeja não estiver disponível, a janela não fica oculta.
+- **Prévia do teste:** mostra destino, parâmetros interpolados e conteúdo antes
+  de executar. Valores de headers ficam mascarados. A execução usa os valores
+  completos, congelados por até cinco minutos; atualizar a prévia permite outro
+  teste. Salvar uma alteração invalida as prévias anteriores. O resultado mostra
+  duração, status HTTP quando aplicável e mensagem de erro.
+
+## Camadas por aplicativo
+
+No editor da camada, abra **Trocar por aplicativo** e informe um identificador por
+linha: nome, executável (`code.exe`), caminho completo ou bundle ID. Também pode
+usar **Escolher aplicativo**. A correspondência é exata; caminhos têm prioridade
+sobre nomes. Um mesmo identificador não pode estar associado a duas camadas.
+
+Ative **Trocar camadas conforme o aplicativo em foco** em Configurações e salve.
+Ao focar um aplicativo associado, sua camada é selecionada. Ao sair para um
+aplicativo sem regra, volta a última camada escolhida manualmente. Uma seleção
+manual permanece até a próxima mudança de aplicativo. Durante a edição, a troca
+fica pendente; a automação nunca ativa ações que estavam pausadas.
+
+A detecção é opcional, consulta apenas enquanto ativada e mantém somente a
+identidade do aplicativo em memória. Títulos/URLs não atravessam o worker nem são
+gravados. Funciona com integração nativa em Windows, macOS e Linux/X11; X11
+precisa de `xprop` e `xwininfo`. Wayland informa a indisponibilidade e mantém a
+troca manual. Erros/permissões também aparecem em Configurações.
 
 ## Ações disponíveis
 
@@ -136,8 +182,9 @@ xvfb-run -a npm run test:ui
 ```
 
 Ele exercita cadastro, persistência, rascunhos, fechamento/navegação, requisições
-HTTP reais em loopback, feedback de erro, rastreio local e 28 combinações de tela
-e largura. Capturas ficam em `artifacts/ui-audit/` (não versionadas). O workflow
+HTTP reais em loopback, feedback de erro, rastreio local, editor por teclado, duplicação, ativação individual, prévias,
+proteção de fechamento, 112 combinações de telas/tema/sidebar e 90 combinações
+de layout/formato/largura/tema do teclado. Capturas ficam em `artifacts/ui-audit/` (não versionadas). O workflow
 executa esse teste no job Linux; o processo de teste em CI usa `--no-sandbox`
 somente para a instância isolada de QA.
 

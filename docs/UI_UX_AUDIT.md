@@ -236,3 +236,56 @@ Provas desta correção:
 Capturas: `status-<estado>-<tema>.png`, `tracking-abnt2-enter-<tema>.png` e
 `tracking-abnt2-dark-final.png` em `artifacts/ui-audit/` (ignorado pelo Git).
 A inspeção visual foi feita no Linux; Windows/macOS seguem verificados pelo CI.
+
+## Produtividade e camadas por aplicativo — concluídos
+
+Foram implementados os sete itens aprovados: visualização editável por teclado,
+ativação individual, duplicação de ações/camadas, seleção direta da camada ativa,
+bandeja, prévia com teste explícito e troca opcional de camada por aplicativo.
+A tabela continua inicial; menus de opções e seções expansíveis evitam aumentar
+os controles visíveis. A mesma geometria ABNT2/ISO é usada no editor e no Rastreio.
+
+O teclado distingue mapeamento ativo/desativado, oferece combinações, nomes
+acessíveis e navegação por setas. Um clique real revelou uma corrida de foco:
+atualizar o estado recriava a tecla entre pointerdown e pointerup. O refresh
+foi limitado às mudanças necessárias; há regressão por ponteiro nativo.
+
+Prévia resolve os valores sem I/O e mascara headers. O token congela a execução,
+expira e é invalidado ao salvar. O drawer mantém os valores após o resultado,
+mostra duração/status HTTP e permite revisar uma nova prévia antes de repetir.
+Cópias usam novos IDs; ação duplicada pede atalho e camada duplicada não herda
+associações. Contexto automático permanece opt-in, adiado durante edição, com
+retorno à camada manual e indisponibilidade explícita no Wayland.
+
+A bandeja consulta suporte da sessão antes de permitir ocultação. A confirmação
+nativa de fechamento preserva rascunhos e libera edição antes de ocultar. A prova
+usa BrowserWindow.close no processo main real: window.close do renderer segue
+outro caminho do Chromium e não representa o botão nativo da janela.
+
+Provas:
+
+- Testes de defaults legados, booleanos, conflitos, ações desativadas, prévias
+  puras/congeladas/expiradas/uso único, HTTP real e resultados sanitizados.
+- Monitor: opt-in, owner sem título/URL, respostas atrasadas, timeout, ausência
+  de ferramentas, reativação após desligar, nomes/caminhos/bundles e fallback.
+- Bandeja: menus/ícones, falha e recuperação, host Linux e ciclo de encerramento.
+- Electron real: criação por teclado e clique nativo, setas, persistência da
+  visualização, ativação individual, cópia de parâmetros/IDs, isolamento das
+  associações, seletor direto, prévia sem request até execução, sucesso/erro HTTP,
+  resultado durante outro drawer e confirmação de fechamento nativo.
+- 112 combinações anteriores de telas/tema/sidebar e 14 tamanhos de drawer;
+  90 combinações de geometria e seis de editor por teclado, sem overflow da página.
+- Inspeção manual em 390, 800 e 1280 px, nos dois temas, incluindo popovers e
+  drawer estreito. Axe: zero violações WCAG A/AA nas superfícies novas; símbolos
+  de teclas usam tokens legíveis e foram revisados manualmente quando sinalizados.
+- Pacote Linux com ASAR executou a detecção nativa em Xvfb próprio: ContextProof
+  selecionou a camada associada; desligar restaurou a manual e religar detectou
+  novamente, mantendo o motor pausado. A identidade não continha título/URL.
+- AppImage/DEB gerados. Auditoria de dependências de runtime: zero alertas após
+  corrigir tar transitivo; alertas moderados existentes do empacotador permanecem.
+
+Capturas em `artifacts/ui-audit/`: `productivity-keyboard-<largura>-<tema>.png`,
+`keyboard-editor-<largura>-<tema>.png`, `http-test-preview.png`,
+`productivity-preview-390-light.png` e `productivity-result-390-light.png`.
+A avaliação visual/nativa foi Linux; Windows/macOS seguem como testes/build no CI,
+com QA de hardware/sessão real ainda necessário antes de uma release pública.
