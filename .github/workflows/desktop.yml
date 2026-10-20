@@ -25,6 +25,11 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Verify UI flows in Electron
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:ui
+        env:
+          KEY_TRACKER_UI_NO_SANDBOX: '1'
       - name: Build native installer
         if: github.event_name != 'pull_request'
         run: npm run dist

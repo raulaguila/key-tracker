@@ -11,6 +11,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.cjs",
+    "test:ui": "node scripts/ui-smoke.cjs",
     "check": "node scripts/check.cjs",
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",

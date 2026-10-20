@@ -12,24 +12,27 @@
     <a class="skip-link" href="#main">Pular para o conteúdo</a>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Navegação principal">
-        <div class="brand"><span class="brand-symbol" aria-hidden="true">⌘</span><span>Keyboard<br><strong>Tracker</strong></span></div>
+        <div class="brand"><img src="../assets/icon.svg" width="36" height="36" alt=""><span>Keyboard<strong>Tracker</strong></span></div>
         <nav id="navigation">
-          <button type="button" data-view="layers" aria-current="page"><span aria-hidden="true">▱</span> Camadas</button>
-          <button type="button" data-view="tracking"><span aria-hidden="true">⌨</span> Rastreio</button>
-          <button type="button" data-view="history"><span aria-hidden="true">↻</span> Histórico</button>
-          <button type="button" data-view="settings"><span aria-hidden="true">⚙</span> Configurações</button>
+          <button type="button" data-view="layers" aria-current="page">Camadas</button>
+          <button type="button" data-view="tracking">Rastreio</button>
+          <button type="button" data-view="history">Histórico</button>
+          <button type="button" data-view="settings">Configurações</button>
         </nav>
-        <div class="sidebar-footer"><span class="device-label">Seu teclado, suas ações.</span><span id="platform-label">Aplicativo desktop</span></div>
+        <div class="sidebar-footer"><span class="device-label">Tudo neste computador.</span><span id="platform-label">Aplicativo desktop</span></div>
       </aside>
       <div class="workspace">
         <header class="topbar">
-          <div class="engine-status"><span id="engine-dot" class="status-dot"></span><span id="engine-status" role="status">Carregando aplicativo…</span></div>
-          <div class="topbar-actions"><span id="active-layer-label" class="active-layer-label"></span><button id="engine-toggle" class="button primary" type="button" disabled>Ativar ações</button></div>
+          <div class="engine-status"><span id="engine-dot" class="status-dot" aria-hidden="true"></span><div><strong id="engine-status" role="status">Carregando aplicativo…</strong><span id="engine-detail">Preparando suas camadas</span></div></div>
+          <div class="topbar-actions"><div class="active-layer-context"><span>Camada em uso</span><strong id="active-layer-label">—</strong></div><button id="engine-toggle" class="button primary" type="button" disabled>Ativar ações</button></div>
         </header>
         <div id="notice" class="notice" role="alert" hidden></div>
+        <div id="shortcut-warning" class="shortcut-warning" role="status" hidden></div>
         <main id="main" tabindex="-1"><div class="loading-state" aria-busy="true"><div class="skeleton heading-skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
       </div>
     </div>
     <div id="announcement" class="sr-only" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+    <dialog id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"></dialog>
   </body>
 </html>

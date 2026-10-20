@@ -21,6 +21,8 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
 - `app/renderer/`: interface e renderização de códigos físicos do teclado.
+- `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
+- `app/renderer/keyboard.js`: representação física QWERTY, navegação e numpad.
 
 Contrato de dados e API em `CONTRACT.md`. O processo principal é o único dono
 da configuração. Escritas de configuração são serializadas. Configuração é
@@ -67,6 +69,13 @@ Sem telemetria. Configuração inválida no startup é preservada e reportada.
 Renderer sandboxed com contextIsolation, CSP self e connect-src none. Somente
 janela/frame local esperado pode chamar IPC. Navegação externa é bloqueada.
 Fechar a janela encerra captura e registros; uma segunda instância foca a atual.
+
+Rascunhos são estado transitório do renderer. O formulário compara seus valores
+com o estado inicial; navegação e fechamento pedem confirmação antes do descarte.
+No fechamento, o renderer cancela `beforeunload` e só abre o diálogo na tarefa
+seguinte, após o Electron concluir o cancelamento. Confirmar libera o fechamento.
+Headers/query em pares são convertidos ao mesmo contrato de objetos de strings.
+O teste manual distingue resultado de execução de sucesso no transporte IPC.
 
 ## Entrega e prova
 

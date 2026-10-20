@@ -17,15 +17,21 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
 
 - Navegação lateral persistente: Camadas, Rastreio, Histórico e Configurações.
 - Estado de execução e controle de pausa ficam sempre na barra superior.
-- Camadas usam lista e painel de ações; o indicador “Atual” diferencia a camada
-  ativa da camada selecionada para edição.
-- Editores inline preservam o contexto. Uma ação expõe somente os campos do tipo
-  escolhido, com validação e erros junto ao formulário.
-- Ações destrutivas recebem confirmação inline. Testar informa explicitamente que
-  executa uma ação real mesmo com a execução global pausada.
+- Camadas usam navegação própria e painel de ações. “Em uso” identifica a camada
+  dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
+  Escolher uma camada para editar não muda a camada em uso.
+- O editor substitui o conteúdo do painel, com contexto e retorno explícitos.
+  Nome/tecla precedem a ação. Parâmetros e headers HTTP usam pares nome/valor em
+  uma seção expansível; rascunhos são preservados ao alternar o tipo de ação.
+- Ações destrutivas e descarte de alterações usam um diálogo nativo HTML com foco
+  inicial na opção de continuar/cancelar. Navegação e fechamento protegem rascunhos.
+- Testes têm estado de execução, resultado inline e confirmação visível. Falhas
+  retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
+- Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de
+  percorrer listas. A ação principal do painel é criar uma ação; remover é terciário.
 - Rastreio é opt-in e independente do motor de ações. Teclas simultâneas são
-  destacadas por código físico; rótulos QWERTY são uma referência visual. A lista
-  de teclas pressionadas cobre também códigos de teclados não representados.
+  destacadas por código físico e chips textuais. O modo global/local aparece antes
+  do teclado, que inclui numpad; rótulos QWERTY são uma referência visual.
 - A página aberta fora do Electron explica que o aplicativo desktop é necessário;
   não simula captura, persistência ou execução.
 
@@ -34,18 +40,21 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
 HTML semântico, nomes acessíveis, labels explícitas, estados e feedback textual,
 foco visível, link para pular a navegação e respeito a movimento reduzido.
 Inputs usam controles nativos. Texto de usuário é inserido como texto, nunca HTML.
-O foco em campos suspende ações por `setEditing`; a edição de uma camada/ação
-mantém a suspensão enquanto o formulário está aberto.
+O foco em campos de texto suspende ações por `setEditing`; a edição de uma
+camada/ação mantém a suspensão enquanto o formulário está aberto. A barra de estado
+permanece visível ao rolar e distingue pausa, edição e digitação. A interface usa uma
+família única de ícones SVG e representação de teclas adaptada ao SO.
 
-Em larguras intermediárias, camadas ficam em uma faixa acima do painel. A área de
-navegação do teclado passa para baixo da área principal. Abaixo de 580 px, a
-navegação vira uma barra horizontal. Botões, formulários e textos longos quebram
-linhas. Não há dependência de fontes externas, bibliotecas ou scripts inline.
+Em larguras intermediárias, camadas ficam em uma faixa acima do painel. O teclado
+preserva o tamanho legível das teclas em uma região com rolagem horizontal própria.
+Abaixo de 580 px, a navegação vira uma barra horizontal. Botões, formulários e textos
+longos quebram linhas. Avisos ficam afastados da área principal de salvamento. Não há
+dependência de fontes externas, bibliotecas ou scripts inline.
 
 ## Limites
 
-A visualização física usa referência QWERTY com teclas de navegação; teclados ABNT2,
-ISO e numéricos podem ter legendas e posições diferentes. Os códigos recebidos
+A visualização física usa referência QWERTY, navegação e numpad; teclados ABNT2
+e ISO podem ter legendas e posições diferentes. Os códigos recebidos
 continuam aparecendo no indicador textual de teclas pressionadas. Captura global
 e execução dependem da integração nativa e das permissões do sistema, informadas
 pelo estado vindo do processo principal.

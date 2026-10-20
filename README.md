@@ -15,6 +15,11 @@ npm start
 
 O aplicativo começa com as ações pausadas e o rastreio desligado.
 
+A interface distingue a camada em uso da camada aberta para configuração.
+O editor protege alterações não salvas, e os testes mostram execução e resultado
+na própria ação. Headers e parâmetros HTTP são preenchidos como pares nome/valor;
+a configuração exportada continua usando o mesmo formato JSON.
+
 1. Em **Camadas**, cadastre ou edite suas camadas e ações.
 2. Na camada 1 inicial, `A` salva uma mensagem em log. Na camada 2, `A` cria
    uma nota em `Documentos/Keyboard Tracker`.
@@ -66,8 +71,8 @@ simultaneamente. Nenhuma request é disparada ao cadastrar ou abrir o aplicativo
 Quando a captura global não estiver disponível, o aplicativo explica o motivo e
 usa o rastreio local. Teclas simultâneas acendem até serem soltas. O desenho é uma
 referência física QWERTY; layouts ABNT2/idiomas podem ter legendas diferentes.
-Numpad e teclas extras não têm desenho próprio, mas códigos reconhecidos aparecem
-no texto de teclas pressionadas. Rastreio não salva teclas em arquivo/histórico,
+O numpad tem desenho próprio; teclas extras reconhecidas também aparecem nos chips
+e no texto de teclas pressionadas. Rastreio não salva teclas em arquivo/histórico,
 não reconstitui texto digitado e não envia eventos à rede.
 
 ## Configuração e dados
@@ -102,6 +107,20 @@ instaladores a cada push na `main`. Também pode ser executado em
 eles não são publicados em releases automaticamente. Assinatura de
 código e notarização dependem dos certificados do distribuidor; os builds de
 desenvolvimento podem acionar avisos do sistema.
+
+No Linux, o teste da interface em Electron real usa um display isolado:
+
+```bash
+xvfb-run -a npm run test:ui
+```
+
+Ele exercita cadastro, persistência, rascunhos, fechamento/navegação, requisições
+HTTP reais em loopback, feedback de erro, rastreio local e 28 combinações de tela
+e largura. Capturas ficam em `artifacts/ui-audit/` (não versionadas). O workflow
+executa esse teste no job Linux; o processo de teste em CI usa `--no-sandbox`
+somente para a instância isolada de QA.
+
+Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
 
 Validação local: testes automatizados de ações e persistência, app Electron e
 captura nativa em display Linux/X11 isolado. Windows/macOS e portais Wayland ainda
