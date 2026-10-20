@@ -100,3 +100,21 @@ O tema avaliado é o claro documentado em DESIGN.md. As permissões e limitaçõ
 captura global do sistema operacional continuam conforme README.md.
 
 Nenhum problema bloqueante conhecido ficou aberto no escopo inspecionado.
+
+## Próximas melhorias planejadas
+
+Solicitadas após a auditoria. Os itens abaixo estão planejados e ainda não foram
+implementados.
+
+- [ ] **Sidebar recolhível:** permitir recolher e expandir a navegação por um
+  controle explícito, acessível pelo teclado, e lembrar a preferência. No modo
+  recolhido, manter ícones identificáveis com nomes acessíveis e dicas ao passar
+  o mouse ou receber foco, destacar a tela atual e liberar espaço para o conteúdo.
+- [ ] **Interface mais minimalista:** reduzir textos auxiliares permanentes,
+  bordas e elementos concorrentes; priorizar o conteúdo e a ação principal de
+  cada tela. Apresentar opções secundárias sob demanda e simplificar a disposição
+  das informações, mantendo visíveis o estado de execução e a camada em uso,
+  além de preservar contraste, foco e feedback das ações.
+
+Na implementação, validar as quatro telas com a sidebar aberta e recolhida,
+incluindo navegação por teclado e janelas compactas.
