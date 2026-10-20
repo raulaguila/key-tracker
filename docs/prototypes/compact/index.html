@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Keyboard Tracker · Protótipo compacto</title>
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <a href="#content" class="skip">Pular para o conteúdo</a>
+  <div class="shell" id="shell">
+    <aside class="rail" aria-label="Navegação principal">
+      <div class="brand"><img src="../../../app/assets/icon.svg" alt="" width="24" height="24"><span>Keyboard Tracker</span></div>
+      <nav id="navigation" aria-label="Telas">
+        <button type="button" data-view="layers" aria-label="Camadas" aria-current="page"><span class="nav-name">Camadas</span></button>
+        <button type="button" data-view="tracking" aria-label="Rastreio"><span class="nav-name">Rastreio</span></button>
+        <button type="button" data-view="history" aria-label="Histórico"><span class="nav-name">Histórico</span></button>
+        <button type="button" data-view="settings" aria-label="Configurações"><span class="nav-name">Configurações</span></button>
+      </nav>
+      <button id="nav-toggle" class="nav-toggle" type="button" aria-label="Expandir menu" aria-expanded="false"><span class="nav-name">Recolher menu</span></button>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="breadcrumb"><strong id="page-name">Camadas</strong><span class="prototype-label">Protótipo · dados de exemplo</span></div>
+        <div class="engine"><span id="engine-state"><i class="dot"></i>Pausado</span><button id="engine-toggle" class="control" type="button" aria-pressed="false">Ativar ações</button></div>
+      </header>
+      <main id="content" tabindex="-1"></main>
+      <footer class="statusbar"><span id="status-context">Em uso: Automação</span><span>F8 alternar camada <b>·</b> Ctrl + Shift + F12 pausar</span><span id="demo-note">Prévia local · sem executar ações</span></footer>
+    </div>
+  </div>
+  <div id="feedback" class="feedback" role="status" hidden></div>
+</body>
+</html>

@@ -127,6 +127,10 @@ somente para a instância isolada de QA.
 
 Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
 
+Uma proposta navegável de interface mais compacta e seleção de layout do teclado
+está em [docs/prototypes/compact](docs/prototypes/compact/README.md). É uma prévia
+separada, com dados de exemplo, anterior à aplicação das mudanças no desktop.
+
 Validação local: testes automatizados de ações e persistência, app Electron e
 captura nativa em display Linux/X11 isolado. Windows/macOS e portais Wayland ainda
 precisam de teste no ambiente real antes de uma release pública. O capturador de
