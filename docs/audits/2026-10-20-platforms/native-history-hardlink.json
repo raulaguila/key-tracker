@@ -1,0 +1,8 @@
+{
+  "head": "77a360d",
+  "platform": "linux",
+  "differentCanonicalPaths": true,
+  "protectedConfigOverwritten": true,
+  "resultContainsHistory": true,
+  "limitation": "Both files were temporary; reproduced on Linux hard links. Windows NTFS/macOS support requires native runner confirmation."
+}

@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "date": "2026-10-20T18:13:27.993Z",
+  "commit": "a6be5d46ada31d478087f463a999e5f05e489bde",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26100",
+    "cpu": "AMD EPYC 7763 64-Core Processor                ",
+    "logicalCpus": 4,
+    "ramGiB": 15.998905181884766,
+    "node": "v24.22.0",
+    "electron": "44.9.1",
+    "ci": true,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "success",
+      "message": "Notificação de auditoria: Notificação exibida pelo sistema.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": null,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas não são salvas."
+    },
+    "applicationMonitor": {
+      "status": "ready",
+      "message": "Aguardando aplicativo em foco.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": true
+    }
+  },
+  "startupsMs": [
+    3590.8167,
+    986.4096,
+    2020.3908000000001
+  ],
+  "package": {
+    "archive": "dist\\win-unpacked\\resources\\app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/engine.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/renderer/app.js": true,
+      "app/renderer/action-editor.js": true
+    },
+    "nativeFiles": [
+      "\\node_modules\\get-windows\\lib\\binding\\napi-6-darwin-unknown-arm64\\node-active-win.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-6-darwin-unknown-x64\\node-active-win.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-9-darwin-unknown-arm64\\node-get-windows.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-9-win32-unknown-x64\\node-get-windows.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\darwin-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\darwin-x64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-loong64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-x64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\win32-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\win32-x64\\uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 2020.3908000000001,
+    "p95": 3590.8167,
+    "max": 3590.8167,
+    "mean": 2199.2057
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.08289266672853866,
+      "p95": 0.1153706381701328,
+      "max": 0.1153706381701328,
+      "mean": 0.08047324709631638
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 333.171875,
+      "p95": 333.2421875,
+      "max": 333.2421875,
+      "mean": 332.6203125
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 2.5,
+        "p95": 4,
+        "max": 4.899999999994179,
+        "mean": 2.794999999999709
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 2.400000000023283,
+        "p95": 2.7999999999883585,
+        "max": 2.7999999999883585,
+        "mean": 2.4750000000058208
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 27.70000000001164,
+        "p95": 33.19999999998254,
+        "max": 33.29999999998836,
+        "mean": 27.68999999999942
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 76.79999999998836,
+        "p95": 77.60000000000582,
+        "max": 77.60000000000582,
+        "mean": 72.77500000000146
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

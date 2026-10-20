@@ -1,0 +1,12 @@
+{
+  "head": "77a360d",
+  "platform": "linux-x64",
+  "nativeLoadWithLibXtUnavailable": {
+    "loaded": false,
+    "code": "ERR_DLOPEN_FAILED",
+    "missingLibXt": true
+  },
+  "debDepends": "libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0",
+  "declaresLibXt": false,
+  "limitation": "Missing library simulated through LD_AUDIT; no system package removed, no clean distribution install performed."
+}

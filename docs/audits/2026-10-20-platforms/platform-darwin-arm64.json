@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "date": "2026-10-20T18:13:01.908Z",
+  "commit": "a6be5d46ada31d478087f463a999e5f05e489bde",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "25.6.0",
+    "cpu": "Apple M1 (Virtual)",
+    "logicalCpus": 3,
+    "ramGiB": 7,
+    "node": "v24.21.0",
+    "electron": "44.9.1",
+    "ci": true,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "error",
+      "message": "Notificação de auditoria: O sistema não confirmou a exibição da notificação.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": true,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas não são salvas."
+    },
+    "applicationMonitor": {
+      "status": "ready",
+      "message": "Aguardando aplicativo em foco.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": true
+    }
+  },
+  "startupsMs": [
+    3111.624208,
+    529.5749169999995,
+    541.596458
+  ],
+  "package": {
+    "archive": "dist/mac-arm64/Keyboard Tracker.app/Contents/Resources/app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/engine.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/renderer/app.js": true,
+      "app/renderer/action-editor.js": true
+    },
+    "nativeFiles": [
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-arm64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-x64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-9-darwin-unknown-arm64/node-get-windows.node",
+      "/node_modules/get-windows/main",
+      "/node_modules/uiohook-napi/prebuilds/darwin-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/darwin-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-loong64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-x64/uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 541.596458,
+    "p95": 3111.624208,
+    "max": 3111.624208,
+    "mean": 1394.265194333333
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.24070773515214444,
+      "p95": 0.7980313817563267,
+      "max": 0.7980313817563267,
+      "mean": 0.29631307722292577
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 408.296875,
+      "p95": 417.421875,
+      "max": 417.421875,
+      "mean": 411.28125
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 2.3000000000029104,
+        "p95": 7.100000000005821,
+        "max": 15.30000000000291,
+        "mean": 3.2099999999998543
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 17.29999999998836,
+        "p95": 24.20000000001164,
+        "max": 24.20000000001164,
+        "mean": 19.899999999997817
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 15.10000000000582,
+        "p95": 18,
+        "max": 21.19999999999709,
+        "mean": 15.769999999999708
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 33.5,
+        "p95": 50.30000000000291,
+        "max": 50.30000000000291,
+        "mean": 40.875
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

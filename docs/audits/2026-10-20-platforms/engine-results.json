@@ -1,0 +1,162 @@
+{
+  "head": "77a360d",
+  "platform": "linux",
+  "node": "v24.15.0",
+  "at": "2026-10-20T18:06:44.933Z",
+  "cases": {
+    "persistenceSimple": {
+      "layers": 12,
+      "bindings": 1200,
+      "compactBytes": 130725,
+      "fileBytes": 271859,
+      "limit": 262144,
+      "save": "accepted",
+      "reload": "Não foi possível ler <temporary>/simple/config.json. Arquivo preservado. Arquivo de configuração excede 256 KB.",
+      "exportBytes": 271859,
+      "importStatWouldReject": true,
+      "pureValidationByPlatform": {
+        "linux": "accepted",
+        "win32": "accepted",
+        "darwin": "accepted"
+      }
+    },
+    "persistenceSequence": {
+      "layers": 3,
+      "bindings": 300,
+      "sequenceSteps": 10,
+      "compactBytes": 129054,
+      "fileBytes": 366275,
+      "limit": 262144,
+      "save": "accepted",
+      "reload": "Não foi possível ler <temporary>/sequence/config.json. Arquivo preservado. Arquivo de configuração excede 256 KB.",
+      "exportBytes": 366275,
+      "importStatWouldReject": true,
+      "pureValidationByPlatform": {
+        "linux": "accepted",
+        "win32": "accepted",
+        "darwin": "accepted"
+      }
+    },
+    "pauseCooldown": {
+      "cooldownMs": 10000,
+      "enabledAfterResume": true,
+      "enabledAfterImmediatePause": true,
+      "expectedAfterImmediatePause": false
+    },
+    "layerActionCooldown": {
+      "cooldownMs": 10000,
+      "elapsedMs": 0.8831169999999986,
+      "copies": 2,
+      "expectedCopies": 1,
+      "recordedActions": 2
+    },
+    "sequenceBounds": {
+      "peakInFlight": 4,
+      "nativeCallsForFourTenStepSequences": 40,
+      "sameBindingError": "Esta ação ainda está em execução.",
+      "fifthError": "Limite de quatro ações simultâneas atingido.",
+      "historyLength": 100,
+      "finalInFlight": 0
+    },
+    "pauseSequenceContract": {
+      "enabled": false,
+      "secondStepFileExists": true,
+      "contract": "Pausar impede novos disparos; ações já iniciadas terminam normalmente."
+    },
+    "openValidation": {
+      "linux": [
+        {
+          "target": "C:\\Program Files\\App\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "C:app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "\\Windows\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "/usr/bin/app",
+          "result": "/usr/bin/app"
+        },
+        {
+          "target": "\\\\server\\share\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "C:\\Apps\\app.exe --argument",
+          "error": "Escolha um caminho absoluto para o destino."
+        }
+      ],
+      "win32": [
+        {
+          "target": "C:\\Program Files\\App\\app.exe",
+          "result": "C:\\Program Files\\App\\app.exe"
+        },
+        {
+          "target": "C:app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "\\Windows\\app.exe",
+          "result": "\\Windows\\app.exe"
+        },
+        {
+          "target": "/usr/bin/app",
+          "result": "/usr/bin/app"
+        },
+        {
+          "target": "\\\\server\\share\\app.exe",
+          "result": "\\\\server\\share\\app.exe"
+        },
+        {
+          "target": "C:\\Apps\\app.exe --argument",
+          "result": "C:\\Apps\\app.exe --argument"
+        }
+      ],
+      "darwin": [
+        {
+          "target": "C:\\Program Files\\App\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "C:app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "\\Windows\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "/usr/bin/app",
+          "result": "/usr/bin/app"
+        },
+        {
+          "target": "\\\\server\\share\\app.exe",
+          "error": "Escolha um caminho absoluto para o destino."
+        },
+        {
+          "target": "C:\\Apps\\app.exe --argument",
+          "error": "Escolha um caminho absoluto para o destino."
+        }
+      ]
+    },
+    "sequenceRealLogIO": {
+      "scenario": "four sequences of ten legacy log steps with real filesystem, no Electron",
+      "elapsedMs": 6.109670000000001,
+      "writes": 44,
+      "recordedLines": 44,
+      "peakQueuedWrites": 4,
+      "events": 4,
+      "stepsPerEvent": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "allSuccess": true
+    }
+  }
+}

@@ -1,0 +1,548 @@
+{
+  "version": 1,
+  "date": "2026-10-20T18:04:51.408Z",
+  "commit": "77a360d6a289141f287718fa77498202721a75ac",
+  "environment": {
+    "cpu": "12th Gen Intel(R) Core(TM) i9-12900K",
+    "logicalCpus": 24,
+    "ramGiB": 61.56621551513672,
+    "node": "v24.15.0",
+    "electron": "44.9.1",
+    "platform": "linux",
+    "release": "7.0.0-38-generic",
+    "display": "Xvfb",
+    "gpu": "disabled",
+    "package": "linux-unpacked",
+    "notes": [
+      "Lab on a fast desktop; shared machine and OS file caches are not isolated.",
+      "CDP instrumentation has overhead. Synchronous DOM costs are not INP or physical-key latency.",
+      "Summed RSS includes shared pages; not unique physical memory."
+    ]
+  },
+  "startups": [
+    272.239127,
+    276.883855,
+    277.271207,
+    311.166881,
+    301.92279899999994
+  ],
+  "steady": {
+    "defaultPaused": {
+      "seconds": 8,
+      "cpuPercent": {
+        "n": 8,
+        "median": 0,
+        "p95": 0.291214209447786,
+        "max": 0.291214209447786,
+        "mean": 0.05196300367700768
+      },
+      "summedRssMiB": {
+        "n": 8,
+        "median": 520.19140625,
+        "p95": 525.0078125,
+        "max": 525.0078125,
+        "mean": 521.00390625
+      },
+      "pssSnapshotMiB": 219.05078125,
+      "privateSnapshotMiB": 126.82421875,
+      "processes": [
+        {
+          "pid": 3655360,
+          "type": "Browser",
+          "cpu": 0,
+          "cumulative": 0.35,
+          "rssKiB": 175120
+        },
+        {
+          "pid": 3655398,
+          "type": "GPU",
+          "cpu": 0,
+          "cumulative": 0.07,
+          "rssKiB": 152284
+        },
+        {
+          "pid": 3655402,
+          "type": "Utility",
+          "cpu": 0,
+          "cumulative": 0.04,
+          "rssKiB": 84280
+        },
+        {
+          "pid": 3655420,
+          "type": "Tab",
+          "cpu": 0,
+          "cumulative": 0.08,
+          "rssKiB": 117916
+        }
+      ]
+    },
+    "tracking": {
+      "seconds": 8,
+      "cpuPercent": {
+        "n": 8,
+        "median": 0,
+        "p95": 0.041602640203393645,
+        "max": 0.041602640203393645,
+        "mean": 0.01556133736659018
+      },
+      "summedRssMiB": {
+        "n": 8,
+        "median": 703.5546875,
+        "p95": 715.359375,
+        "max": 715.359375,
+        "mean": 705.60302734375
+      },
+      "pssSnapshotMiB": 309.087890625,
+      "privateSnapshotMiB": 200.4609375,
+      "processes": [
+        {
+          "pid": 3655360,
+          "type": "Browser",
+          "cpu": 0,
+          "cumulative": 0.69,
+          "rssKiB": 180968
+        },
+        {
+          "pid": 3655398,
+          "type": "GPU",
+          "cpu": 0,
+          "cumulative": 0.35,
+          "rssKiB": 153636
+        },
+        {
+          "pid": 3655402,
+          "type": "Utility",
+          "cpu": 0,
+          "cumulative": 0.04,
+          "rssKiB": 84356
+        },
+        {
+          "pid": 3655420,
+          "type": "Tab",
+          "cpu": 0,
+          "cumulative": 1.11,
+          "rssKiB": 184292
+        },
+        {
+          "pid": 3656102,
+          "type": "Utility",
+          "cpu": 0,
+          "cumulative": 0.04,
+          "rssKiB": 106664
+        }
+      ]
+    },
+    "applicationMonitor": {
+      "seconds": 8,
+      "cpuPercent": {
+        "n": 8,
+        "median": 0.08290009742419449,
+        "p95": 0.08296819032770113,
+        "max": 0.08296819032770113,
+        "mean": 0.06219761576477447
+      },
+      "summedRssMiB": {
+        "n": 8,
+        "median": 606.3125,
+        "p95": 612.92578125,
+        "max": 612.92578125,
+        "mean": 608.85546875
+      },
+      "pssSnapshotMiB": 301.7548828125,
+      "privateSnapshotMiB": 204.08203125,
+      "processes": [
+        {
+          "pid": 3655360,
+          "type": "Browser",
+          "cpu": 0.041503516343918724,
+          "cumulative": 1,
+          "rssKiB": 195120
+        },
+        {
+          "pid": 3655398,
+          "type": "GPU",
+          "cpu": 0,
+          "cumulative": 0.46,
+          "rssKiB": 153088
+        },
+        {
+          "pid": 3655402,
+          "type": "Utility",
+          "cpu": 0,
+          "cumulative": 0.04,
+          "rssKiB": 84400
+        },
+        {
+          "pid": 3655420,
+          "type": "Tab",
+          "cpu": 0,
+          "cumulative": 1.68,
+          "rssKiB": 188256
+        }
+      ]
+    },
+    "largeConfigPaused": {
+      "seconds": 5,
+      "cpuPercent": {
+        "n": 5,
+        "median": 0,
+        "p95": 0.08307248572814695,
+        "max": 0.08307248572814695,
+        "mean": 0.02492317862102522
+      },
+      "summedRssMiB": {
+        "n": 5,
+        "median": 976.578125,
+        "p95": 977.4921875,
+        "max": 977.4921875,
+        "mean": 974.29375
+      },
+      "pssSnapshotMiB": 654.3447265625,
+      "privateSnapshotMiB": 552.0859375,
+      "processes": [
+        {
+          "pid": 3655360,
+          "type": "Browser",
+          "cpu": 0,
+          "cumulative": 1.85,
+          "rssKiB": 253276
+        },
+        {
+          "pid": 3655398,
+          "type": "GPU",
+          "cpu": 0,
+          "cumulative": 0.85,
+          "rssKiB": 168356
+        },
+        {
+          "pid": 3655402,
+          "type": "Utility",
+          "cpu": 0,
+          "cumulative": 0.04,
+          "rssKiB": 84592
+        },
+        {
+          "pid": 3655420,
+          "type": "Tab",
+          "cpu": 0,
+          "cumulative": 6.91,
+          "rssKiB": 481568
+        }
+      ]
+    }
+  },
+  "interactions": {
+    "default": {
+      "searchSynchronousMs": {
+        "n": 20,
+        "median": 0.5999999940395355,
+        "p95": 1,
+        "max": 1.0999999940395355
+      },
+      "navigationSynchronousMs": {
+        "n": 48,
+        "median": 2.8000000044703484,
+        "p95": 8.5,
+        "max": 10.700000002980232
+      },
+      "drawerOpenSynchronousMs": {
+        "n": 12,
+        "median": 7.200000002980232,
+        "p95": 18.600000001490116,
+        "max": 18.600000001490116
+      },
+      "domElements": 187,
+      "ipc": {
+        "editingRoundTripMs": {
+          "n": 40,
+          "median": 1.6000000014901161,
+          "p95": 5.5,
+          "max": 5.699999995529652,
+          "mean": 2.734999999962747
+        },
+        "saveRoundTripMs": {
+          "n": 5,
+          "median": 1.2999999970197678,
+          "p95": 1.7000000029802322,
+          "max": 1.7000000029802322,
+          "mean": 1.2799999997019769
+        }
+      }
+    },
+    "hundredActions": {
+      "searchSynchronousMs": {
+        "n": 20,
+        "median": 6.4000000059604645,
+        "p95": 11.200000002980232,
+        "max": 15.300000004470348
+      },
+      "navigationSynchronousMs": {
+        "n": 48,
+        "median": 2.2999999970197678,
+        "p95": 21.200000002980232,
+        "max": 23.600000001490116
+      },
+      "drawerOpenSynchronousMs": {
+        "n": 12,
+        "median": 21.399999998509884,
+        "p95": 35,
+        "max": 35
+      },
+      "domElements": 4033,
+      "ipc": {
+        "editingRoundTripMs": {
+          "n": 40,
+          "median": 0.9000000059604645,
+          "p95": 3.9000000059604645,
+          "max": 5.899999998509884,
+          "mean": 1.402500000037253
+        },
+        "saveRoundTripMs": {
+          "n": 5,
+          "median": 3.600000001490116,
+          "p95": 4.399999998509884,
+          "max": 4.399999998509884,
+          "mean": 3.5200000002980234
+        }
+      }
+    },
+    "largeConfig": {
+      "searchSynchronousMs": {
+        "n": 20,
+        "median": 5.200000002980232,
+        "p95": 6.5999999940395355,
+        "max": 20.5
+      },
+      "navigationSynchronousMs": {
+        "n": 48,
+        "median": 2.1999999955296516,
+        "p95": 17.200000002980232,
+        "max": 17.30000000447035
+      },
+      "drawerOpenSynchronousMs": {
+        "n": 12,
+        "median": 22.5,
+        "p95": 30.5,
+        "max": 30.5
+      },
+      "domElements": 4129,
+      "ipc": {
+        "editingRoundTripMs": {
+          "n": 40,
+          "median": 11.5,
+          "p95": 15,
+          "max": 16,
+          "mean": 12.115000000037252
+        },
+        "saveRoundTripMs": {
+          "n": 5,
+          "median": 30.100000001490116,
+          "p95": 46,
+          "max": 46,
+          "mean": 32.7
+        }
+      }
+    }
+  },
+  "startupMs": {
+    "n": 5,
+    "median": 277.271207,
+    "p95": 311.166881,
+    "max": 311.166881,
+    "mean": 287.8967738
+  },
+  "trackingMode": "global",
+  "keyIpcToDomMs": {
+    "n": 240,
+    "median": 0.38037109375,
+    "p95": 1.293701171875,
+    "max": 3.4951171875,
+    "mean": 0.4724761962890625
+  },
+  "applicationStatus": {
+    "status": "unavailable",
+    "message": "Nenhum aplicativo em foco foi identificado. O controle manual continua disponível.",
+    "current": null
+  },
+  "largeConfig": {
+    "layers": 25,
+    "actions": 2500,
+    "compactBytes": 254920,
+    "persistedBytes": 548895
+  },
+  "beforeCycles": {
+    "heap": {
+      "usedSize": 2588416,
+      "totalSize": 3932160,
+      "embedderHeapUsedSize": 7509832,
+      "backingStorageSize": 244969
+    },
+    "dom": {
+      "documents": 2,
+      "nodes": 5498,
+      "jsEventListeners": 653
+    }
+  },
+  "afterCycles": {
+    "heap": {
+      "usedSize": 2718280,
+      "totalSize": 3407872,
+      "embedderHeapUsedSize": 7603376,
+      "backingStorageSize": 244969
+    },
+    "dom": {
+      "documents": 2,
+      "nodes": 5498,
+      "jsEventListeners": 653
+    }
+  },
+  "longTasks": [],
+  "rendererPerformance": {
+    "metrics": [
+      {
+        "name": "Timestamp",
+        "value": 62811.423427
+      },
+      {
+        "name": "AudioHandlers",
+        "value": 0
+      },
+      {
+        "name": "AudioWorkletProcessors",
+        "value": 0
+      },
+      {
+        "name": "Documents",
+        "value": 2
+      },
+      {
+        "name": "Frames",
+        "value": 2
+      },
+      {
+        "name": "JSEventListeners",
+        "value": 653
+      },
+      {
+        "name": "LayoutObjects",
+        "value": 3812
+      },
+      {
+        "name": "MediaKeySessions",
+        "value": 0
+      },
+      {
+        "name": "MediaKeys",
+        "value": 0
+      },
+      {
+        "name": "Nodes",
+        "value": 5498
+      },
+      {
+        "name": "Resources",
+        "value": 9
+      },
+      {
+        "name": "ContextLifecycleStateObservers",
+        "value": 5
+      },
+      {
+        "name": "V8PerContextDatas",
+        "value": 2
+      },
+      {
+        "name": "WorkerGlobalScopes",
+        "value": 0
+      },
+      {
+        "name": "UACSSResources",
+        "value": 0
+      },
+      {
+        "name": "RTCPeerConnections",
+        "value": 0
+      },
+      {
+        "name": "ResourceFetchers",
+        "value": 2
+      },
+      {
+        "name": "AdSubframes",
+        "value": 0
+      },
+      {
+        "name": "DetachedScriptStates",
+        "value": 0
+      },
+      {
+        "name": "ArrayBufferContents",
+        "value": 0
+      },
+      {
+        "name": "LayoutCount",
+        "value": 2405
+      },
+      {
+        "name": "RecalcStyleCount",
+        "value": 3152
+      },
+      {
+        "name": "LayoutDuration",
+        "value": 2.555819
+      },
+      {
+        "name": "RecalcStyleDuration",
+        "value": 2.373437
+      },
+      {
+        "name": "DevToolsCommandDuration",
+        "value": 0.014053
+      },
+      {
+        "name": "ScriptDuration",
+        "value": 3.275659
+      },
+      {
+        "name": "V8CompileDuration",
+        "value": 0
+      },
+      {
+        "name": "TaskDuration",
+        "value": 13.267328
+      },
+      {
+        "name": "TaskOtherDuration",
+        "value": 5.04836
+      },
+      {
+        "name": "ThreadTime",
+        "value": 13.326947
+      },
+      {
+        "name": "ProcessTime",
+        "value": 0
+      },
+      {
+        "name": "JSHeapUsedSize",
+        "value": 2722532
+      },
+      {
+        "name": "JSHeapTotalSize",
+        "value": 3670016
+      },
+      {
+        "name": "FirstMeaningfulPaint",
+        "value": 62761.04022
+      },
+      {
+        "name": "DomContentLoaded",
+        "value": 62760.92186
+      },
+      {
+        "name": "NavigationStart",
+        "value": 62760.893279
+      }
+    ]
+  }
+}

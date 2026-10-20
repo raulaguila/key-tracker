@@ -232,6 +232,8 @@ a entrega de notificações ainda requer validação no desktop instalado de cad
 Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
 Análise atual, problemas reproduzidos e medições do executável:
 [auditoria de UI/UX e performance](docs/audits/2026-10-20/report.md).
+Compatibilidade, integrações nativas e medições nos três runners:
+[auditoria de performance e sistemas operacionais](docs/audits/2026-10-20-platforms/report.md).
 
 O protótipo que orientou o design adotado está preservado em
 [docs/prototypes/compact](docs/prototypes/compact/README.md), com dados de exemplo.
