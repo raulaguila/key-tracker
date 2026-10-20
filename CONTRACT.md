@@ -2,6 +2,46 @@
 
 Status: accepted — escopo autorizado pelo usuário em “Faça tudo”.
 
+## Expansão aprovada: ações de produtividade (20/10/2026)
+
+Autorização: “Implemente as opções sugeridas”. Configuração permanece versão 1;
+ações legadas continuam válidas. Novos tipos:
+
+- `{type:'clipboard', text:'...'}`: copia texto interpolado, sem colar/injetar teclas.
+- `{type:'open', kind:'url'|'path'|'application', target:'...'}`: abre HTTP/HTTPS,
+  arquivo/pasta absoluto ou aplicativo absoluto; aplicativos sem argumentos ou shell.
+- `{type:'notification', title:'...', message:'...'}`: notificação nativa, com
+  erro visível quando não suportada ou rejeitada; não promete leitura pelo usuário.
+- `{type:'layer', layerId:'...'}`: seleciona a camada existente, equivalente à
+  escolha manual; não ativa o motor nem dispara ações da camada de destino.
+- `{type:'sequence', steps:[Action, ...]}`: de 1 a 10 etapas, sem sequências
+  aninhadas. Executa em ordem e para na primeira falha; efeitos já concluídos não
+  são desfeitos. Cada etapa pode usar qualquer tipo simples, inclusive legado.
+
+Prévia resolve todas as etapas sem I/O; token congela valores como nas ações
+atuais. Variáveis de todas as etapas usam tecla/camada de origem e o mesmo instante
+da preparação. Headers HTTP são mascarados também dentro das sequências.
+Referências de camada são validadas na configuração completa, inclusive em
+sequências; remover um destino referenciado é rejeitado com mensagem clara.
+
+Eventos de execução ganham `steps` opcional: `[{index,type,status,message,durationMs,
+httpStatus?}]`, índices base 1, somente etapas iniciadas. Resultados não incluem
+texto copiado, mensagens de notificação, caminhos privados, headers ou corpos.
+Uma sequência ocupa uma das quatro execuções concorrentes do motor, não dez vagas.
+Histórico exibe etapas e resultado parcial; HTTP usa as mesmas mensagens sanitizadas
+mesmo dentro da sequência. O registro automático de execuções permanece ativo.
+
+Novos métodos preload: `chooseActionTarget(kind:'path'|'application') → string|null`
+e `exportHistory() → void` (exporta os eventos da sessão por diálogo nativo).
+Não expor clipboard, shell ou execução arbitrária ao renderer. Serviços nativos
+injetados no motor apenas no main; testes unitários substituem somente essa borda.
+O seletor principal prioriza os novos tipos; log legado aparece como opção
+avançada/compatível para editar ações existentes e em etapas, sem converter dados.
+
+Aceite: CRUD/preview/teste dos cinco tipos na interface, ordem/falha parcial,
+persistência/reload, referências de camada, mascaramento, histórico com detalhes e
+exportação, clipboard real no Electron Linux e builds dos três sistemas.
+
 Electron main controla dados, ações e APIs nativas. Renderer sem Node, isolado e
 sandboxed. Somente `window.keyboardTracker` é exposto pelo preload. Sem servidor
 HTTP, serviços externos, mocks ou dados fictícios em produção.

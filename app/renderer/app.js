@@ -1,11 +1,12 @@
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
+import { createActionEditor, actionLabels, actionTypeLabels } from './action-editor.js';
 import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
 const api = window.keyboardTracker;
 const main = document.querySelector('#main');
-const labels = { http: 'Requisição HTTP', file: 'Arquivo', log: 'Log' };
+const labels = actionLabels;
 const pendingBindings = new Set();
 const pressed = new Map();
 const keyNodes = new Map();
@@ -413,6 +414,11 @@ function renderLayers() {
 function actionSummary(action) {
   if (action.type === 'http') return action.method + ' ' + action.url;
   if (action.type === 'file') return (action.mode === 'append' ? 'Acrescentar em ' : 'Criar ') + action.filename;
+  if (action.type === 'clipboard') return action.text;
+  if (action.type === 'open') return action.target;
+  if (action.type === 'notification') return action.title;
+  if (action.type === 'layer') return 'Usar ' + (layerById(action.layerId)?.name || 'camada de destino');
+  if (action.type === 'sequence') return action.steps.length + ' etapas · ' + action.steps.map(step => actionTypeLabels[step.type]).join(' → ');
   return action.message;
 }
 
@@ -434,7 +440,7 @@ function updateBindings() {
   if (!matches.length) {
     container.append(query
       ? empty('Nenhuma ação encontrada', 'Tente outro nome, tecla ou tipo.', button('Limpar busca', () => { actionQuery = ''; render(); }))
-      : empty('Escolha sua primeira tecla', 'Associe uma tecla a uma requisição, um arquivo ou uma mensagem de log.',
+      : empty('Escolha sua primeira tecla', 'Escolha uma tecla para copiar texto, abrir um destino, mostrar uma notificação ou executar uma sequência.',
         button('Criar primeira ação', () => startEditor({ kind: 'binding', value: null }), '', { symbol: 'plus' })));
   }
   if (matches.length) {
@@ -449,7 +455,7 @@ function updateBindings() {
       body.append(el('tr', { class: 'binding-row' + (binding.enabled === false ? ' binding-disabled' : ''), 'data-binding-id': binding.id },
         el('td', { class: 'binding-key' }, shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null),
         el('td', { class: 'binding-copy' }, el('strong', {}, binding.name), result),
-        el('td', { class: 'type-column', title: labels[binding.action.type] }, { http: 'HTTP', file: 'Arquivo', log: 'Log' }[binding.action.type]),
+        el('td', { class: 'type-column', title: labels[binding.action.type] }, actionTypeLabels[binding.action.type]),
         el('td', { class: 'summary-column' }, el('span', { class: 'binding-summary', title: actionSummary(binding.action) }, actionSummary(binding.action))),
         el('td', { class: 'controls-column' }, el('div', { class: 'binding-actions' },
           button(pending ? 'Executando…' : 'Executar teste: ' + binding.name, () => void runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, title: 'Executar teste: ' + binding.name, disabled: pending, 'data-focus': 'test-' + binding.id }),
@@ -518,7 +524,10 @@ async function executePreview() {
   finally {
     target.running = false;
     pendingBindings.delete(target.value.id);
-    if (editor === target) updateTestPreview();
+    if (editor === target) {
+      updateTestPreview();
+      document.querySelector('#editor-drawer')?.scrollTo({ top: 0, behavior: 'instant' });
+    }
     updateBindings();
     updateStatus();
   }
@@ -530,6 +539,31 @@ function testPreviewPanel(layer) {
     el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
     el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
       el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));
+}
+
+function actionPreview(action) {
+  if (action.type === 'sequence') return el('section', { class: 'sequence-preview' },
+    el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem. A primeira falha interrompe as próximas; efeitos concluídos não são desfeitos.'),
+    el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {}, el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.type]), actionPreview(step)))));
+  const entries = action.type === 'http' ? [['Método', action.method], ['URL final', action.url], ['Headers', Object.entries(action.headers || {}).map(([key, value]) => key + ': ' + value).join('\n') || 'Sem headers'], ['Corpo', action.body || 'Sem corpo']]
+    : action.type === 'file' ? [['Operação', action.mode === 'append' ? 'Acrescentar ao final' : 'Criar sem sobrescrever'], ['Arquivo', action.target], ['Conteúdo', action.content || 'Arquivo vazio']]
+      : action.type === 'clipboard' ? [['Texto a copiar', action.text]]
+        : action.type === 'open' ? [[{ url: 'URL a abrir', path: 'Arquivo ou pasta', application: 'Aplicativo' }[action.kind], action.target]]
+          : action.type === 'notification' ? [['Título', action.title], ['Mensagem', action.message || 'Sem mensagem adicional']]
+            : action.type === 'layer' ? [['Camada de destino', action.layerName || layerById(action.layerId)?.name || action.layerId]]
+              : [['Mensagem do log', action.message]];
+  return el('dl', { class: 'preview-values' }, entries.map(([label, value]) => [el('dt', {}, label), el('dd', {}, el('pre', {}, value))]));
+}
+
+function executionSteps(steps, open = false, total, eventId) {
+  if (!steps?.length) return null;
+  const interrupted = steps.some(step => step.status === 'error');
+  return el('details', { class: 'execution-steps', open, 'data-event-steps': eventId },
+    el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' iniciadas' : ' registradas')),
+    el('ol', {}, steps.map(step => el('li', { value: step.index, class: 'execution-step ' + step.status },
+      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'error' ? 'alert' : 'check'), step.status === 'error' ? 'Falhou' : 'Concluída')),
+      el('p', {}, step.message), el('p', { class: 'hint' }, [Number.isFinite(step.durationMs) ? step.durationMs + ' ms' : null, step.httpStatus ? 'HTTP ' + step.httpStatus : null].filter(Boolean).join(' · '))))),
+    interrupted ? el('p', { class: 'hint' }, 'A sequência parou nesta falha. As etapas anteriores não foram desfeitas.' + (total && total > steps.length ? ' ' + (total - steps.length) + ' etapa(s) não iniciada(s).' : '')) : null);
 }
 
 function updateTestPreview() {
@@ -544,19 +578,19 @@ function updateTestPreview() {
   execute.querySelector('span').textContent = target.running ? 'Executando…' : 'Executar teste';
   refresh.disabled = target.running || target.loading;
   if (target.loading) content.append(el('p', { class: 'hint' }, 'Resolvendo variáveis…'));
-  if (target.resolvedAction) {
-    const action = target.resolvedAction;
-    const entries = action.type === 'http' ? [['Método', action.method], ['URL final', action.url], ['Headers', Object.entries(action.headers || {}).map(([key, value]) => key + ': ' + value).join('\n') || 'Sem headers'], ['Corpo', action.body || 'Sem corpo']]
-      : action.type === 'file' ? [['Operação', action.mode === 'append' ? 'Acrescentar ao final' : 'Criar sem sobrescrever'], ['Arquivo', action.target], ['Conteúdo', action.content || 'Arquivo vazio']]
-        : [['Mensagem', action.message]];
-    content.append(el('dl', { class: 'preview-values' }, entries.map(([label, value]) => [el('dt', {}, label), el('dd', {}, el('pre', {}, value))])),
-      el('p', { class: 'hint' }, target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'), ...(action.type === 'http' ? [el('p', { class: 'hint' }, 'Valores de headers ficam ocultos. A execução usa os valores completos.')] : []));
-  }
-  if (target.running) content.append(el('p', { class: 'context-note' }, icon('play'), 'Executando a ação… Você pode fechar este painel; o resultado ficará no Histórico.'));
   if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
     el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
-    el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.')));
+    el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.'),
+    executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined)));
   if (target.error) content.append(el('div', { class: 'form-errors', role: 'alert' }, icon('alert'), target.error));
+  if (target.resolvedAction) {
+    const action = target.resolvedAction;
+    content.append(actionPreview(action),
+      el('p', { class: 'hint' }, target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'),
+      ...(action.type === 'http' || action.type === 'sequence' && action.steps.some(step => step.type === 'http') ? [el('p', { class: 'hint' }, 'Valores de headers ficam ocultos. A execução usa os valores completos.')] : []));
+  }
+  if (target.running) content.append(el('p', { class: 'context-note' }, icon('play'), 'Executando a ação… Você pode fechar este painel; o resultado ficará no Histórico.'));
+
   if (!target.preview && !target.loading && !target.running && !target.result && !target.error) content.append(el('p', { class: 'hint' }, 'Aguardando a prévia…'));
 }
 
@@ -677,126 +711,18 @@ function layerForm() {
   return form;
 }
 
-function mapField(name, title, values, hint) {
-  const rows = el('div', { class: 'map-rows' });
-  const addRow = (key = '', value = '', focus = false) => {
-    const index = newId('row');
-    const keyInput = el('input', { name: name + '-key', 'aria-label': title + ': nome', placeholder: 'Nome', 'data-row': index });
-    const valueInput = el('input', { name: name + '-value', 'aria-label': title + ': valor', placeholder: 'Valor', 'data-row': index });
-    keyInput.value = key;
-    valueInput.value = value;
-    const row = el('div', { class: 'map-row' }, keyInput, valueInput, button('Remover parâmetro', () => {
-      row.remove();
-      if (!rows.children.length) addRow();
-      rows.querySelector('input')?.focus();
-      syncEditing();
-    }, 'quiet danger', { symbol: 'trash', iconOnly: true, title: 'Remover parâmetro' }));
-    rows.append(row);
-    if (focus) keyInput.focus();
-  };
-  const entries = Object.entries(values || {});
-  (entries.length ? entries : [['', '']]).forEach(([key, value]) => addRow(key, value));
-  return el('fieldset', { class: 'map-field', 'data-map': name }, el('legend', {}, title), el('p', { class: 'hint' }, hint),
-    el('div', { class: 'map-column-labels', 'aria-hidden': 'true' }, el('span', {}, 'Nome'), el('span', {}, 'Valor')), rows,
-    button('Adicionar parâmetro', () => { addRow('', '', true); syncEditing(); }, 'quiet small', { symbol: 'plus' }));
-}
-
-function readMap(container, name) {
-  const result = {};
-  for (const row of container.querySelectorAll('[data-map="' + name + '"] .map-row')) {
-    const keyInput = row.querySelector('[name="' + name + '-key"]');
-    const valueInput = row.querySelector('[name="' + name + '-value"]');
-    const key = keyInput.value.trim();
-    if (!key && !valueInput.value) continue;
-    if (!key) { keyInput.setAttribute('aria-invalid', 'true'); keyInput.focus(); throw new Error('Informe o nome do parâmetro que possui um valor.'); }
-    if (Object.hasOwn(result, key)) { keyInput.setAttribute('aria-invalid', 'true'); keyInput.focus(); throw new Error('O parâmetro “' + key + '” está repetido.'); }
-    Object.defineProperty(result, key, { value: valueInput.value, enumerable: true, configurable: true });
-  }
-  return result;
-}
-
 function bindingForm(layer) {
   const current = editor.value;
   const initial = current || editor.seed;
-  const currentAction = initial?.action || { type: 'log', message: '' };
-  const actionFields = el('div', { class: 'action-fields' });
-  const type = field('type', 'O que esta tecla deve fazer?', currentAction.type, { choices: Object.entries(labels).map(([key, value]) => [key, value === 'Arquivo' ? 'Criar ou acrescentar em um arquivo' : value === 'Log' ? 'Salvar uma mensagem no log' : value]) });
-  const drafts = {};
-  let activeType = currentAction.type;
-  function rememberFields() {
-    const values = Object.fromEntries([...actionFields.querySelectorAll('[name]')].filter(input => !input.name.endsWith('-key') && !input.name.endsWith('-value')).map(input => [input.name, input.value]));
-    // Draft rows are kept verbatim, including incomplete pairs, when switching types.
-    for (const name of ['headers', 'query']) values[name + 'Rows'] = [...actionFields.querySelectorAll('[data-map="' + name + '"] .map-row')].map(row => [...row.querySelectorAll('input')].map(input => input.value));
-    drafts[activeType] = values;
-  }
-  function showActionFields(actionType) {
-    actionFields.replaceChildren();
-    const values = drafts[actionType] || (actionType === currentAction.type ? currentAction : {});
-    if (actionType === 'http') {
-      const method = field('method', 'Método', values.method || 'POST', { choices: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].map(value => [value, value]) });
-      const url = field('url', 'URL de destino', values.url || '', { required: true, type: 'url', placeholder: 'https://api.exemplo.com/eventos' });
-      const body = field('body', 'Corpo da requisição', values.body || '', { multiline: true, className: 'mono', spellcheck: 'false', placeholder: '{"evento":"iniciar","tecla":"{{key}}"}', hint: 'Opcional. Para JSON, adicione o header Content-Type com valor application/json.' });
-      const note = el('p', { class: 'context-note' }, icon('http'), 'GET e HEAD enviam os dados pelos parâmetros da URL e não aceitam corpo.');
-      const headers = mapField('headers', 'Headers', values.headers, 'Ex.: Content-Type → application/json ou Authorization → Bearer seu-token.');
-      const query = mapField('query', 'Parâmetros da URL', values.query, 'Os valores são codificados e acrescentados à URL automaticamente.');
-      const advanced = el('details', { class: 'advanced-fields', open: Boolean(values.headersRows?.some(row => row.some(Boolean)) || values.queryRows?.some(row => row.some(Boolean)) || Object.keys(values.headers || {}).length || Object.keys(values.query || {}).length) },
-        el('summary', {}, 'Parâmetros e headers', el('span', {}, 'Autenticação e dados da URL')), query, headers);
-      actionFields.append(el('div', { class: 'http-destination' }, method.wrapper, url.wrapper), body.wrapper, note, advanced);
-      function updateMethod() {
-        const noBody = ['GET', 'HEAD'].includes(method.input.value);
-        body.input.disabled = noBody;
-        body.wrapper.hidden = noBody;
-        note.hidden = !noBody;
-      }
-      method.input.addEventListener('change', updateMethod);
-      updateMethod();
-      for (const name of ['headers', 'query']) {
-        if (!values[name + 'Rows']) continue;
-        const rows = actionFields.querySelector('[data-map="' + name + '"] .map-rows');
-        const add = actionFields.querySelector('[data-map="' + name + '"] > button');
-        while (rows.children.length < values[name + 'Rows'].length) add.click();
-        [...rows.children].forEach((row, i) => {
-          const inputs = row.querySelectorAll('input');
-          inputs[0].value = values[name + 'Rows'][i]?.[0] || '';
-          inputs[1].value = values[name + 'Rows'][i]?.[1] || '';
-        });
-      }
-    }
-    if (actionType === 'file') {
-      const directory = field('directory', 'Pasta de destino', values.directory || '', { placeholder: 'Pasta padrão em Documentos', hint: 'Deixe vazio para usar ' + defaultFilesPath() });
-      const controls = el('div', { class: 'input-with-button' });
-      directory.input.replaceWith(controls);
-      controls.append(directory.input, button('Escolher pasta', () => void perform(async () => {
-        const path = await api.chooseDirectory();
-        if (path) { directory.input.value = path; syncEditing(); }
-      }), '', { symbol: 'folder' }));
-      actionFields.append(directory.wrapper,
-        el('div', { class: 'form-grid' }, field('filename', 'Nome do arquivo', values.filename || '', { required: true, placeholder: 'nota-{{timestamp}}.txt', hint: 'Use {{timestamp}} para criar um arquivo diferente a cada execução.' }).wrapper,
-          field('mode', 'Como salvar', values.mode || 'create', { choices: [['create', 'Criar novo · sem sobrescrever'], ['append', 'Acrescentar ao final']] }).wrapper),
-        field('content', 'Conteúdo do arquivo', values.content || '', { multiline: true, placeholder: 'Criado pela tecla {{key}} em {{date}}.' }).wrapper);
-    }
-    if (actionType === 'log') actionFields.append(field('message', 'Mensagem do log', values.message || '', { required: true, multiline: true, placeholder: 'A tecla {{key}} foi acionada na camada {{layer}}.', hint: 'A mensagem fica no arquivo de log local. O resultado aparece no Histórico.' }).wrapper);
-    activeType = actionType;
-  }
-  type.input.addEventListener('change', () => { rememberFields(); showActionFields(type.input.value); });
-  showActionFields(currentAction.type);
+  const actionEditor = createActionEditor({ initial: initial?.action || { type: 'clipboard', text: '' }, layers: state.config.layers, api,
+    defaultDirectory: defaultFilesPath(), onDirty: syncEditing, onError: message => toast(message, 'error'), invalid });
   return formShell(current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     const key = String(data.get('key')).trim();
     if (!name) invalid('Dê um nome para identificar esta ação.', 'name');
     if (!key) invalid('Digite ou capture uma tecla para esta ação.', 'key');
-    const actionType = data.get('type');
-    let action;
-    if (actionType === 'http') {
-      const url = String(data.get('url')).trim();
-      let parsed;
-      try { parsed = new URL(url); } catch { invalid('Informe uma URL completa, começando com http:// ou https://.', 'url'); }
-      if (!['http:', 'https:'].includes(parsed.protocol)) invalid('Use uma URL HTTP ou HTTPS.', 'url');
-      action = { type: 'http', method: data.get('method'), url, headers: readMap(form, 'headers'), query: readMap(form, 'query'), body: data.get('body') || '' };
-    } else if (actionType === 'file') action = { type: 'file', directory: String(data.get('directory')).trim(), filename: String(data.get('filename')).trim(), mode: data.get('mode'), content: data.get('content') };
-    else action = { type: 'log', message: data.get('message') };
-    const binding = { id: current?.id || newId('binding'), name, key, action, enabled: data.get('enabled') === 'on' };
+    const binding = { id: current?.id || newId('binding'), name, key, action: actionEditor.read(), enabled: data.get('enabled') === 'on' };
     const config = copyConfig();
     const bindings = config.layers.find(item => item.id === layer.id).bindings;
     if (current) bindings[bindings.findIndex(item => item.id === current.id)] = binding;
@@ -804,12 +730,12 @@ function bindingForm(layer) {
     await saveConfiguration(config, 'edit-' + binding.id);
     toast('Ação salva em ' + layer.name + '.');
   },
-    el('div', { class: 'form-grid' }, field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Enviar evento de início' }).wrapper,
+    el('div', { class: 'form-grid' }, field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Copiar resposta ou abrir meu projeto' }).wrapper,
       shortcutField('key', 'Tecla ou combinação', initial?.key || '', 'Capture a combinação ou digite, por exemplo, Control+Shift+A.')),
     checkboxField('enabled', 'Ação ativada', initial?.enabled !== false, 'Desative para guardar a configuração sem registrar este atalho.'),
-    el('section', { class: 'action-configuration' }, type.wrapper, actionFields),
-    el('details', { class: 'variable-help' }, el('summary', {}, 'Personalizar com variáveis'), el('p', {}, 'Use nos valores de parâmetros, headers, mensagens, corpo e conteúdo de arquivos.'),
-      el('dl', {}, [['{{key}}', 'Tecla configurada'], ['{{layer}}', 'Nome da camada'], ['{{date}}', 'Data UTC: ano-mês-dia'], ['{{timestamp}}', 'Instante UTC, seguro para nomes de arquivo']].map(([term, description]) => [el('dt', {}, el('code', {}, term)), el('dd', {}, description)]))));
+    actionEditor.node,
+    el('details', { class: 'variable-help' }, el('summary', {}, 'Personalizar com variáveis'), el('p', {}, 'Use em textos, notificações, URLs, parâmetros e conteúdo de arquivos. Numa sequência, todas as etapas usam a tecla e a camada de origem.'),
+      el('dl', {}, [['{{key}}', 'Tecla configurada'], ['{{layer}}', 'Nome da camada de origem'], ['{{date}}', 'Data UTC: ano-mês-dia'], ['{{timestamp}}', 'Instante UTC, seguro para nomes de arquivo']].map(([term, description]) => [el('dt', {}, el('code', {}, term)), el('dd', {}, description)]))));
 }
 
 function renderTracking() {
@@ -863,7 +789,8 @@ function clearPressed() { pressed.clear(); updateKeys(); }
 
 function renderHistory() {
   main.append(heading('Histórico de execução', '',
-    button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), 'quiet', { symbol: 'folder' })));
+    el('div', { class: 'button-row' }, button('Exportar histórico', () => void perform(() => api.exportHistory()), '', { symbol: 'download', 'data-focus': 'export-history' }),
+      button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), 'quiet', { symbol: 'folder' }))));
   const filters = [['all', 'Tudo'], ['action', 'Ações'], ['error', 'Erros']];
   const search = field('history-search', 'Buscar no histórico', historyQuery, { type: 'search', placeholder: 'Buscar por mensagem, camada ou tecla' });
   search.input.addEventListener('input', () => { historyQuery = search.input.value; updateHistory(); });
@@ -883,6 +810,7 @@ function updateHistory() {
   const events = state.events.filter(event => (historyFilter === 'all' || (historyFilter === 'error' ? event.status === 'error' : event.kind === 'action')) &&
     [event.message, event.layer, event.key].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(query));
   document.querySelector('#history-count').textContent = events.length + (events.length === 1 ? ' evento encontrado' : ' eventos encontrados');
+  const expandedEvents = new Set([...container.querySelectorAll('[data-event-steps][open]')].map(node => node.dataset.eventSteps));
   container.replaceChildren();
   if (!events.length) {
     container.append(empty(query ? 'Nenhum evento encontrado' : historyFilter === 'error' ? 'Nenhum erro registrado' : 'Seu histórico começa com uma ação',
@@ -903,7 +831,7 @@ function updateHistory() {
         valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
       el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
         { success: 'Concluído', error: 'Erro', info: 'Sistema' }[event.status] || event.status)),
-      el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context())),
+      el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, expandedEvents.has(event.id), undefined, event.id)),
       el('td', { class: 'event-context' }, context())));
   }
 

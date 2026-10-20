@@ -113,7 +113,7 @@ async function main() {
       await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 20, y: 80, button: 'left', clickCount: 1 });
       await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 20, y: 80, button: 'left', clickCount: 1 });
     }
-    async function nativeClose() {
+    async function nativeEvaluate(expression) {
       // Exercise BrowserWindow.close in the actual main process. Renderer
       // window.close follows Chromium's direct destruction path instead.
       const address = mainInspectorURL;
@@ -121,19 +121,20 @@ async function main() {
       const mainSocket = new WebSocket(address);
       await new Promise((resolve, reject) => { mainSocket.addEventListener('open', resolve, {once:true});mainSocket.addEventListener('error',reject,{once:true}); });
       try {
-        await new Promise((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error('Native close timeout')), 3000);
+        return await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Native inspection timeout')), 5000);
           mainSocket.addEventListener('message', event => {
             const response=JSON.parse(event.data);
             if(response.id!==1)return;
             clearTimeout(timer);
             if(response.error || response.result?.exceptionDetails) reject(new Error(JSON.stringify(response)));
-            else resolve();
+            else resolve(response.result.result?.value);
           });
-          mainSocket.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:'process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].close()'}}));
+          mainSocket.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,awaitPromise:true,returnByValue:true}}));
         });
       } finally { mainSocket.close(); }
     }
+    const nativeClose = () => nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].close()');
     const nativeState = () => evaluate('return await window.keyboardTracker.getState();');
     const save = () => evaluate('document.querySelector("form[data-draft]").requestSubmit();');
     async function shot(name) {
@@ -355,6 +356,7 @@ async function main() {
     await click('[data-focus="visual-key-KeyK"]');
     assert.equal(await evaluate('return document.querySelector("#field-key").value'), 'Control+K');
     await fill('#field-name', 'Teclado QA');
+    await select('#field-type', 'log');
     await fill('#field-message', 'Criada pelo teclado visual');
     await save();
     await until('!document.querySelector("#editor-drawer")', 'Visual keyboard action saved');
@@ -624,6 +626,7 @@ async function main() {
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'Log QA');
     await fill('#field-key', 'C');
+    await select('#field-type', 'log');
     await fill('#field-message', 'Mensagem local de teste');
     await save();
     await until('!document.querySelector("form[data-draft]")', 'Log binding created');
@@ -737,6 +740,7 @@ async function main() {
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
+    await require('./productivity-ui.cjs')({ cdp, evaluate, click, pointerClick, fill, select, until, nativeState, save, shot, nativeEvaluate, data });
     console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {

@@ -113,3 +113,89 @@ test('prévia HTTP mascara todos os headers e preserva valores privados para exe
   assert.deepEqual(preview.headers, { Authorization: '••••••', 'X-Custom': '••••••' });
   assert.equal(prepared.headers.Authorization, 'Bearer secret');
 });
+
+test('prévia de sequência resolve origem e instante únicos, mascara headers recursivos e congela profundamente', () => {
+  const { prepareAction, previewAction, freezePreparedAction } = require('../app/actions.cjs');
+  const action = { type: 'sequence', steps: [
+    { type: 'clipboard', text: '{{key}}/{{layer}}/{{timestamp}}' },
+    { type: 'open', kind: 'url', target: 'https://example.test/{{date}}' },
+    { type: 'layer', layerId: 'destino' },
+    { type: 'notification', title: '{{layer}}', message: '{{timestamp}}' },
+    { type: 'http', method: 'POST', url: 'https://example.test/', query: {}, headers: { Authorization: 'segredo' }, body: '{{timestamp}}' }
+  ] };
+  const prepared = freezePreparedAction(prepareAction(action, context, { layers: [{ id: 'destino', name: 'Outra camada' }] }, new Date('2026-10-20T12:00:00.000Z')));
+  const preview = previewAction(prepared);
+  assert.equal(preview.steps[0].text, 'A/Camada 1/2026-10-20T12-00-00-000Z');
+  assert.equal(preview.steps[1].target, 'https://example.test/2026-10-20');
+  assert.equal(preview.steps[2].layerName, 'Outra camada');
+  assert.equal(preview.steps[3].title, context.layer);
+  assert.equal(preview.steps[3].message, preview.steps[4].body);
+  assert.equal(preview.steps[4].headers.Authorization, '••••••');
+  assert.equal(prepared.steps[4].headers.Authorization, 'segredo');
+  assert.equal(Object.isFrozen(prepared.steps), true);
+  assert.equal(Object.isFrozen(prepared.steps[4].headers), true);
+  preview.steps[0].text = 'alterado';
+  assert.notEqual(prepared.steps[0].text, 'alterado');
+});
+
+test('sequência executa etapas em ordem, aguarda serviços nativos e preserva origem após mudar camada', async () => {
+  const calls = [];
+  const steps = [];
+  let release;
+  const action = { type: 'sequence', steps: [
+    { type: 'clipboard', text: '{{layer}}' }, { type: 'layer', layerId: 'destino' },
+    { type: 'notification', title: '{{layer}}', message: '{{key}}' },
+    { type: 'open', kind: 'url', target: 'https://example.test/{{key}}' }
+  ] };
+  const running = executeAction(action, context, {
+    desktopActions: {
+      clipboard: text => { calls.push(['clipboard', text]); return new Promise(resolve => { release = resolve; }); },
+      notify: value => calls.push(['notification', value]), open: (kind, target) => calls.push(['open', kind, target])
+    },
+    setLayer: id => calls.push(['layer', id]), onStep: step => steps.push(step)
+  });
+  assert.deepEqual(calls, [['clipboard', 'Camada 1']]);
+  assert.equal(steps.length, 0);
+  release();
+  assert.match(await running, /4 etapas/);
+  assert.deepEqual(calls, [['clipboard', 'Camada 1'], ['layer', 'destino'], ['notification', { title: 'Camada 1', message: 'A' }], ['open', 'url', 'https://example.test/A']]);
+  assert.deepEqual(steps.map(step => [step.index, step.type, step.status]), [[1, 'clipboard', 'success'], [2, 'layer', 'success'], [3, 'notification', 'success'], [4, 'open', 'success']]);
+  assert.ok(steps.every(step => Number.isInteger(step.durationMs) && step.durationMs >= 0));
+});
+
+test('sequência para na primeira falha com metadados sanitizados, preservando arquivo já criado', async t => {
+  const root = await directory(t);
+  const steps = [];
+  let notified = false;
+  const action = { type: 'sequence', steps: [
+    { type: 'file', directory: root, filename: 'feito.txt', content: 'conteúdo privado', mode: 'create' },
+    { type: 'open', kind: 'path', target: path.join(root, 'destino-privado') },
+    { type: 'notification', title: 'Privado', message: 'Não executar' }
+  ] };
+  await assert.rejects(executeAction(action, context, { onStep: step => steps.push(step), desktopActions: {
+    open: () => { throw new Error('segredo ' + root); }, notify: () => { notified = true; }
+  } }), /etapa 2 de 3: Não foi possível abrir/);
+  assert.equal(await fs.readFile(path.join(root, 'feito.txt'), 'utf8'), 'conteúdo privado');
+  assert.equal(notified, false);
+  assert.deepEqual(steps.map(step => step.status), ['success', 'error']);
+  assert.doesNotMatch(JSON.stringify(steps), /conteúdo privado|destino-privado|segredo/);
+  assert.equal(JSON.stringify(steps).includes(root), false);
+});
+
+test('novos tipos e sequência persistem e recarregam sem converter ações legadas', async t => {
+  const root = await directory(t);
+  const storage = new Storage(root);
+  const config = defaultConfig();
+  config.layers[0].bindings[0].action = { type: 'sequence', steps: [
+    { type: 'clipboard', text: 'Texto {{key}}' },
+    { type: 'open', kind: 'path', target: root },
+    { type: 'notification', title: 'Título', message: 'Mensagem' },
+    { type: 'layer', layerId: config.layers[1].id },
+    { type: 'log', message: 'Log legado' }
+  ] };
+  const saved = await storage.save(config);
+  const loaded = await new Storage(root).load();
+  assert.equal(loaded.version, 1);
+  assert.deepEqual(loaded, saved);
+  assert.deepEqual(await fs.readdir(root), ['config.json']);
+});

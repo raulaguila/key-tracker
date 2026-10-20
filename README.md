@@ -44,7 +44,7 @@ A detecção fornece legendas, não identifica o modelo físico conectado. Algum
 teclas internacionais dependem do suporte do hook; variantes e IMEs podem diferir.
 
 1. Em **Camadas**, cadastre ou edite suas camadas e ações.
-2. Na camada 1 inicial, `A` salva uma mensagem em log. Na camada 2, `A` cria
+2. Na camada 1 inicial, `A` copia um texto pronto. Na camada 2, `A` cria
    uma nota em `Documentos/Keyboard Tracker`.
 3. Clique **Ativar ações**. `F8` alterna entre as camadas.
 4. `Ctrl+Shift+F12` pausa/retoma; no macOS, `⌘+Shift+F12`. Os dois atalhos podem
@@ -62,6 +62,39 @@ Por padrão, fechar a janela encerra o app e todos os hooks. A opção de manter
 na bandeja permite continuar usando os atalhos com a janela oculta.
 
 ## Configurar e usar mais rápido
+
+### Tipos de ação
+
+| Ação | Uso |
+| --- | --- |
+| Copiar texto | Coloca uma resposta, assinatura ou comando na área de transferência; você escolhe onde colar |
+| Abrir destino | Abre uma URL HTTP/HTTPS, arquivo, pasta ou aplicativo pelo caminho escolhido |
+| Mostrar notificação | Envia título e mensagem para as notificações do sistema |
+| Ativar camada | Escolhe diretamente uma camada cadastrada, sem ativar ações pausadas |
+| Executar sequência | Executa de 1 a 10 etapas, em ordem, com os tipos simples disponíveis |
+| Requisição HTTP | Envia método, parâmetros, headers e corpo configurados |
+| Criar ou acrescentar arquivo | Salva conteúdo no destino escolhido ou em Documentos/Keyboard Tracker |
+
+O editor de sequências permite adicionar, remover e mudar a ordem das etapas.
+Se uma falhar, as próximas não executam; efeitos das anteriores permanecem.
+O Histórico e o teste mostram o resultado de cada etapa iniciada. Não há sequência
+dentro de sequência. Variáveis usam a tecla e a camada de origem e o mesmo
+instante da prévia, inclusive se uma etapa trocar de camada.
+
+Abrir aplicativo usa um caminho absoluto e não recebe comandos de shell ou
+argumentos. Um lançamento concluído confirma a abertura pelo SO, não o término
+do aplicativo. Notificações dependem da disponibilidade e das permissões do SO;
+macOS exige uma distribuição assinada para entrega nativa. Falhas ficam explícitas.
+No Windows, use o aplicativo instalado para registrar o atalho e a identidade
+necessários às notificações. [Requisitos nativos do Electron](https://www.electronjs.org/docs/latest/tutorial/notifications#platform-considerations).
+Prévia de qualquer tipo apenas mostra valores, sem copiar, abrir ou notificar.
+
+Registros automáticos de execução continuam no **Histórico**, com detalhes de
+sequências e exportação JSON dos eventos da sessão. Conteúdo copiado, mensagens
+de notificação e credenciais HTTP não entram nesses resultados. A opção de
+mensagem no log continua disponível para compatibilidade com ações antigas.
+
+### Controles
 
 - **Tabela ou teclado:** em Camadas, escolha **Teclado** e clique numa tecla para
   criar/editar sua ação. O seletor de combinação mostra Ctrl, Shift e outras
@@ -189,6 +222,12 @@ proteção de fechamento, 112 combinações de telas/tema/sidebar e 90 combinaç
 de layout/formato/largura/tema do teclado. Capturas ficam em `artifacts/ui-audit/` (não versionadas). O workflow
 executa esse teste no job Linux; o processo de teste em CI usa `--no-sandbox`
 somente para a instância isolada de QA.
+
+O mesmo smoke inclui os cinco novos tipos: clipboard real, lançamento de um
+executável temporário, prévias sem efeitos, mudança de camada, sequências com
+reordenação e falha parcial HTTP, detalhes privados ausentes do Histórico e
+persistência após recarga. Notificações e diálogos nativos têm testes de borda;
+a entrega de notificações ainda requer validação no desktop instalado de cada SO.
 
 Achados, correções e limites da avaliação estão em [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
 Análise atual, problemas reproduzidos e medições do executável:

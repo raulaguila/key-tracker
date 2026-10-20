@@ -55,10 +55,32 @@ function applicationIdentity(value, platform = process.platform) {
   return platform === 'linux' ? identity : identity.toLowerCase();
 }
 
-function validateAction(action) {
+function validateOpenTarget(kind, target, platform = process.platform) {
+  text(target, 'Destino', 4000);
+  if (/[\x00-\x1f\x7f]/.test(target)) throw new Error('Destino contém caracteres inválidos.');
+  if (kind === 'url') {
+    let url;
+    try { url = new URL(target); } catch { throw new Error('Informe um endereço HTTP ou HTTPS completo.'); }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Use HTTP/HTTPS sem credenciais embutidas no endereço.');
+  } else if (['path', 'application'].includes(kind)) {
+    if (!(platform === 'win32' ? path.win32 : path.posix).isAbsolute(target)) throw new Error('Escolha um caminho absoluto para o destino.');
+  } else throw new Error('Tipo de destino inválido.');
+  return target;
+}
+
+function validateAction(action, platform = process.platform, nested = false) {
   if (!action || typeof action !== 'object') throw new Error('Configure uma ação.');
   switch (action.type) {
     case 'log': return { type: 'log', message: text(action.message, 'Mensagem', 16000) };
+    case 'clipboard': return { type: 'clipboard', text: text(action.text, 'Texto para copiar', 64000) };
+    case 'open': return { type: 'open', kind: action.kind, target: validateOpenTarget(action.kind, action.target, platform) };
+    case 'notification': return { type: 'notification', title: text(action.title, 'Título da notificação', 120), message: text(action.message ?? '', 'Mensagem da notificação', 4000, true) };
+    case 'layer': return { type: 'layer', layerId: text(action.layerId, 'Camada de destino', 100) };
+    case 'sequence': {
+      if (nested) throw new Error('Sequências não podem conter outras sequências.');
+      if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 10) throw new Error('Configure entre 1 e 10 etapas na sequência.');
+      return { type: 'sequence', steps: action.steps.map(step => validateAction(step, platform, true)) };
+    }
     case 'file': {
       const filename = text(action.filename, 'Nome do arquivo', 200);
       if (/[<>:"/\\|?*\x00-\x1f]/.test(filename) || filename === '.' || filename === '..' || /[. ]$/.test(filename) || /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(filename)) throw new Error('Use apenas um nome de arquivo válido, sem caminhos ou caracteres reservados.');
@@ -114,9 +136,14 @@ function validateConfig(value, platform = process.platform) {
       const effective = effectiveShortcut(key, platform);
       if (keys.has(effective) || reserved.includes(effective)) throw new Error(`Atalho ${key} duplicado ou reservado na camada ${layer.name}.`);
       keys.add(effective);
-      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true), action: validateAction(binding.action) };
+      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true), action: validateAction(binding.action, platform) };
     });
     result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), applications: normalizedApplications, bindings });
+  }
+  const layerIds = new Set(result.layers.map(layer => layer.id));
+  for (const layer of result.layers) for (const binding of layer.bindings) {
+    const actions = binding.action.type === 'sequence' ? binding.action.steps : [binding.action];
+    if (actions.some(action => action.type === 'layer' && !layerIds.has(action.layerId))) throw new Error(`A ação “${binding.name}” aponta para uma camada inexistente. Altere ou remova essa referência antes de remover a camada de destino.`);
   }
   return result;
 }
@@ -126,8 +153,8 @@ function defaultConfig() {
     version: 1,
     settings: { layerShortcut: 'F8', pauseShortcut: 'CommandOrControl+Shift+F12', cooldownMs: 400, autoSwitchLayers: false, closeToTray: false },
     layers: [
-      { id: randomUUID(), name: 'Camada 1', description: 'Mensagens e automações do dia a dia.', applications: [], bindings: [
-        { id: randomUUID(), key: 'A', name: 'Registrar mensagem', enabled: true, action: { type: 'log', message: 'Tecla {{key}} pressionada na {{layer}} em {{timestamp}}.' } }
+      { id: randomUUID(), name: 'Camada 1', description: 'Texto e automações do dia a dia.', applications: [], bindings: [
+        { id: randomUUID(), key: 'A', name: 'Copiar texto', enabled: true, action: { type: 'clipboard', text: 'Texto copiado pela tecla {{key}} na {{layer}}.' } }
       ] },
       { id: randomUUID(), name: 'Camada 2', description: 'Criação de arquivos em Documentos.', applications: [], bindings: [
         { id: randomUUID(), key: 'A', name: 'Criar uma nota', enabled: true, action: { type: 'file', directory: '', filename: 'nota-{{timestamp}}.txt', content: 'Criado pela tecla {{key}} na {{layer}}.\n', mode: 'create' } }
@@ -136,4 +163,4 @@ function defaultConfig() {
   };
 }
 
-module.exports = { validateConfig, validateAction, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, MAX_CONFIG_BYTES };
+module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, MAX_CONFIG_BYTES };

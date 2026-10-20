@@ -16,7 +16,9 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/preload.cjs`: métodos explícitos, sem expor Node ou IPC arbitrário.
 - `app/config.cjs`: limites, esquema, normalização e colisões de atalhos.
 - `app/engine.cjs`: camada ativa, pausa, edição, registros globais e execuções.
-- `app/actions.cjs`: request HTTP, arquivo e mensagem no log.
+- `app/actions.cjs`: preparação pura e execução das ações simples e sequências.
+- `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
+  notificações; injetada pelo main, sem exposição arbitrária no preload.
 - `app/storage.cjs`: configuração atômica e log serializado com rotação.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
@@ -24,6 +26,8 @@ inclui os prebuilds e os extrai do ASAR.
   sem NumLock e constantes internacionais conhecidas do libuiohook.
 - `app/renderer/`: interface e renderização de códigos físicos do teclado.
 - `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
+- `app/renderer/action-editor.js`: campos de cada tipo de ação e editor de etapas;
+  rascunhos de tipos alternados permanecem em DOM desconectado, sem JSON manual.
 - `app/renderer/appearance.js`: bootstrap antes do CSS, preferência visual
   claro/escuro/sistema e acompanhamento do esquema de cores do sistema.
 - `app/renderer/keyboard.js`: geometrias de referência ANSI/ISO/ABNT2 e tamanhos.
@@ -46,6 +50,10 @@ registrar a pausa impede ativação; outros conflitos são mostrados individualm
 Não há promessa de bloquear toda repetição de hardware: intervalo mínimo
 configurável e limite de uma execução por ação em voo evitam disparos excessivos.
 Há até quatro ações simultâneas. Nenhuma fila ilimitada ou retry automático.
+Uma sequência ocupa uma vaga e executa até dez etapas simples em ordem. Na
+primeira falha interrompe as próximas, sem desfazer efeitos anteriores. O motor
+congela a prévia completa; headers de etapas HTTP também são mascarados. Eventos
+guardam só metadados de resultado por etapa, sem textos privados ou payload HTTP.
 Um HTTP lento não bloqueia o comando de pausa. Pausar impede novos disparos;
 ações que já começaram terminam normalmente.
 

@@ -8,7 +8,10 @@ function fixture(options = {}) {
   const calls = [];
   const shortcuts = { register: (key, callback) => { if (options.fail === key) return false; registrations.set(key, callback); return true; }, unregister: key => registrations.delete(key), unregisterAll: () => registrations.clear() };
   const storage = { directory: '/data', logPath: '/data/log', save: async () => {}, appendLog: async () => {} };
-  const engine = new Engine({ config: defaultConfig(), shortcuts, storage, documents: '/documents', execute: async (action, context) => { calls.push({ action, context }); return 'OK'; }, ...options });
+  // Keep legacy coverage independent of the new-install clipboard example.
+  const config = defaultConfig();
+  config.layers[0].bindings[0].action = { type: 'log', message: 'Tecla {{key}} pressionada na {{layer}} em {{timestamp}}.' };
+  const engine = new Engine({ config, shortcuts, storage, documents: '/documents', execute: async (action, context) => { calls.push({ action, context }); return 'OK'; }, ...options });
   return { engine, registrations, calls };
 }
 
@@ -272,4 +275,154 @@ test('perfil reconhece executável exato no Windows e raiz .app no macOS', () =>
   assert.equal(engine.activeLayerId, mac.layers[1].id);
   engine.updateApplication({ status: 'ready', current: { name: 'Editor', path: '/Applications/Editor Beta.app/Contents/MacOS/editor' } });
   assert.equal(engine.activeLayerId, mac.layers[0].id);
+});
+
+test('serviços nativos simples recebem valores resolvidos; eventos não guardam seus conteúdos', async () => {
+  const { executeAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  const target = config.layers[1].id;
+  config.layers[0].bindings = [
+    { id: 'clipboard', key: 'A', name: 'Copiar', action: { type: 'clipboard', text: 'texto privado {{key}}' } },
+    { id: 'open', key: 'B', name: 'Abrir', action: { type: 'open', kind: 'url', target: 'https://example.test/privado/{{key}}' } },
+    { id: 'notification', key: 'C', name: 'Avisar', action: { type: 'notification', title: 'título privado', message: 'mensagem privada {{layer}}' } },
+    { id: 'layer', key: 'D', name: 'Trocar', action: { type: 'layer', layerId: target } }
+  ];
+  const native = [];
+  const writes = [];
+  const { engine } = fixture({ config, execute: executeAction, desktopActions: {
+    clipboard: text => native.push(['clipboard', text]),
+    open: (kind, destination) => native.push(['open', kind, destination]),
+    notify: value => native.push(['notification', value])
+  } });
+  engine.storage.appendLog = async event => writes.push(event);
+  const source = engine.activeLayer;
+  for (const binding of source.bindings) {
+    const preview = engine.previewBinding(source.id, binding.id);
+    assert.equal(native.length, source.bindings.indexOf(binding), 'preparar não executa serviço nativo');
+    await engine.runBinding(source.id, binding.id, preview.previewId);
+  }
+  assert.deepEqual(native, [['clipboard', 'texto privado A'], ['open', 'url', 'https://example.test/privado/B'], ['notification', { title: 'título privado', message: 'mensagem privada Camada 1' }]]);
+  assert.equal(engine.activeLayerId, target);
+  assert.equal(engine.manualLayerId, target);
+  assert.equal(engine.enabled, false);
+  assert.equal(writes.length, 4);
+  assert.ok(writes.every(event => event.status === 'success'));
+  assert.doesNotMatch(JSON.stringify(writes), /texto privado|título privado|mensagem privada|\/privado/);
+});
+
+test('notificação sem suporte ou rejeitada produz erro claro sem detalhes privados do sistema', async () => {
+  const { executeAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  config.layers[0].bindings[0].action = { type: 'notification', title: 'privado', message: 'privado' };
+  for (const [code, expected] of [['NOTIFICATION_UNSUPPORTED', /não são suportadas/], ['NOTIFICATION_REJECTED', /não confirmou/]]) {
+    const { engine } = fixture({ config, execute: executeAction, desktopActions: { notify: () => { throw Object.assign(new Error('detalhe privado'), { code }); } } });
+    const layer = engine.activeLayer;
+    const state = await engine.runBinding(layer.id, layer.bindings[0].id);
+    assert.equal(state.events[0].status, 'error');
+    assert.match(state.events[0].message, expected);
+    assert.doesNotMatch(state.events[0].message, /detalhe privado/);
+  }
+});
+
+test('sequência com HTTP real conserva prévia e origem após trocar camada; expõe falha parcial sem segredos', async t => {
+  const http = require('node:http');
+  const { executeAction } = require('../app/actions.cjs');
+  let status = 503;
+  let captured;
+  let now = Date.parse('2026-10-20T12:00:00.000Z');
+  const server = http.createServer(async (request, response) => {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    captured = { body, authorization: request.headers.authorization };
+    now += 21;
+    response.writeHead(status); response.end('conteúdo privado da resposta');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const config = defaultConfig();
+  const sourceId = config.layers[0].id;
+  const targetId = config.layers[1].id;
+  const action = { type: 'sequence', steps: [
+    { type: 'clipboard', text: 'texto privado {{timestamp}}' },
+    { type: 'layer', layerId: targetId },
+    { type: 'http', method: 'POST', url: `http://127.0.0.1:${server.address().port}/`, headers: { Authorization: 'header privado' }, query: {}, body: 'corpo privado {{layer}} {{timestamp}}' },
+    { type: 'notification', title: 'título privado', message: 'mensagem privada {{layer}}' }
+  ] };
+  config.layers[0].bindings[0].action = action;
+  const native = [];
+  const writes = [];
+  const { engine } = fixture({ config, execute: executeAction, now: () => now, desktopActions: {
+    clipboard: text => { native.push(['clipboard', text]); now += 13; }, notify: value => native.push(['notification', value])
+  } });
+  engine.storage.appendLog = async event => writes.push(event);
+  const binding = engine.activeLayer.bindings[0];
+  const preview = engine.previewBinding(sourceId, binding.id);
+  assert.equal(native.length, 0);
+  assert.equal(preview.action.steps[2].headers.Authorization, '••••••');
+  now += 60000;
+  const failed = await engine.runBinding(sourceId, binding.id, preview.previewId);
+  const event = failed.events.find(item => item.bindingId === binding.id);
+  assert.equal(event.status, 'error');
+  assert.match(event.message, /etapa 3 de 4: Destino respondeu HTTP 503/);
+  assert.deepEqual(event.steps.map(step => [step.index, step.status]), [[1, 'success'], [2, 'success'], [3, 'error']]);
+  assert.equal(event.steps[2].httpStatus, 503);
+  assert.equal(event.steps[0].durationMs, 13);
+  assert.equal(event.steps[2].durationMs, 21);
+  assert.equal(engine.activeLayerId, targetId);
+  assert.equal(engine.enabled, false);
+  assert.equal(native.length, 1);
+  assert.equal(captured.body, 'corpo privado Camada 1 2026-10-20T12-00-00-000Z');
+  assert.equal(captured.authorization, 'header privado');
+  assert.doesNotMatch(JSON.stringify(writes), /texto privado|header privado|corpo privado|título privado|mensagem privada/);
+  await assert.rejects(engine.runBinding(sourceId, binding.id, preview.previewId), /Prévia inválida/);
+  status = 201;
+  const succeeded = await engine.runBinding(sourceId, binding.id);
+  const final = succeeded.events.find(item => item.bindingId === binding.id);
+  assert.equal(final.status, 'success');
+  assert.equal(final.steps.length, 4);
+  assert.equal(final.steps[2].httpStatus, 201);
+  assert.equal(native.at(-1)[1].message, 'mensagem privada Camada 1');
+});
+
+test('sequências contam como uma execução e mantêm os limites de ação e concorrência', async () => {
+  const { executeAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  config.layers[0].bindings = [...'ABCDE'].map((key, index) => ({ id: 'sequence-' + index, key, name: 'Sequência ' + key, action: { type: 'sequence', steps: [{ type: 'clipboard', text: 'privado' }] } }));
+  const releases = [];
+  const { engine } = fixture({ config, execute: executeAction, desktopActions: { clipboard: () => new Promise(resolve => releases.push(resolve)) } });
+  const layer = engine.activeLayer;
+  const running = layer.bindings.slice(0, 4).map(binding => engine.runBinding(layer.id, binding.id));
+  assert.equal(engine.inFlight.size, 4);
+  assert.equal(releases.length, 4);
+  await assert.rejects(engine.runBinding(layer.id, layer.bindings[0].id), /ainda está em execução/);
+  await assert.rejects(engine.runBinding(layer.id, layer.bindings[4].id), /quatro ações/);
+  releases.forEach(resolve => resolve());
+  await Promise.all(running);
+  assert.equal(engine.inFlight.size, 0);
+  assert.equal(engine.events.filter(event => event.kind === 'action').length, 4);
+});
+
+test('camada é revalidada durante execução se configuração mudar entre etapas', async () => {
+  const { executeAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  const target = config.layers[1].id;
+  config.layers[0].bindings[0].action = { type: 'sequence', steps: [
+    { type: 'clipboard', text: 'copiado' }, { type: 'layer', layerId: target }, { type: 'notification', title: 'Não executar', message: '' }
+  ] };
+  let release;
+  let notified = false;
+  const { engine } = fixture({ config, execute: executeAction, desktopActions: { clipboard: () => new Promise(resolve => { release = resolve; }), notify: () => { notified = true; } } });
+  const layer = engine.activeLayer;
+  const running = engine.runBinding(layer.id, layer.bindings[0].id);
+  const updated = engine.state().config;
+  updated.layers[0].bindings = [];
+  updated.layers.pop();
+  await engine.saveConfig(updated);
+  release();
+  const state = await running;
+  const event = state.events.find(item => item.kind === 'action');
+  assert.equal(event.status, 'error');
+  assert.deepEqual(event.steps.map(step => step.status), ['success', 'error']);
+  assert.match(event.steps[1].message, /não está mais disponível/);
+  assert.equal(notified, false);
 });

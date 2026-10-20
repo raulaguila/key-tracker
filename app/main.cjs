@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, Menu, utilityProcess, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
@@ -9,9 +9,11 @@ const { MAX_CONFIG_BYTES } = require('./config.cjs');
 const { ApplicationMonitor } = require('./application-monitor.cjs');
 const { DesktopTray, trayHostAvailable } = require('./desktop-tray.cjs');
 const { WindowLifecycle } = require('./window-lifecycle.cjs');
+const { DesktopActions, chooseActionTarget, exportSessionHistory } = require('./desktop-actions.cjs');
 
 if (!app.isPackaged && process.env.KEYBOARD_TRACKER_DATA_DIR) app.setPath('userData', path.resolve(process.env.KEYBOARD_TRACKER_DATA_DIR));
 app.setName('Keyboard Tracker');
+if (process.platform === 'win32') app.setAppUserModelId('io.keyboardtracker.app');
 if (process.platform === 'linux') app.setDesktopName('io.keyboardtracker.app.desktop');
 
 const gotLock = app.requestSingleInstanceLock();
@@ -23,6 +25,7 @@ else {
   let monitor;
   let tray;
   let lifecycle;
+  let desktopActions;
   const entry = path.join(__dirname, 'renderer', 'index.html');
   const entryURL = pathToFileURL(entry).href;
   function isAppURL(value) {
@@ -84,13 +87,14 @@ else {
   app.on('before-quit', event => {
     if (window && lifecycle && !lifecycle.allowClose) { event.preventDefault(); lifecycle.request(true); }
   });
-  app.on('will-quit', () => { monitor?.dispose(); tray?.dispose(); tracker?.stop(); engine?.dispose(); });
+  app.on('will-quit', () => { monitor?.dispose(); tray?.dispose(); tracker?.stop(); desktopActions?.dispose(); engine?.dispose(); });
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
     const storage = new Storage(app.getPath('userData'));
     const config = await storage.load();
-    engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session });
+    desktopActions = new DesktopActions({ clipboard, shell, Notification });
+    engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
     engine.on('state', state => send('state', state));
     engine.on('key', key => send('key', key));
@@ -118,6 +122,8 @@ else {
       });
       return result.canceled ? null : result.filePaths[0];
     });
+    handle('choose-action-target', kind => chooseActionTarget({ kind, dialog, window }));
+    handle('export-history', () => exportSessionHistory({ events: engine.events, dialog, window, protectedPaths: [storage.configPath, storage.logPath, storage.logPath + '.1'] }));
     handle('open-data-directory', async () => {
       const error = await shell.openPath(storage.directory);
       if (error) throw new Error('Não foi possível abrir a pasta de dados.');

@@ -13,6 +13,8 @@ export function el(tag, attrs = {}, ...children) {
 }
 
 const paths = {
+  up: ['m6 15 6-6 6 6'],
+  down: ['m6 9 6 6 6-6'],
   sun: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', 'M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5'],
   moon: ['M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z'],
   copy: ['M9 9h12v12H9V9ZM15 5V3H3v12h2'],

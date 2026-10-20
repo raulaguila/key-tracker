@@ -48,6 +48,11 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
   aplicado e sincroniza o seletor sem recriar formulários ou descartar rascunhos.
 - Testes têm estado de execução, resultado inline e confirmação visível. Falhas
   retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
+- Novas ações começam em Copiar texto; log legado permanece identificável.
+  Sequências usam etapas expansíveis com ordem, adicionar/remover e mover, sem
+  exigir JSON. Alternar o tipo preserva rascunhos e parâmetros incompletos.
+- O resultado do teste aparece antes da prévia, com detalhes das etapas e falha
+  parcial. O Histórico oferece os mesmos detalhes e exportação da sessão.
 - Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de
   percorrer listas. A ação principal do painel é criar uma ação; remover é terciário.
 - O painel de ações é aberto, sem cartão externo ou numeração decorativa de

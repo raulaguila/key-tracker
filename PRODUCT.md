@@ -8,7 +8,9 @@ product
 
 Aplicativo desktop distribuível para Windows, macOS e Linux. Permite cadastrar
 camadas de funções por tecla, alterná-las por atalho e executar requests HTTP,
-criar arquivos ou salvar mensagens em log. Tela adicional mostra teclas sendo
+criar arquivos, copiar texto, abrir destinos, mostrar notificações, escolher uma
+camada ou executar sequências. Logs automáticos registram resultados; mensagens
+em log legadas permanecem compatíveis. Tela adicional mostra teclas sendo
 pressionadas e soltas em um teclado visual.
 
 ## Critérios de aceite
@@ -19,6 +21,12 @@ pressionadas e soltas em um teclado visual.
 - HTTP aceita método, URL, query, headers e corpo; arquivos aceitam pasta,
   nome e conteúdo; log aceita mensagem. Erros aparecem no histórico.
 - Configuração persiste entre sessões. Ações iniciam pausadas.
+- Cadastro estruturado dos cinco novos tipos, prévia sem efeitos, execução
+  explícita e resultado no Histórico. Sequências de até dez etapas, sem nesting,
+  param na primeira falha e preservam resultados anteriores.
+- Conteúdo copiado não é colado automaticamente; abrir aplicativos não executa
+  shell nem recebe argumentos. Notificações indisponíveis geram erro visível.
+- Histórico mostra etapas e exporta os eventos da sessão pelo diálogo nativo.
 - Rastreio é opt-in, mostra down/up simultâneos e não grava teclas em disco.
 - Ambiente sem suporte global informa a limitação e oferece rastreio local.
 - Scripts e workflow preparam instaladores nos três sistemas operacionais.

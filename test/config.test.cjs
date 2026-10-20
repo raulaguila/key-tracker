@@ -94,3 +94,46 @@ test('caminhos equivalentes não permitem associações conflitantes no Windows'
   config.layers[1].applications = ['c:/Apps/Editor.exe/'];
   assert.throws(() => validateConfig(config, 'win32'), /mais de uma camada/);
 });
+
+test('novos tipos preservam esquema v1 e referências de camada são validadas em toda a configuração', () => {
+  const config = defaultConfig();
+  assert.equal(config.layers[0].bindings[0].action.type, 'clipboard');
+  const actions = [
+    { type: 'clipboard', text: 'Copiar {{key}}' },
+    { type: 'open', kind: 'url', target: 'https://example.test/{{key}}' },
+    { type: 'notification', title: 'Título', message: '{{layer}}' },
+    { type: 'layer', layerId: config.layers[1].id },
+    { type: 'sequence', steps: [{ type: 'clipboard', text: 'Olá' }, { type: 'layer', layerId: config.layers[1].id }] },
+    { type: 'log', message: 'Legado preservado' }
+  ];
+  config.layers[0].bindings = actions.map((action, i) => ({ id: 'type-' + i, key: 'Control+' + String(i), name: action.type, action }));
+  const valid = validateConfig(config);
+  assert.equal(valid.version, 1);
+  assert.deepEqual(valid.layers[0].bindings.map(binding => binding.action), actions);
+  config.layers.pop();
+  assert.throws(() => validateConfig(config), /camada inexistente/);
+  config.layers[0].bindings = [config.layers[0].bindings[4]];
+  assert.throws(() => validateConfig(config), /antes de remover a camada/);
+});
+
+test('validação rejeita abertura perigosa, conteúdo excessivo e sequências fora dos limites', () => {
+  const { validateAction } = require('../app/config.cjs');
+  for (const target of ['javascript:alert(1)', 'file:///tmp/data', 'https://user:secret@example.test/', 'https://example.test/\n']) {
+    assert.throws(() => validateAction({ type: 'open', kind: 'url', target }));
+  }
+  for (const kind of ['path', 'application']) {
+    assert.throws(() => validateAction({ type: 'open', kind, target: './relative' }, 'linux'), /absoluto/);
+    assert.equal(validateAction({ type: 'open', kind, target: '/opt/arquivo com espaços' }, 'linux').target, '/opt/arquivo com espaços');
+    assert.equal(validateAction({ type: 'open', kind, target: 'C:\\Apps\\Programa.exe' }, 'win32').target, 'C:\\Apps\\Programa.exe');
+  }
+  assert.throws(() => validateAction({ type: 'open', kind: 'shell', target: '/bin/sh' }), /inválido/);
+  assert.throws(() => validateAction({ type: 'clipboard', text: '' }), /Texto/);
+  assert.throws(() => validateAction({ type: 'clipboard', text: 'x'.repeat(64001) }), /64000/);
+  assert.throws(() => validateAction({ type: 'notification', title: '', message: 'Oi' }), /Título/);
+  assert.throws(() => validateAction({ type: 'notification', title: 'Oi', message: 'x'.repeat(4001) }), /4000/);
+  const simple = { type: 'clipboard', text: 'Olá' };
+  assert.throws(() => validateAction({ type: 'sequence', steps: [] }), /1 e 10/);
+  assert.throws(() => validateAction({ type: 'sequence', steps: Array.from({ length: 11 }, () => simple) }), /1 e 10/);
+  assert.throws(() => validateAction({ type: 'sequence', steps: [{ type: 'sequence', steps: [simple] }] }), /outras sequências/);
+  assert.equal(validateAction({ type: 'sequence', steps: Array.from({ length: 10 }, () => simple) }).steps.length, 10);
+});

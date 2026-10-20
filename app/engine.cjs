@@ -2,10 +2,10 @@ const { EventEmitter } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
-const { executeAction, prepareAction, previewAction } = require('./actions.cjs');
+const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage } = require('./actions.cjs');
 
 class Engine extends EventEmitter {
-  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, now = Date.now }) {
+  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now }) {
     super();
     this.config = validateConfig(config, platform);
     this.shortcutsAPI = shortcuts;
@@ -14,6 +14,7 @@ class Engine extends EventEmitter {
     this.platform = platform;
     this.session = session;
     this.execute = execute;
+    this.desktopActions = desktopActions;
     this.now = now;
     this.activeLayerId = this.config.layers[0].id;
     this.manualLayerId = this.activeLayerId;
@@ -212,9 +213,7 @@ class Engine extends EventEmitter {
     const { layer, binding } = this.findBinding(layerId, bindingId);
     const now = this.now();
     for (const [id, entry] of this.previews) if (entry.expires <= now) this.previews.delete(id);
-    const prepared = prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents }, new Date(now));
-    Object.values(prepared).filter(value => value && typeof value === 'object').forEach(Object.freeze);
-    Object.freeze(prepared);
+    const prepared = freezePreparedAction(prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(now)));
     const previewId = randomUUID();
     const expires = now + 5 * 60 * 1000;
     while (this.previews.size >= 10) this.previews.delete(this.previews.keys().next().value);
@@ -237,21 +236,23 @@ class Engine extends EventEmitter {
     this.inFlight.add(binding.id);
     const started = this.now();
     let httpStatus;
-    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }) });
+    const steps = [];
+    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { steps: structuredClone(steps) } : {}) });
     try {
-      prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents }, new Date(started));
-      const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, preparedAction: prepared, onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
+      prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
+      const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,
+        desktopActions: this.desktopActions, setLayer: id => this.setLayer(id), now: this.now, preparedAction: prepared,
+        onStep: step => steps.push(step), onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
       const event = this.record('success', `${binding.name}: ${message}`, details());
       try { await this.storage.appendLog(event); }
       catch { this.record('error', 'A ação foi executada, mas não foi possível salvar o histórico em disco.'); }
     } catch (error) {
       // Keep request secrets and content out of the execution history.
-      let message = ['EACCES', 'EPERM'].includes(error.code) ? 'Sem permissão para acessar o arquivo.' : error.message;
-      if (binding.action.type === 'http') {
-        if (Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
-        message = httpStatus ? `Destino respondeu HTTP ${httpStatus}${httpStatus >= 300 && httpStatus < 400 ? '. Redirecionamentos não são seguidos' : ''}.`
-          : /^(A requisição excedeu o limite de 10 segundos\.|Não foi possível conectar ao destino HTTP\.)$/.test(error.message) ? error.message : 'Não foi possível concluir a requisição HTTP.';
-      }
+      if (binding.action.type === 'http' && Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
+      const failedStep = steps.find(step => step.status === 'error');
+      const message = binding.action.type === 'sequence'
+        ? failedStep ? `Sequência interrompida na etapa ${failedStep.index} de ${binding.action.steps.length}: ${failedStep.message}` : 'Não foi possível preparar ou executar a sequência.'
+        : actionErrorMessage(binding.action.type, error, httpStatus);
       const event = this.record('error', `${binding.name}: ${message}`, details());
       try { await this.storage.appendLog(event); }
       catch { this.record('error', 'Não foi possível salvar o histórico em disco.'); }
