@@ -48,6 +48,22 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') side
 sidebar.addEventListener('pointerover', () => sidebar.classList.remove('dismiss-hints'));
 sidebar.addEventListener('focusin', () => sidebar.classList.remove('dismiss-hints'));
 
+const themeToggle = document.querySelector('#theme-toggle');
+function syncAppearanceControls() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const label = dark ? 'Usar tema claro' : 'Usar tema escuro';
+  themeToggle.setAttribute('aria-label', label);
+  themeToggle.title = label;
+  themeToggle.replaceChildren(icon(dark ? 'sun' : 'moon'), el('span', { class: 'nav-label' }, label));
+  const select = document.querySelector('#field-theme');
+  if (select) select.value = window.keyboardAppearance.preference;
+}
+themeToggle.addEventListener('click', () => {
+  window.keyboardAppearance.set(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
+window.addEventListener('keyboard-appearance-change', syncAppearanceControls);
+syncAppearanceControls();
+
 const keyboardPreferenceKey = 'keyboard-tracker.keyboard-preview';
 let keyboardPreference = normalizeKeyboardPreference();
 try { keyboardPreference = normalizeKeyboardPreference(JSON.parse(localStorage.getItem(keyboardPreferenceKey))); } catch { /* Invalid or unavailable storage uses defaults. */ }

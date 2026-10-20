@@ -44,6 +44,8 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
 - Configurações → Aparência oferece Claro, Escuro e Seguir o sistema. A seleção
   aplica na hora, persiste localmente e não faz parte da configuração exportada.
   O tema salvo é lido antes do CSS; mudanças do sistema só afetam a opção Sistema.
+  O botão de sol/lua no rodapé do menu alterna claro/escuro, acompanha o tema
+  aplicado e sincroniza o seletor sem recriar formulários ou descartar rascunhos.
 - Testes têm estado de execução, resultado inline e confirmação visível. Falhas
   retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
 - Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de

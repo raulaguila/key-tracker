@@ -106,7 +106,7 @@ async function main() {
       await evaluate('const input=document.querySelector(' + JSON.stringify(selector) + ');input.value=' + JSON.stringify(value) + ';input.dispatchEvent(new Event("change",{bubbles:true}));');
     }
     async function press(key, code, windowsVirtualKeyCode, modifiers = 0) {
-      await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode, modifiers });
+      await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode, modifiers, ...(key === 'Enter' ? { text: '\r' } : {}) });
       await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode, modifiers });
     }
     async function backdropClick() {
@@ -152,12 +152,20 @@ async function main() {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
     await until('document.documentElement.dataset.theme === "dark"', 'System dark theme applies');
     await click('[data-view="settings"]');
+    assert.equal(await evaluate('return document.querySelector("#theme-toggle").getAttribute("aria-label")'), 'Usar tema claro', 'Quick toggle follows the resolved system theme');
+    await pointerClick('#theme-toggle');
+    assert.equal(await evaluate('return document.documentElement.dataset.theme'), 'light', 'Quick toggle changes dark to light by pointer');
+    assert.equal(await evaluate('return document.querySelector("#field-theme").value'), 'light', 'Quick toggle synchronizes the settings selector');
+    await evaluate('document.querySelector("#theme-toggle").focus();');
+    await press('Enter', 'Enter', 13);
+    assert.equal(await evaluate('return document.documentElement.dataset.theme'), 'dark', 'Quick toggle changes light to dark by keyboard');
     await select('#field-theme', 'light');
     assert.equal(await evaluate('return document.documentElement.dataset.theme'), 'light', 'Explicit light overrides the dark system');
     await select('#field-theme', 'dark');
     await fill('#field-layerShortcut', 'F10');
-    await select('#field-theme', 'light');
+    await pointerClick('#theme-toggle');
     assert.equal(await evaluate('return document.querySelector("#field-layerShortcut").value'), 'F10', 'Theme changes preserve unsaved settings');
+    assert.equal(await evaluate('return document.querySelector("#field-theme").value'), 'light', 'Quick toggle synchronizes settings without rerendering the draft');
     await select('#field-theme', 'dark');
     await click('[data-view="layers"]');
     await click('#confirm-dialog .danger-solid');

@@ -93,8 +93,8 @@ nav { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 nav button { position: relative; border: 0; background: transparent; color: var(--muted); border-radius: 5px; display: flex; gap: 8px; align-items: center; min-height: 34px; padding: 8px; text-align: left; font-weight: 500; font-size: 12px; }
 nav button:hover { color: var(--ink); background: var(--line); }
 nav button[aria-current="page"] { color: var(--primary); background: var(--selected); }
-.sidebar-bottom { margin-top: auto; padding-top: 16px; }
-#sidebar-toggle { width: 100%; justify-content: flex-start; padding: 8px; }
+.sidebar-bottom { margin-top: auto; padding-top: 16px; display: grid; gap: 4px; }
+#sidebar-toggle, #theme-toggle { width: 100%; justify-content: flex-start; padding: 8px; }
 .workspace { margin-left: var(--sidebar-width); min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { position: sticky; top: 0; z-index: var(--z-header); min-height: 48px; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); background: var(--bg); }
 #page-name { font-size: 13px; font-weight: 600; }
@@ -406,11 +406,11 @@ dialog::backdrop { background: var(--backdrop); }
   .sidebar { padding: 8px 4px; }
   .brand { padding-left: 5px; }
   .brand > span, #sidebar-toggle > span { display: none; }
-  #sidebar-toggle { justify-content: center; }
+  #sidebar-toggle, #theme-toggle { justify-content: center; }
   .sidebar nav button { padding: 8px; justify-content: center; }
   .nav-label { display: none; }
   [data-sidebar="expanded"] .brand > span, [data-sidebar="expanded"] #sidebar-toggle > span, [data-sidebar="expanded"] .nav-label { display: inline; }
-  [data-sidebar="expanded"] .sidebar nav button, [data-sidebar="expanded"] #sidebar-toggle { justify-content: flex-start; }
+  [data-sidebar="expanded"] .sidebar nav button, [data-sidebar="expanded"] #sidebar-toggle, [data-sidebar="expanded"] #theme-toggle { justify-content: flex-start; }
   .topbar { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
   .topbar-actions { gap: 6px; }
   .engine-status strong { font-size: 11px; }
@@ -456,10 +456,10 @@ dialog::backdrop { background: var(--backdrop); }
   :root[data-sidebar="collapsed"] { --sidebar-width: 52px; }
   [data-sidebar="collapsed"] .brand { justify-content: center; padding: 0; }
   [data-sidebar="collapsed"] .brand > span { display: none; }
-  [data-sidebar="collapsed"] #navigation button, [data-sidebar="collapsed"] #sidebar-toggle { justify-content: center; padding: 8px; }
+  [data-sidebar="collapsed"] #navigation button, [data-sidebar="collapsed"] #sidebar-toggle, [data-sidebar="collapsed"] #theme-toggle { justify-content: center; padding: 8px; }
   [data-sidebar="collapsed"] #sidebar-toggle > .icon { transform: rotate(180deg); }
   [data-sidebar="collapsed"] .nav-label, [data-sidebar="collapsed"] .sidebar-toggle-label { position: absolute; left: 100%; padding: 6px 10px; border-radius: 4px; background: var(--ink); color: var(--bg); white-space: nowrap; font-size: 12px; visibility: hidden; }
-  [data-sidebar="collapsed"] #sidebar-toggle { position: relative; }
+  [data-sidebar="collapsed"] #sidebar-toggle, [data-sidebar="collapsed"] #theme-toggle { position: relative; }
   [data-sidebar="collapsed"] .sidebar:not(.dismiss-hints) button:is(:hover, :focus-visible) > .nav-label,
   [data-sidebar="collapsed"] .sidebar:not(.dismiss-hints) #sidebar-toggle:is(:hover, :focus-visible) > .sidebar-toggle-label { visibility: visible; }
 }

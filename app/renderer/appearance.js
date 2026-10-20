@@ -11,6 +11,7 @@
   function apply() {
     document.documentElement.dataset.theme = preference === 'system' ? system.matches ? 'dark' : 'light' : preference;
     document.documentElement.dataset.themePreference = preference;
+    window.dispatchEvent(new Event('keyboard-appearance-change'));
   }
   window.keyboardAppearance = Object.freeze({
     get preference() { return preference; },

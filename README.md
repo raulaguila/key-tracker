@@ -29,6 +29,8 @@ podem ser abertos nas respectivas seções expansíveis.
 
 Em **Configurações → Aparência → Tema**, escolha **Claro**, **Escuro** ou
 **Seguir o sistema**. A mudança é imediata e fica salva neste computador.
+O botão de sol/lua no rodapé do menu lateral alterna diretamente entre claro e
+escuro em qualquer tela. Para voltar ao tema automático, escolha “Seguir o sistema”.
 Os drawers de ações/camadas fecham por Escape, botão de fechar ou clique no fundo;
 alterações não salvas pedem confirmação. Escape durante a captura de um atalho
 cancela primeiro a captura. Ao fechar, a página mantém foco e rolagem.
