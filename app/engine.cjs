@@ -3,11 +3,15 @@ const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage } = require('./actions.cjs');
+const PAUSE_RESUME_DEBOUNCE_MS = 400;
 
 class Engine extends EventEmitter {
   constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now }) {
     super();
     this.config = validateConfig(config, platform);
+    this.serializedConfig = JSON.stringify(this.config);
+    this.configRevision = 0;
+    this.stateRevision = 0;
     this.shortcutsAPI = shortcuts;
     this.storage = storage;
     this.documents = documents;
@@ -30,16 +34,22 @@ class Engine extends EventEmitter {
     this.events = [];
     this.inFlight = new Set();
     this.lastRun = new Map();
+    this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
   }
 
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state() {
-    return structuredClone({ config: this.config, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, application: this.application, desktop: this.desktop, events: this.events });
+    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, application: this.application, desktop: this.desktop, events: this.events });
   }
 
-  publish() { this.emit('state', this.state()); return this.state(); }
+  publish() {
+    this.stateRevision++;
+    const snapshot = this.state();
+    this.emit('state', snapshot);
+    return snapshot;
+  }
 
   record(status, message, extra = {}) {
     const event = { id: randomUUID(), time: new Date().toISOString(), kind: 'system', status, message, ...extra };
@@ -83,7 +93,6 @@ class Engine extends EventEmitter {
     this.activeLayerId = id;
     this.manualLayerId = id;
     this.pendingApplication = false;
-    this.lastRun.clear();
     this.syncShortcuts();
     this.record('info', `Camada ativa: ${this.activeLayer.name}.`);
     return this.publish();
@@ -122,17 +131,19 @@ class Engine extends EventEmitter {
     }
     if (id !== this.activeLayerId) {
       this.activeLayerId = id;
-      this.lastRun.clear();
       this.record('info', `Camada ativa: ${this.activeLayer.name}.`);
     }
   }
 
   async saveConfig(config) {
     const valid = validateConfig(config, this.platform);
+    const serialized = JSON.stringify(valid);
     await this.storage.save(valid);
     const contextRules = value => JSON.stringify([value.settings.autoSwitchLayers, value.layers.map(layer => [layer.id, layer.applications])]);
     const contextChanged = contextRules(this.config) !== contextRules(valid);
     this.config = valid;
+    if (serialized !== this.serializedConfig) this.configRevision++;
+    this.serializedConfig = serialized;
     this.previews.clear();
     if (!valid.layers.some(layer => layer.id === this.activeLayerId)) this.activeLayerId = valid.layers[0].id;
     if (!valid.layers.some(layer => layer.id === this.manualLayerId)) this.manualLayerId = valid.layers[0].id;
@@ -141,7 +152,8 @@ class Engine extends EventEmitter {
       if (this.editing) this.pendingApplication = true;
       else this.applyApplication();
     }
-    this.lastRun.clear();
+    const bindingKeys = new Set(valid.layers.flatMap(layer => layer.bindings.map(binding => JSON.stringify([layer.id, binding.id]))));
+    for (const key of this.lastRun.keys()) if (key !== 'control:layer' && !bindingKeys.has(key)) this.lastRun.delete(key);
     this.syncShortcuts();
     const pause = effectiveShortcut(this.config.settings.pauseShortcut, this.platform);
     if (this.enabled && !this.registrations.has(pause)) {
@@ -185,21 +197,32 @@ class Engine extends EventEmitter {
   handleShortcut(effective) {
     const settings = this.config.settings;
     const isPause = effective === effectiveShortcut(settings.pauseShortcut, this.platform);
-    if (!this.enabled && !isPause) return;
-    const now = Date.now();
-    if (now - (this.lastRun.get(effective) ?? -Infinity) < settings.cooldownMs) return;
-    this.lastRun.set(effective, now);
-    if (isPause) { this.setEnabled(!this.enabled); return; }
-    if (this.editing) return;
+    if (isPause) {
+      const now = this.now();
+      // Pausing is immediate; rapid repeats must not resume a newly paused engine.
+      if (!this.enabled && now - this.lastPauseControlAt < PAUSE_RESUME_DEBOUNCE_MS) return;
+      this.lastPauseControlAt = now;
+      this.setEnabled(!this.enabled);
+      return;
+    }
+    if (!this.enabled || this.editing) return;
+    const now = this.now();
     if (effective === effectiveShortcut(settings.layerShortcut, this.platform)) {
+      if (now - (this.lastRun.get('control:layer') ?? -Infinity) < settings.cooldownMs) return;
+      this.lastRun.set('control:layer', now);
       const index = this.config.layers.findIndex(layer => layer.id === this.activeLayerId);
       const next = this.config.layers[(index + 1) % this.config.layers.length].id;
       this.setLayer(next);
-      this.lastRun.set(effective, now);
       return;
     }
-    const binding = this.activeLayer.bindings.find(binding => binding.enabled && effectiveShortcut(binding.key, this.platform) === effective);
-    if (binding) void this.runBinding(this.activeLayerId, binding.id).catch(error => { this.record('error', error.message); this.publish(); });
+    const layer = this.activeLayer;
+    const binding = layer.bindings.find(binding => binding.enabled && effectiveShortcut(binding.key, this.platform) === effective);
+    if (binding) {
+      const key = JSON.stringify([layer.id, binding.id]);
+      if (now - (this.lastRun.get(key) ?? -Infinity) < settings.cooldownMs) return;
+      this.lastRun.set(key, now);
+      void this.runBinding(layer.id, binding.id).catch(error => { this.record('error', error.message); this.publish(); });
+    }
   }
 
   findBinding(layerId, bindingId) {

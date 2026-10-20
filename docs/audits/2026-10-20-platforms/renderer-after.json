@@ -1,0 +1,15 @@
+{
+  "mode": "after",
+  "revision": 0,
+  "visibleRows": 100,
+  "documentElements": 2892,
+  "bindingsElements": 2758,
+  "hiddenMenuChildren": 0,
+  "sameFirstRow": true,
+  "searchMs": {
+    "median": 0.6000000014901161,
+    "p95": 4.399999998509884
+  },
+  "addedElements": 0,
+  "removedElements": 0
+}

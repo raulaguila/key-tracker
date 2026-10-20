@@ -1,11 +1,10 @@
-# Bridge plan — Ações de produtividade
+# Bridge plan — Correções da auditoria de plataformas
 
 <!-- bridge:plan-schema 1 -->
-<!-- Updated: 2026-10-20T17:51:21.030Z -->
 
 ## Checklist
 
-- [x] /keel build ações conforme CONTRACT: validação, execução, serviços nativos e testes
-- [x] /impeccable craft editor de ações e sequências, prévia e histórico conforme CONTRACT
-- [x] /bridge sync integração e regressões reais Electron
-- [x] /bridge ship testes, builds e commit
+- [x] /keel harden persistência, cooldown e cancelamento nativo A01–A07
+- [x] /impeccable optimize snapshots e renderização A08; recomendar editor de fluxos
+- [x] /bridge sync transporte IPC, exportação, dependências e regressões
+- [ ] /bridge ship testes, medição, builds nos três sistemas e commit

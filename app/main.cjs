@@ -1,11 +1,11 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences } = require('electron');
 const path = require('node:path');
-const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
-const { Storage } = require('./storage.cjs');
+const { Storage, readConfigFile } = require('./storage.cjs');
 const { Engine } = require('./engine.cjs');
 const { Tracker } = require('./tracking.cjs');
-const { MAX_CONFIG_BYTES } = require('./config.cjs');
+const { encodeConfig } = require('./config.cjs');
+const { writeExport } = require('./safe-export.cjs');
 const { ApplicationMonitor } = require('./application-monitor.cjs');
 const { DesktopTray, trayHostAvailable } = require('./desktop-tray.cjs');
 const { WindowLifecycle } = require('./window-lifecycle.cjs');
@@ -26,6 +26,9 @@ else {
   let tray;
   let lifecycle;
   let desktopActions;
+  let servicesStopping = false;
+  let servicesStopped = false;
+  let sentConfigRevision = null;
   const entry = path.join(__dirname, 'renderer', 'index.html');
   const entryURL = pathToFileURL(entry).href;
   function isAppURL(value) {
@@ -51,6 +54,16 @@ else {
     if (window && !window.isDestroyed()) window.webContents.send(`tracker:${channel}`, payload);
   }
 
+  function statePayload(state, full = false) {
+    if (full || sentConfigRevision !== state.configRevision) {
+      sentConfigRevision = state.configRevision;
+      return state;
+    }
+    const { config, ...update } = state;
+    return update;
+  }
+  const stateResult = operation => async (...args) => statePayload(await operation(...args));
+
   function showWindow() {
     if (!window || window.isDestroyed()) return;
     if (window.isMinimized()) window.restore();
@@ -69,11 +82,11 @@ else {
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     window.webContents.on('will-navigate', (event, url) => { if (!isAppURL(url)) event.preventDefault(); });
     lifecycle = new WindowLifecycle({ window,
-      shouldHide: () => engine.config.settings.closeToTray && tray?.available,
+      shouldHide: () => engine.config.settings.closeToTray ? tray?.revalidate() ?? false : false,
       requestConfirmation: payload => send('close-requested', payload),
       beforeHide: () => engine.setEditing(false), quit: () => app.quit() });
     window.webContents.on('render-process-gone', () => { engine.dispose(); tracker.set(false); lifecycle.forceQuit(); });
-    window.webContents.on('did-start-loading', () => { engine.setEnabled(false); engine.setEditing(false); });
+    window.webContents.on('did-start-loading', () => { sentConfigRevision = null; engine.setEnabled(false); engine.setEditing(false); });
     window.once('ready-to-show', () => window.show());
     window.on('closed', () => {
       window = null;
@@ -87,7 +100,21 @@ else {
   app.on('before-quit', event => {
     if (window && lifecycle && !lifecycle.allowClose) { event.preventDefault(); lifecycle.request(true); }
   });
-  app.on('will-quit', () => { monitor?.dispose(); tray?.dispose(); tracker?.stop(); desktopActions?.dispose(); engine?.dispose(); });
+  app.on('will-quit', event => {
+    if (servicesStopped) return;
+    event.preventDefault();
+    if (servicesStopping) return;
+    servicesStopping = true;
+    tray?.dispose(); tracker?.stop(); desktopActions?.dispose(); engine?.dispose();
+    // The reader owns native helper processes; let it reap them before Electron
+    // terminates the worker thread during shutdown.
+    Promise.resolve(monitor?.dispose()).catch(() => {}).finally(() => {
+      servicesStopped = true;
+      // A resolved cleanup can finish before Electron resets its cancelled quit
+      // cycle. Resume on the next turn rather than inside that event's microtask.
+      setImmediate(() => app.quit());
+    });
+  });
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
@@ -96,20 +123,20 @@ else {
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
-    engine.on('state', state => send('state', state));
+    engine.on('state', state => send('state', statePayload(state)));
     engine.on('key', key => send('key', key));
 
-    handle('get-state', () => engine.state());
-    handle('save-config', config => serialConfig(() => engine.saveConfig(config)));
-    handle('set-enabled', enabled => engine.setEnabled(enabled));
-    handle('set-layer', id => engine.setLayer(id));
-    handle('set-editing', editing => engine.setEditing(editing));
+    handle('get-state', () => statePayload(engine.state(), true));
+    handle('save-config', stateResult(config => serialConfig(() => engine.saveConfig(config))));
+    handle('set-enabled', stateResult(enabled => engine.setEnabled(enabled)));
+    handle('set-layer', stateResult(id => engine.setLayer(id)));
+    handle('set-editing', stateResult(editing => engine.setEditing(editing)));
     handle('preview-binding', (layerId, bindingId) => engine.previewBinding(layerId, bindingId));
-    handle('run-binding', (layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId));
+    handle('run-binding', stateResult((layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId)));
     handle('show-window', showWindow);
     handle('confirm-close', () => lifecycle?.confirm());
     handle('cancel-close', () => lifecycle?.cancel());
-    handle('set-tracking', enabled => tracker.set(enabled));
+    handle('set-tracking', stateResult(enabled => tracker.set(enabled)));
     handle('choose-directory', async () => {
       const result = await dialog.showOpenDialog(window, { title: 'Escolher pasta para os arquivos', properties: ['openDirectory', 'createDirectory'] });
       return result.canceled ? null : result.filePaths[0];
@@ -128,26 +155,23 @@ else {
       const error = await shell.openPath(storage.directory);
       if (error) throw new Error('Não foi possível abrir a pasta de dados.');
     });
-    handle('export-config', async () => {
+    handle('export-config', stateResult(async () => {
       const result = await dialog.showSaveDialog(window, { title: 'Exportar configuração', defaultPath: 'keyboard-tracker.json', filters: [{ name: 'Configuração JSON', extensions: ['json'] }] });
       if (!result.canceled && result.filePath) {
-        if (path.resolve(result.filePath) === path.resolve(storage.configPath)) throw new Error('Escolha um destino diferente da configuração interna.');
-        await fs.writeFile(result.filePath, JSON.stringify(engine.config, null, 2) + '\n', { mode: 0o600 });
+        await writeExport(result.filePath, encodeConfig(engine.config), [storage.configPath, storage.logPath, storage.logPath + '.1']);
       }
       return engine.state();
-    });
-    handle('import-config', async () => {
+    }));
+    handle('import-config', stateResult(async () => {
       const result = await dialog.showOpenDialog(window, { title: 'Importar configuração', properties: ['openFile'], filters: [{ name: 'Configuração JSON', extensions: ['json'] }] });
       if (result.canceled) return engine.state();
       const file = result.filePaths[0];
-      if ((await fs.stat(file)).size > MAX_CONFIG_BYTES) throw new Error('Configuração deve ter até 256 KB.');
-      let config;
-      try { config = JSON.parse(await fs.readFile(file, 'utf8')); } catch { throw new Error('O arquivo não contém um JSON válido.'); }
+      const config = await readConfigFile(file);
       return serialConfig(async () => {
         engine.setEnabled(false);
         return engine.saveConfig(config);
       });
-    });
+    }));
     const template = [
       ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },

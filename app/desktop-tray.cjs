@@ -1,11 +1,11 @@
 const { deflateSync } = require('node:zlib');
 const { execFile } = require('node:child_process');
 
-async function trayHostAvailable({ platform = process.platform, execFileImpl = execFile } = {}) {
+async function trayHostAvailable({ platform = process.platform, execFileImpl = execFile, signal } = {}) {
   if (platform !== 'linux') return true;
   return new Promise(resolve => {
     try {
-      execFileImpl('dbus-send', ['--session', '--dest=org.freedesktop.DBus', '--type=method_call', '--print-reply', '/org/freedesktop/DBus', 'org.freedesktop.DBus.NameHasOwner', 'string:org.kde.StatusNotifierWatcher'], { timeout: 1500, maxBuffer: 4096, windowsHide: true }, (error, stdout) => {
+      execFileImpl('dbus-send', ['--session', '--dest=org.freedesktop.DBus', '--type=method_call', '--print-reply', '/org/freedesktop/DBus', 'org.freedesktop.DBus.NameHasOwner', 'string:org.kde.StatusNotifierWatcher'], { timeout: 1500, maxBuffer: 4096, windowsHide: true, killSignal: 'SIGKILL', ...(signal ? { signal } : {}) }, (error, stdout) => {
         resolve(!error && /\bboolean\s+true\b/.test(stdout || ''));
       });
     } catch { resolve(false); }
@@ -61,11 +61,17 @@ function trayIcon(state) {
 }
 
 class DesktopTray {
-  constructor({ Tray, Menu, nativeImage, engine, tracker, showWindow, quit, platform = process.platform, hostAvailable = true }) {
+  constructor({ Tray, Menu, nativeImage, engine, tracker, showWindow, quit, platform = process.platform, hostAvailable = true, hostCheck, hostIntervalMs = 1000 }) {
     Object.assign(this, { Menu, nativeImage, engine, tracker, showWindow, quit, platform });
     this.available = false;
     this.tray = null;
     this.lastSignature = '';
+    this.disposed = false;
+    this.hostTimer = null;
+    this.hostPending = null;
+    this.hostIntervalMs = hostIntervalMs;
+    this.hostController = new AbortController();
+    this.hostCheck = hostCheck || (() => trayHostAvailable({ platform, signal: this.hostController.signal }));
     this.onState = state => this.refresh(state);
     if (!hostAvailable) return;
     try {
@@ -75,6 +81,7 @@ class DesktopTray {
       this.available = true;
       engine.on('state', this.onState);
       this.refresh(engine.state());
+      this.scheduleHostCheck();
     } catch { this.unavailable(); }
   }
 
@@ -118,14 +125,43 @@ class DesktopTray {
     } catch { this.unavailable(); }
   }
 
+  scheduleHostCheck() {
+    if (this.platform !== 'linux' || !this.available || this.disposed || this.hostTimer) return;
+    this.hostTimer = setTimeout(() => {
+      this.hostTimer = null;
+      void this.revalidate().finally(() => this.scheduleHostCheck());
+    }, this.hostIntervalMs);
+    this.hostTimer.unref?.();
+  }
+
+  revalidate() {
+    if (this.disposed || !this.available) return Promise.resolve(false);
+    try { if (this.tray?.isDestroyed?.()) { this.unavailable(); return Promise.resolve(false); } }
+    catch { this.unavailable(); return Promise.resolve(false); }
+    if (this.platform !== 'linux') return Promise.resolve(this.available);
+    if (this.hostPending) return this.hostPending;
+    this.hostPending = Promise.resolve().then(() => this.hostCheck()).then(available => {
+      if (!available && !this.disposed) this.unavailable();
+      return Boolean(available && this.available && !this.disposed);
+    }, () => {
+      if (!this.disposed) this.unavailable();
+      return false;
+    }).finally(() => { this.hostPending = null; });
+    return this.hostPending;
+  }
+
   unavailable() {
     const wasAvailable = this.available;
     this.available = false;
+    clearTimeout(this.hostTimer);
+    this.hostTimer = null;
+    this.hostController.abort();
     this.engine.off('state', this.onState);
     try { this.tray?.destroy(); } catch { /* Native tray may already be gone. */ }
     this.tray = null;
     if (wasAvailable && this.engine.desktop?.trayAvailable) {
       this.engine.desktop.trayAvailable = false;
+      this.engine.record?.('info', 'A bandeja ficou indisponível. A janela foi restaurada.');
       this.engine.publish();
       // A window hidden by close-to-tray must remain recoverable after a tray failure.
       this.showWindow();
@@ -133,7 +169,11 @@ class DesktopTray {
   }
 
   dispose() {
+    this.disposed = true;
     this.available = false;
+    clearTimeout(this.hostTimer);
+    this.hostTimer = null;
+    this.hostController.abort();
     this.engine.off('state', this.onState);
     try { this.tray?.destroy(); } catch { /* Native tray may already be gone. */ }
     this.tray = null;

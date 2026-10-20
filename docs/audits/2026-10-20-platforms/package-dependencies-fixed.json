@@ -1,0 +1,13 @@
+{
+  "electronBuilder": "26.15.3",
+  "addon": "uiohook-napi@1.5.5",
+  "elfNeeded": [
+    "libX11.so.6",
+    "libXrandr.so.2",
+    "libXtst.so.6",
+    "libXt.so.6",
+    "libc.so.6"
+  ],
+  "debDepends": "libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0, libxt6 | libxt6t64",
+  "note": "Declared dependencies inspected on built DEB. Clean-distribution installation and AppImage library availability are separate checks."
+}

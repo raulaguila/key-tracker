@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { ApplicationMonitor, applicationOwner } = require('../app/application-monitor.cjs');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
@@ -130,4 +133,48 @@ test('desligar e reativar depois do agendamento mantém consultas recorrentes', 
   monitor.dispose();
   assert.equal(monitor.timer, null);
   assert.equal(monitor.readTimeout, null);
+});
+
+test('worker real cancela helper bloqueado no timeout, ao desligar e no encerramento', { skip: process.platform !== 'linux' }, async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-helper-'));
+  const previousPath = process.env.PATH;
+  const previousPidFile = process.env.KEY_TRACKER_NATIVE_TEST_PID;
+  const script = '#!/bin/sh\nprintf "%s" "$$" > "$KEY_TRACKER_NATIVE_TEST_PID"\nexec /bin/sleep 30\n';
+  await fs.writeFile(path.join(directory, 'xprop'), script, { mode: 0o700 });
+  await fs.writeFile(path.join(directory, 'xwininfo'), script, { mode: 0o700 });
+  process.env.PATH = directory + path.delimiter + previousPath;
+  t.after(async () => {
+    process.env.PATH = previousPath;
+    if (previousPidFile === undefined) delete process.env.KEY_TRACKER_NATIVE_TEST_PID;
+    else process.env.KEY_TRACKER_NATIVE_TEST_PID = previousPidFile;
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+  for (const mode of ['timeout', 'off', 'quit']) {
+    await t.test(mode, async () => {
+      const pidFile = path.join(directory, mode + '.pid');
+      process.env.KEY_TRACKER_NATIVE_TEST_PID = pidFile;
+      const { engine, monitor, enable } = fixture({ intervalMs: 60000, timeoutMs: 2000 });
+      let pid;
+      try {
+        enable(true);
+        const deadline = Date.now() + 4000;
+        while (!pid && Date.now() < deadline) {
+          try { pid = Number(await fs.readFile(pidFile, 'utf8')); } catch { /* Wait for the owned helper. */ }
+          if (!pid) await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        assert.ok(pid, 'o adaptador real deve iniciar o helper controlado');
+        if (mode === 'off') enable(false);
+        if (mode === 'timeout') {
+          while (engine.application.status !== 'error' && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+          assert.equal(engine.application.status, 'error');
+        }
+        await monitor.dispose();
+        assert.throws(() => process.kill(pid, 0), /ESRCH/, 'o subprocesso precisa ser recolhido antes do dispose concluir');
+        assert.equal(monitor.cleanups.size, 0);
+      } finally {
+        await monitor.dispose();
+        if (pid) try { process.kill(pid, 'SIGKILL'); } catch { /* Already reaped. */ }
+      }
+    });
+  }
 });

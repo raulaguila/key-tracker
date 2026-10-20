@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/platform-audit.yml'
       - 'scripts/platform-audit.cjs'
+      - 'app/**'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 permissions:

@@ -58,6 +58,9 @@ abre uma prévia sem executar nada. **Executar teste** confirma a execução rea
 mesmo pausado; o resultado aparece no drawer, na ação e em **Histórico**. Pausar
 impede novos disparos, mas não cancela uma ação já iniciada. Intervalo mínimo
 reduz repetições; uma tecla segurada pode voltar a disparar após esse intervalo.
+O intervalo pertence à ação de origem e continua valendo ao trocar de camada.
+Pausar pelo atalho é imediato; retomar usa um intervalo próprio de 400 ms para
+evitar uma retomada por repetição logo após pausar.
 Por padrão, fechar a janela encerra o app e todos os hooks. A opção de manter
 na bandeja permite continuar usando os atalhos com a janela oculta.
 
@@ -113,6 +116,8 @@ mensagem no log continua disponível para compatibilidade com ações antigas.
   rascunhos continuam protegidos. No Linux, ocultar só fica disponível quando
   `dbus-send` confirma um host StatusNotifier, como os oferecidos pelo ambiente
   desktop. Se a bandeja não estiver disponível, a janela não fica oculta.
+  A disponibilidade é conferida novamente ao fechar e após confirmar rascunhos;
+  se o host da bandeja desaparecer, a janela volta a aparecer.
 - **Prévia do teste:** mostra destino, parâmetros interpolados e conteúdo antes
   de executar. Valores de headers ficam mascarados. A execução usa os valores
   completos, congelados por até cinco minutos; atualizar a prévia permite outro
@@ -210,6 +215,15 @@ eles não são publicados em releases automaticamente. Assinatura de
 código e notarização dependem dos certificados do distribuidor; os builds de
 desenvolvimento podem acionar avisos do sistema.
 
+No Linux, o `.deb` declara `libxt6 | libxt6t64`, exigido pelo rastreio nativo,
+além das dependências padrão do Electron. Para usar o AppImage, essa biblioteca
+X11 também precisa existir no sistema. O AppImage não instala pacotes do sistema.
+
+Configurações usam JSON compacto de até 256 KiB. A importação e a leitura também
+aceitam arquivos formatados de versões anteriores, até 2 MiB, desde que a
+configuração normalizada respeite o limite de 256 KiB. Exportações de configuração
+e histórico são atômicas e rejeitam destinos que apontem para arquivos internos.
+
 No Linux, o teste da interface em Electron real usa um display isolado:
 
 ```bash
@@ -234,6 +248,8 @@ Análise atual, problemas reproduzidos e medições do executável:
 [auditoria de UI/UX e performance](docs/audits/2026-10-20/report.md).
 Compatibilidade, integrações nativas e medições nos três runners:
 [auditoria de performance e sistemas operacionais](docs/audits/2026-10-20-platforms/report.md).
+[Correções e novas provas](docs/audits/2026-10-20-platforms/remediation.md), incluindo
+a [proposta para cadastrar fluxos de ação](docs/audits/2026-10-20-platforms/action-flow-ux.md).
 
 O protótipo que orientou o design adotado está preservado em
 [docs/prototypes/compact](docs/prototypes/compact/README.md), com dados de exemplo.

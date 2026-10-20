@@ -98,6 +98,7 @@ test('Linux só oferece ocultar na bandeja com host confirmado; consulta é limi
     assert.ok(args.includes('string:org.kde.StatusNotifierWatcher'));
     assert.equal(options.timeout, 1500);
     assert.equal(options.maxBuffer, 4096);
+    assert.equal(options.killSignal, 'SIGKILL');
     assert.equal(options.shell, undefined);
     callback(null, 'method return\n   boolean true\n');
   };
@@ -113,4 +114,42 @@ test('Linux só oferece ocultar na bandeja com host confirmado; consulta é limi
   assert.equal(desktop.available, false);
   assert.equal(engine.listenerCount('state'), 0);
   desktop.dispose();
+});
+
+test('revalidação compartilha consulta e perda do host restaura janela e invalida ocultação', async t => {
+  let host = true;
+  let probes = 0;
+  const { desktop, engine, shown } = fixture({ platform: 'linux', hostIntervalMs: 60000, hostCheck: async () => { probes++; return host; } });
+  t.after(() => desktop.dispose());
+  assert.deepEqual(await Promise.all([desktop.revalidate(), desktop.revalidate()]), [true, true]);
+  assert.equal(probes, 1);
+  const native = desktop.tray;
+  host = false;
+  assert.equal(await desktop.revalidate(), false);
+  assert.equal(desktop.available, false);
+  assert.equal(engine.desktop.trayAvailable, false);
+  assert.equal(shown(), 1);
+  assert.equal(native.destroyed, true);
+  assert.equal(desktop.hostTimer, null);
+  assert.equal(engine.listenerCount('state'), 0);
+});
+
+test('observação periódica recupera janela sem depender de mudança de estado; dispose ignora consulta atrasada', async () => {
+  let host = true;
+  const { desktop, shown } = fixture({ platform: 'linux', hostIntervalMs: 5, hostCheck: async () => host });
+  host = false;
+  const deadline = Date.now() + 1000;
+  while (!shown() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(shown(), 1);
+  assert.equal(desktop.available, false);
+  desktop.dispose();
+  let release;
+  const pending = fixture({ platform: 'linux', hostIntervalMs: 60000, hostCheck: () => new Promise(resolve => { release = resolve; }) });
+  const checking = pending.desktop.revalidate();
+  await new Promise(resolve => setImmediate(resolve));
+  pending.desktop.dispose();
+  release(false);
+  assert.equal(await checking, false);
+  assert.equal(pending.shown(), 0);
+  assert.equal(pending.desktop.hostTimer, null);
 });

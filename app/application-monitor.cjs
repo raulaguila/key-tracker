@@ -6,7 +6,9 @@ class WindowReader {
     this.worker = new Worker(path.join(__dirname, 'application-reader.cjs'));
     this.worker.unref();
     this.pending = null;
+    this.stopping = null;
     this.worker.on('message', result => {
+      if (result.type === 'stopped') { this.finishStop?.(); return; }
       const pending = this.pending;
       this.pending = null;
       if (!pending) return;
@@ -27,7 +29,28 @@ class WindowReader {
       this.worker.postMessage('read');
     });
   }
-  dispose() { this.reject(); void this.worker.terminate(); }
+  dispose() {
+    if (this.stopping) return this.stopping;
+    this.reject();
+    this.stopping = new Promise(resolve => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this.worker.off('exit', finish);
+        this.finishStop = null;
+        const terminated = Promise.resolve().then(() => this.worker.terminate()).catch(() => {});
+        const deadline = setTimeout(resolve, 500);
+        void terminated.then(() => { clearTimeout(deadline); resolve(); });
+      };
+      const timer = setTimeout(finish, 1500);
+      this.finishStop = finish;
+      this.worker.once('exit', finish);
+      try { this.worker.postMessage({ type: 'stop' }); } catch { finish(); }
+    });
+    return this.stopping;
+  }
 }
 
 function applicationOwner(result) {
@@ -58,6 +81,8 @@ class ApplicationMonitor {
     this.readPending = false;
     this.reader = null;
     this.lastState = '';
+    this.cleanups = new Set();
+    this.disposePromise = null;
     this.onState = () => this.configure();
     engine.on('state', this.onState);
     this.configure();
@@ -79,8 +104,7 @@ class ApplicationMonitor {
     this.generation++;
     clearTimeout(this.timer);
     this.timer = null;
-    this.reader?.dispose();
-    this.reader = null;
+    this.stopReader();
     if (!enabled) {
       this.update('off', 'Troca por aplicativo desligada.');
       return;
@@ -99,6 +123,7 @@ class ApplicationMonitor {
 
   async poll() {
     if (this.disposed || !this.enabled || this.inFlight || this.readPending || (this.platform === 'linux' && this.session === 'wayland')) return;
+    if (this.cleanups.size) return;
     this.inFlight = true;
     const generation = this.generation;
     let expired = false;
@@ -109,9 +134,8 @@ class ApplicationMonitor {
       if (!this.disposed && generation === this.generation && this.enabled) {
         this.update('error', 'A identificação do aplicativo não respondeu. O controle manual continua disponível.');
       }
-      // Terminating the reader prevents native calls from accumulating on timeout.
-      this.reader?.dispose();
-      this.reader = null;
+      // Stop the owned native helpers before terminating/replacing their thread.
+      this.stopReader();
       rejectTimeout(new Error('Leitura expirada.'));
     }, this.timeoutMs);
     this.readTimeout = timeout;
@@ -132,8 +156,7 @@ class ApplicationMonitor {
       this.update(error.code === 'linux-tools' ? 'unavailable' : 'error', error.code === 'linux-tools'
         ? 'Instale xprop e xwininfo para identificar aplicativos no X11. O controle manual continua disponível.'
         : 'Não foi possível identificar o aplicativo em foco. O controle manual continua disponível.');
-      this.reader?.dispose();
-      this.reader = null;
+      this.stopReader();
     } finally {
       clearTimeout(timeout);
       if (this.readTimeout === timeout) this.readTimeout = null;
@@ -143,13 +166,23 @@ class ApplicationMonitor {
   }
 
   schedule() {
-    if (!this.disposed && this.enabled && !this.timer && !this.readPending) {
+    if (!this.disposed && this.enabled && !this.timer && !this.readPending && !this.cleanups.size) {
       this.timer = setTimeout(() => { this.timer = null; void this.poll(); }, this.intervalMs);
       this.timer.unref?.();
     }
   }
 
+  stopReader() {
+    if (!this.reader) return;
+    const reader = this.reader;
+    this.reader = null;
+    const cleanup = reader.dispose().catch(() => {});
+    this.cleanups.add(cleanup);
+    void cleanup.then(() => { this.cleanups.delete(cleanup); this.schedule(); });
+  }
+
   dispose() {
+    if (this.disposePromise) return this.disposePromise;
     this.disposed = true;
     this.enabled = false;
     this.generation++;
@@ -158,8 +191,9 @@ class ApplicationMonitor {
     clearTimeout(this.readTimeout);
     this.timer = null;
     this.readTimeout = null;
-    this.reader?.dispose();
-    this.reader = null;
+    this.stopReader();
+    this.disposePromise = Promise.allSettled([...this.cleanups]).then(() => {});
+    return this.disposePromise;
   }
 }
 

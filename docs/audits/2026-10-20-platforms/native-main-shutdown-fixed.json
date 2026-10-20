@@ -1,0 +1,157 @@
+{
+  "electron": "44.9.1",
+  "results": [
+    {
+      "mode": "clean",
+      "renderer": {
+        "editor": false,
+        "draftForms": 0,
+        "dialogs": 0
+      },
+      "state": {
+        "enabled": false,
+        "tracking": false,
+        "autoSwitch": false,
+        "closeToTray": false
+      },
+      "exited": true,
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "elapsedMs": 208,
+      "helperAlive": false,
+      "events": [
+        {
+          "type": "explicit-app-quit",
+          "time": 1792522647486,
+          "windows": 1
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647488,
+          "windows": 1,
+          "prevented": true
+        },
+        {
+          "type": "window-close",
+          "time": 1792522647493,
+          "windows": 1,
+          "prevented": false
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647503,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "window-closed",
+          "time": 1792522647503,
+          "windows": 0
+        },
+        {
+          "type": "will-quit",
+          "time": 1792522647505,
+          "windows": 0,
+          "prevented": true
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647507,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "will-quit",
+          "time": 1792522647508,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "quit",
+          "time": 1792522647508,
+          "windows": 0,
+          "prevented": false,
+          "code": 0
+        }
+      ]
+    },
+    {
+      "mode": "blocked",
+      "renderer": {
+        "editor": false,
+        "draftForms": 0,
+        "dialogs": 0
+      },
+      "state": {
+        "enabled": false,
+        "tracking": false,
+        "autoSwitch": true,
+        "closeToTray": false
+      },
+      "exited": true,
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "elapsedMs": 186,
+      "helperAlive": false,
+      "events": [
+        {
+          "type": "explicit-app-quit",
+          "time": 1792522647897,
+          "windows": 1
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647899,
+          "windows": 1,
+          "prevented": true
+        },
+        {
+          "type": "window-close",
+          "time": 1792522647902,
+          "windows": 1,
+          "prevented": false
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647912,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "window-closed",
+          "time": 1792522647912,
+          "windows": 0
+        },
+        {
+          "type": "will-quit",
+          "time": 1792522647914,
+          "windows": 0,
+          "prevented": true
+        },
+        {
+          "type": "before-quit",
+          "time": 1792522647919,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "will-quit",
+          "time": 1792522647919,
+          "windows": 0,
+          "prevented": false
+        },
+        {
+          "type": "quit",
+          "time": 1792522647919,
+          "windows": 0,
+          "prevented": false,
+          "code": 0
+        }
+      ]
+    }
+  ]
+}

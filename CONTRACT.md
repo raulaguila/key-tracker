@@ -148,3 +148,31 @@ Aceite: fluxos reais Electron, persistência legada, conflitos e defaults, nenhu
 execução durante prévia, token/TTL, camadas automáticas e retorno manual, tray e
 fechamento com rascunhos; builds nos três OS e inspeção visual Linux claro/escuro.
 Mocks somente nas bordas nativas dos testes unitários; produção usa APIs reais.
+
+## Correções autorizadas: auditoria de plataformas (20/10/2026)
+
+Autorização: “Corrija tudo”. Escopo: A01–A08 do relatório de plataformas.
+Configuração normalizada usa limite de 256 KiB em JSON compacto; leitura/importação
+aceitam JSON formatado legado até 2 MiB, validando depois o limite canônico.
+Persistência e exportação usam a mesma representação canônica. Exportações são
+atômicas e não truncam arquivos protegidos por aliases ou hardlinks.
+Cooldown pertence à ação e à camada de origem, permanece após trocas de camada;
+pausar nunca é bloqueado pelo cooldown das ações. Retomar pelo atalho usa debounce
+próprio de 400 ms após a última alternância do controle. Detectores nativos têm prazo e
+cancelamento dos processos auxiliares. Ocultar exige tray disponível no momento
+do fechamento, inclusive após confirmar rascunhos; perda do host restaura a janela.
+
+State ganha `configRevision` e `stateRevision` monotônicos por sessão. A primeira
+avança após salvar com sucesso um conteúdo normalizado diferente; a segunda
+avança em cada publicação do motor. Salvar conteúdo idêntico continua persistindo.
+APIs preload continuam entregando
+State completo. Main pode omitir config em notificações/respostas quando a revisão
+não mudou; preload recompõe o estado usando a configuração da mesma revisão.
+Revisões antigas não substituem configurações recentes. Engine mantém snapshots
+independentes da configuração interna. Renderer usa revisão em vez de serializar a
+configuração e só constrói menus de ações quando abertos.
+
+Aceite: regressões dos oito achados, testes e build locais, comparação de performance
+no mesmo host e CI Windows/macOS/Linux. Limitações de assinatura, hardware e eventos
+físicos permanecem explícitas. Cadastro de fluxo recebe recomendação de UX; redesign
+completo não integra estas correções.

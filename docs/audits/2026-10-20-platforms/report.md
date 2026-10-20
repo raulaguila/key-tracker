@@ -1,5 +1,8 @@
 # Auditoria de performance, compatibilidade e integração por sistema
 
+Registro da versão auditada. As correções posteriores e suas provas estão em
+[remediation.md](remediation.md).
+
 Data: 20/10/2026. Código do produto: `77a360d`.
 Diagnósticos: `8a6c78d` / `a6be5d4`; essas revisões alteram apenas o controlador
 e o workflow de auditoria. O comportamento do aplicativo não foi modificado.

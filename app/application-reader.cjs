@@ -4,6 +4,14 @@ const { parentPort } = require('node:worker_threads');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const childProcess = require('node:child_process');
+const { syncBuiltinESMExports } = require('node:module');
+const { NativeProcessScope } = require('./native-process-scope.cjs');
+
+const processes = new NativeProcessScope();
+childProcess.execFile = processes.execFile;
+syncBuiltinESMExports();
+let stopping = false;
 
 async function executableAvailable(name) {
   for (const directory of (process.env.PATH || '').split(path.delimiter)) {
@@ -34,4 +42,13 @@ async function read() {
   parentPort.postMessage({ owner: owner ? { name: owner.name, path: owner.path, bundleId: owner.bundleId, processId: owner.processId } : null });
 }
 
-parentPort.on('message', () => { void read().catch(() => parentPort.postMessage({ error: 'native-read' })); });
+parentPort.on('message', message => {
+  const type = typeof message === 'string' ? message : message?.type;
+  if (type === 'stop') {
+    if (stopping) return;
+    stopping = true;
+    void processes.cancel().then(() => { parentPort.postMessage({ type: 'stopped' }); parentPort.close(); });
+  } else if (type === 'read' && !stopping) {
+    void read().catch(() => { if (!stopping) parentPort.postMessage({ error: 'native-read' }); });
+  }
+});

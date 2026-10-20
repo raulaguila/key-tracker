@@ -137,3 +137,43 @@ test('validação rejeita abertura perigosa, conteúdo excessivo e sequências f
   assert.throws(() => validateAction({ type: 'sequence', steps: [{ type: 'sequence', steps: [simple] }] }), /outras sequências/);
   assert.equal(validateAction({ type: 'sequence', steps: Array.from({ length: 10 }, () => simple) }).steps.length, 10);
 });
+
+test('codec usa exatamente 256 KiB canônicos e aceita JSON legado formatado até 2 MiB', () => {
+  const { encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES } = require('../app/config.cjs');
+  const config = defaultConfig();
+  config.layers[0].bindings[0].action = { type: 'sequence', steps: Array.from({ length: 5 }, () => ({ type: 'clipboard', text: 'x' })) };
+  const normalized = validateConfig(config);
+  let remaining = MAX_CONFIG_BYTES - Buffer.byteLength(JSON.stringify(normalized));
+  for (const step of normalized.layers[0].bindings[0].action.steps) {
+    const extra = Math.min(63999, remaining);
+    step.text += 'x'.repeat(extra);
+    remaining -= extra;
+  }
+  assert.equal(remaining, 0);
+  const encoded = encodeConfig(normalized);
+  assert.equal(Buffer.byteLength(encoded), MAX_CONFIG_BYTES);
+  assert.equal(encoded.endsWith('\n'), false);
+  assert.deepEqual(decodeConfig(encoded), normalized);
+  const formatted = JSON.stringify(normalized, null, 2) + '\n';
+  assert.ok(Buffer.byteLength(formatted) > MAX_CONFIG_BYTES);
+  assert.deepEqual(decodeConfig(Buffer.from(formatted)), normalized);
+  const padded = encoded + ' '.repeat(MAX_CONFIG_FILE_BYTES - Buffer.byteLength(encoded));
+  assert.deepEqual(decodeConfig(padded), normalized);
+  assert.throws(() => decodeConfig(padded + ' '), /2 MiB/);
+  normalized.layers[0].bindings[0].action.steps.at(-1).text += 'x';
+  assert.throws(() => encodeConfig(normalized), /256 KiB/);
+});
+
+test('limite canônico considera defaults normalizados, sem contar campos legados descartados', () => {
+  const { encodeConfig, decodeConfig } = require('../app/config.cjs');
+  const config = defaultConfig();
+  config.legacyIgnored = 'x'.repeat(300000);
+  delete config.layers[0].bindings[0].enabled;
+  const encoded = encodeConfig(config);
+  assert.ok(Buffer.byteLength(encoded) < 256 * 1024);
+  const loaded = decodeConfig(JSON.stringify(config, null, 2));
+  assert.equal(loaded.legacyIgnored, undefined);
+  assert.equal(loaded.layers[0].bindings[0].enabled, true);
+  assert.deepEqual(JSON.parse(encoded), loaded);
+  assert.throws(() => decodeConfig('{"secret":"invalid json'), /JSON válido/);
+});

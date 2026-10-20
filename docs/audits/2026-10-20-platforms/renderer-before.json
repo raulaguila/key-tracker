@@ -1,0 +1,14 @@
+{
+  "mode": "before",
+  "visibleRows": 100,
+  "documentElements": 4092,
+  "bindingsElements": 3958,
+  "hiddenMenuChildren": 300,
+  "sameFirstRow": false,
+  "searchMs": {
+    "median": 14.800000004470348,
+    "p95": 20.599999994039536
+  },
+  "addedElements": 158320,
+  "removedElements": 158320
+}

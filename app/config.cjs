@@ -2,6 +2,7 @@ const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 
 const MAX_CONFIG_BYTES = 256 * 1024;
+const MAX_CONFIG_FILE_BYTES = 2 * 1024 * 1024;
 const MODIFIERS = ['CommandOrControl', 'Control', 'Command', 'Alt', 'Shift', 'Super'];
 const KEYS = new Set(['Space', 'Tab', 'Enter', 'Escape', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right', 'Plus', 'Equal', 'Minus', 'Comma', 'Period', 'Slash', 'Backslash', 'Semicolon', 'Quote', 'Backquote', 'BracketLeft', 'BracketRight', ...Array.from({length: 24}, (_, i) => `F${i + 1}`)]);
 const ALIASES = { ctrl: 'Control', control: 'Control', cmd: 'Command', command: 'Command', commandorcontrol: 'CommandOrControl', cmdorctrl: 'CommandOrControl', alt: 'Alt', option: 'Alt', shift: 'Shift', super: 'Super', meta: 'Super', return: 'Enter', esc: 'Escape', arrowup: 'Up', arrowdown: 'Down', arrowleft: 'Left', arrowright: 'Right', ' ': 'Space' };
@@ -104,7 +105,7 @@ function validateAction(action, platform = process.platform, nested = false) {
 }
 
 function validateConfig(value, platform = process.platform) {
-  if (!value || Buffer.byteLength(JSON.stringify(value)) > MAX_CONFIG_BYTES) throw new Error('Configuração deve ter até 256 KB.');
+  if (!value || Buffer.byteLength(JSON.stringify(value)) > MAX_CONFIG_FILE_BYTES) throw new Error('Configuração de entrada deve ter até 2 MiB.');
   if (value.version !== 1) throw new Error('Versão de configuração não suportada.');
   if (!Array.isArray(value.layers) || !value.layers.length || value.layers.length > 30) throw new Error('Cadastre entre 1 e 30 camadas.');
   const settings = value.settings || {};
@@ -145,7 +146,22 @@ function validateConfig(value, platform = process.platform) {
     const actions = binding.action.type === 'sequence' ? binding.action.steps : [binding.action];
     if (actions.some(action => action.type === 'layer' && !layerIds.has(action.layerId))) throw new Error(`A ação “${binding.name}” aponta para uma camada inexistente. Altere ou remova essa referência antes de remover a camada de destino.`);
   }
+  if (Buffer.byteLength(JSON.stringify(result)) > MAX_CONFIG_BYTES) throw new Error('Configuração normalizada deve ter até 256 KiB.');
   return result;
+}
+
+function encodeConfig(value, platform = process.platform) {
+  // No indentation or trailing newline: the full encoded output uses the same cap.
+  return JSON.stringify(validateConfig(value, platform));
+}
+
+function decodeConfig(source, platform = process.platform) {
+  if (!(typeof source === 'string' || Buffer.isBuffer(source))) throw new Error('Conteúdo da configuração inválido.');
+  if (Buffer.byteLength(source) > MAX_CONFIG_FILE_BYTES) throw new Error('Arquivo de configuração excede 2 MiB.');
+  let parsed;
+  try { parsed = JSON.parse(source.toString()); }
+  catch { throw new Error('O arquivo não contém um JSON válido.'); }
+  return validateConfig(parsed, platform);
 }
 
 function defaultConfig() {
@@ -163,4 +179,4 @@ function defaultConfig() {
   };
 }
 
-module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, MAX_CONFIG_BYTES };
+module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES };

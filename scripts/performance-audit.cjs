@@ -170,7 +170,7 @@ async function main() {
     let largest;
     for(let n=1;n<=30;n++){try{const value=fixture(n,100);validateConfig(value);largest=value;}catch{break;}}
     await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(largest)+');');await delay(200);
-    report.largeConfig={layers:largest.layers.length,actions:largest.layers.reduce((n,l)=>n+l.bindings.length,0),compactBytes:Buffer.byteLength(JSON.stringify(largest)),persistedBytes:Buffer.byteLength(JSON.stringify(largest,null,2)+'\n')};
+    report.largeConfig={layers:largest.layers.length,actions:largest.layers.reduce((n,l)=>n+l.bindings.length,0),compactBytes:Buffer.byteLength(JSON.stringify(largest)),persistedBytes:(await fs.stat(path.join(instance.state.paths.data, 'config.json'))).size};
     report.interactions.largeConfig=await interactions(page);
     report.interactions.largeConfig.ipc=await configurationIpc(page);
     report.steady.largeConfigPaused=await steady(native,5);

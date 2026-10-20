@@ -6,7 +6,8 @@ const path = require('node:path');
 const net = require('node:net');
 const { spawn, execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
-const { validateConfig } = require('../app/config.cjs');
+const { validateConfig, encodeConfig } = require('../app/config.cjs');
+const { readConfigFile } = require('../app/storage.cjs');
 const root = path.resolve(__dirname, '..');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const stats = values => {
@@ -55,11 +56,26 @@ async function launch(profile) {
   child.stdout.resume();
   child.once('error', error => { spawnError = error; });
   child.stderr.on('data', data => { const text = tail + data; inspector ??= text.match(/Debugger listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/)?.[1]; tail = text.slice(-5000); });
+  const waitForExit = milliseconds => {
+    if (child.exitCode !== null || child.signalCode !== null || !child.pid) return Promise.resolve(true);
+    return new Promise(resolve => {
+      const exited = () => { clearTimeout(timer); resolve(true); };
+      const timer = setTimeout(() => { child.off('exit', exited); resolve(false); }, milliseconds);
+      child.once('exit', exited);
+    });
+  };
   const stop = async () => {
+    const started = performance.now();
+    if (native && child.exitCode === null && child.signalCode === null) {
+      await native.evaluate('setTimeout(()=>process.mainModule.require("electron").app.quit(),25);return true;').catch(() => {});
+    }
     page?.close(); native?.close();
-    if (child.exitCode !== null || child.signalCode !== null || !child.pid) return;
-    child.kill();
-    await new Promise(resolve => { child.once('exit', resolve); setTimeout(() => { child.kill('SIGKILL'); resolve(); }, 2500).unref(); });
+    const graceful = Boolean(native) && await waitForExit(3000) && child.exitCode === 0;
+    if (child.exitCode === null && child.signalCode === null && child.pid) {
+      child.kill();
+      if (!await waitForExit(1500)) { child.kill('SIGKILL'); await waitForExit(1000); }
+    }
+    return { graceful, elapsedMs: performance.now() - started, exitCode: child.exitCode, signal: child.signalCode };
   };
   try {
     for (let attempt = 0; attempt < 500; attempt++) {
@@ -104,20 +120,20 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/engine.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/engine.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
   return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-platform-audit-'));
-  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Key registration is tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [] };
+  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Key registration is tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [], shutdowns: [] };
   let instance, originalClipboard;
   try {
     result.package = await inspectPackage();
     for (let i = 0; i < 3; i++) {
       instance = await launch(path.join(directory, 'profile-' + i));
       result.startupsMs.push(instance.startupMs);
-      if (i < 2) { await instance.stop(); instance = null; }
+      if (i < 2) { result.shutdowns.push(await instance.stop()); instance = null; }
     }
     result.startup = stats(result.startupsMs);
     const { page, native, state } = instance;
@@ -163,15 +179,34 @@ async function main() {
       const values = await page.evaluate('const edit=[],save=[];const api=window.keyboardTracker;const config=(await api.getState()).config;for(let i=0;i<20;i++){const t=performance.now();await api.setEditing(i%2===0);edit.push(performance.now()-t);}for(let i=0;i<4;i++){const t=performance.now();await api.saveConfig(config);save.push(performance.now()-t);}return {edit,save};');
       result.configuration[name] = { actions: config.layers.reduce((n,l)=>n+l.bindings.length,0), editingIpcMs: stats(values.edit), saveIpcMs: stats(values.save) };
     }
+    const large = largeFixture();
+    const stored = await fs.readFile(path.join(state.paths.data, 'config.json'), 'utf8');
+    const legacy = path.join(directory, 'legacy-pretty.json');
+    await fs.writeFile(legacy, JSON.stringify(large, null, 2) + '\n');
+    result.probes.canonicalPersistence = {
+      bytes: Buffer.byteLength(stored), legacyBytes: (await fs.stat(legacy)).size,
+      canonicalMatches: stored === encodeConfig(large),
+      legacyReadable: encodeConfig(await readConfigFile(legacy)) === encodeConfig(large)
+    };
+    // Reload the real renderer and rehydrate the preload cache from persisted data.
+    await page.call('Page.reload');
+    let reloaded;
+    for (let i = 0; i < 200; i++) {
+      try { if (await page.evaluate('return Boolean(document.querySelector("[data-focus=new-layer]"));')) { reloaded = await page.evaluate('return await window.keyboardTracker.getState();'); break; } } catch {}
+      await delay(25);
+    }
+    result.probes.canonicalPersistence.rendererReloaded = Boolean(reloaded && encodeConfig(reloaded.config) === stored);
+    result.probes.stateTransport = await page.evaluate('const api=window.keyboardTracker;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;
   } finally {
     if (instance && originalClipboard !== undefined) await instance.native.evaluate('await process.mainModule.require("electron").clipboard.writeText(' + JSON.stringify(originalClipboard) + ');').catch(()=>{});
-    await instance?.stop();
+    if (instance) result.shutdowns.push(await instance.stop());
+    if (result.shutdowns.some(shutdown => !shutdown.graceful)) { result.corePassed = false; process.exitCode = 1; }
     await fs.rm(directory, { recursive: true, force: true });
     const output = path.join(root, 'artifacts', 'os-audit', 'platform-' + process.platform + '-' + process.arch + '.json');
     await fs.mkdir(path.dirname(output), { recursive: true }); await fs.writeFile(output, JSON.stringify(result, null, 2) + '\n');

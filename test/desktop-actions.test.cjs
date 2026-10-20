@@ -177,3 +177,30 @@ test('histórico exporta apenas eventos e etapas sanitizados, com limites e sem 
   await exportSessionHistory({ events: [], dialog, protectedPaths: [config] });
   assert.equal(await fs.readFile(target, 'utf8'), original);
 });
+
+test('exportar histórico rejeita hardlinks dos dados internos e não deixa temporários', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-alias-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const config = path.join(directory, 'config.json');
+  const alias = path.join(directory, 'history.json');
+  await fs.writeFile(config, 'configuração preservada');
+  await fs.link(config, alias);
+  const dialog = { showSaveDialog: async () => ({ canceled: false, filePath: alias }) };
+  await assert.rejects(exportSessionHistory({ events: [], dialog, protectedPaths: [config] }), /arquivos internos/);
+  assert.equal(await fs.readFile(config, 'utf8'), 'configuração preservada');
+  assert.equal(await fs.readFile(alias, 'utf8'), 'configuração preservada');
+  assert.equal((await fs.readdir(directory)).some(file => file.endsWith('.tmp')), false);
+});
+
+test('exportação atômica troca só o destino quando há hardlink para outro arquivo', async t => {
+  const { writeExport } = require('../app/safe-export.cjs');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-export-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const original = path.join(directory, 'original.json'), target = path.join(directory, 'export.json');
+  await fs.writeFile(original, 'original preservado');
+  await fs.link(original, target);
+  await writeExport(target, '{"exported":true}');
+  assert.equal(await fs.readFile(original, 'utf8'), 'original preservado');
+  assert.equal(await fs.readFile(target, 'utf8'), '{"exported":true}');
+  assert.equal((await fs.readdir(directory)).length, 2);
+});

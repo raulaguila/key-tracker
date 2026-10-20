@@ -31,6 +31,7 @@
     "files": ["app/**/*", "package.json", "LICENSE"],
     "directories": { "output": "dist" },
     "linux": { "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
+    "deb": { "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0", "libxt6 | libxt6t64"] },
     "win": { "target": ["nsis"] },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
     "mac": { "target": ["dmg", "zip"], "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }

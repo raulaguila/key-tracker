@@ -1,5 +1,5 @@
 const path = require('node:path');
-const fs = require('node:fs/promises');
+const { writeExport } = require('./safe-export.cjs');
 const { spawn } = require('node:child_process');
 
 const failure = (message, code) => Object.assign(new Error(message), code ? { code } : {});
@@ -175,16 +175,11 @@ async function exportSessionHistory({ events, dialog, window, protectedPaths = [
   const snapshot = { version: 1, exportedAt: new Date().toISOString(), events: historySnapshot(events) };
   const result = await dialog.showSaveDialog(window, { title: 'Exportar histórico da sessão', defaultPath: 'keyboard-tracker-history.json', filters: [{ name: 'Histórico JSON', extensions: ['json'] }] });
   if (result.canceled || !result.filePath) return;
-  const canonical = async value => {
-    let resolved;
-    try { resolved = await fs.realpath(value); }
-    catch (error) { if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error; resolved = path.resolve(value); }
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-  };
-  const target = await canonical(result.filePath);
-  for (const file of protectedPaths) if (target === await canonical(file)) throw failure('Escolha um destino diferente dos arquivos internos do aplicativo.');
-  try { await fs.writeFile(result.filePath, JSON.stringify(snapshot, null, 2) + '\n', { mode: 0o600 }); }
-  catch { throw failure('Não foi possível exportar o histórico. Verifique a pasta e as permissões.'); }
+  try { await writeExport(result.filePath, JSON.stringify(snapshot, null, 2) + '\n', protectedPaths); }
+  catch (error) {
+    if (error.message.includes('arquivos internos')) throw error;
+    throw failure('Não foi possível exportar o histórico. Verifique a pasta e as permissões.');
+  }
 }
 
 module.exports = { DesktopActions, chooseActionTarget, exportSessionHistory, historySnapshot };

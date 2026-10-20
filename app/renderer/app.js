@@ -1,6 +1,7 @@
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
 import { createActionEditor, actionLabels, actionTypeLabels } from './action-editor.js';
+import { createBindingTable } from './binding-table.js';
 import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
@@ -22,6 +23,8 @@ let bindingView = 'table';
 try { bindingView = localStorage.getItem('keyboard-tracker.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
 let visualModifiers = '';
 let previewGeneration = 0;
+let bindingTable;
+let visualBindingCache;
 let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
@@ -174,8 +177,8 @@ function updateStatus() {
   document.querySelector('#active-layer-label').textContent = layerById(state.activeLayerId)?.name || '—';
   const picker = document.querySelector('#active-layer-picker');
   if (picker) {
-    const signature = JSON.stringify(state.config.layers.map(({ id, name }) => [id, name]));
-    if (picker.dataset.options !== signature) { picker.replaceChildren(...state.config.layers.map(layer => el('option', { value: layer.id }, layer.name))); picker.dataset.options = signature; }
+    const revision = String(state.configRevision);
+    if (picker.dataset.revision !== revision) { picker.replaceChildren(...state.config.layers.map(layer => el('option', { value: layer.id }, layer.name))); picker.dataset.revision = revision; }
     picker.value = state.activeLayerId;
   }
   updateApplicationStatus();
@@ -201,6 +204,8 @@ function restoreFocus(key) {
 
 function render(focusKey) {
   if (!state) return;
+  if (view !== 'layers') bindingTable = null;
+  if (view !== 'layers' || bindingView !== 'keyboard') visualBindingCache = null;
   const previousFocus = focusKey || document.activeElement?.dataset.focus;
   if (!layerById()) selectedLayerId = state.activeLayerId;
   keyNodes.clear();
@@ -296,6 +301,12 @@ function updateApplicationStatus() {
 }
 
 function renderBindingKeyboard(container, layer, matches) {
+  const context = [container, state.configRevision, layer.id, state.platform, keyboardPreference.layout, keyboardPreference.size, keyboardPreference.geometry, layoutReadGeneration, layoutStatus, visualModifiers];
+  if (visualBindingCache && context.every((value, index) => value === visualBindingCache.context[index])) {
+    updateVisualBindingFilter(visualBindingCache, matches);
+    return;
+  }
+  container.replaceChildren();
   const layout = currentKeyboardLayout();
   const names = value => value ? value.replaceAll('Control', 'Ctrl').replaceAll('Command', '⌘').replaceAll('Super', state.platform === 'darwin' ? '⌘' : 'Win') : 'Sem modificadores';
   const combinations = new Set(['', 'Control', 'Alt', 'Shift', 'Control+Shift', ...(state.platform === 'darwin' ? ['Command', 'Command+Shift'] : ['Super'])]);
@@ -337,12 +348,30 @@ function renderBindingKeyboard(container, layer, matches) {
   container.append(el('div', { class: 'binding-visual-toolbar' }, modifiers.wrapper, layoutChoice.wrapper), keyboard,
     el('div', { class: 'keyboard-caption' }, el('span', {}, 'Clique em uma tecla para configurar. Use as setas para navegar.'), el('span', {}, 'Rosa: ativada · tracejado: desativada')),
     el('p', { class: 'hint visual-layout-note' }, keyboardPreference.layout === 'auto' ? layoutStatus : layout.name + '. O layout visual não altera os atalhos salvos.'),
-    el('div', { class: 'visual-binding-list', role: 'list', 'aria-label': 'Todas as ações, incluindo outras combinações' }, matches.map(binding => el('div', { class: 'visual-binding-item' + (binding.enabled === false ? ' binding-disabled' : ''), role: 'listitem' },
+    el('div', { class: 'visual-binding-list', role: 'list', 'aria-label': 'Todas as ações, incluindo outras combinações' }, layer.bindings.map(binding => el('div', { 'data-binding-id': binding.id, class: 'visual-binding-item' + (binding.enabled === false ? ' binding-disabled' : ''), role: 'listitem' },
       button(binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet visual-binding-edit', { 'data-focus': 'edit-' + binding.id }), shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null,
       button('Executar teste: ' + binding.name, () => runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, disabled: pendingBindings.has(binding.id), 'data-focus': 'test-' + binding.id }), bindingMenu(layer, binding)))));
   const first = [...nodes.values()].find(node => !node.disabled);
   if (first) first.tabIndex = 0;
-  if (!matches.length) container.append(el('p', { class: 'hint' }, actionQuery ? 'Nenhuma ação corresponde à busca. Limpe a busca ou clique em uma tecla para criar.' : 'Ainda não há ações nesta camada. Escolha uma tecla para começar.'));
+  const emptyMessage = el('p', { class: 'hint' });
+  container.append(emptyMessage);
+  const items = new Map([...container.querySelectorAll('.visual-binding-item')].map(row => [row.dataset.bindingId, { row, test: row.querySelector('[data-focus^="test-"]') }]));
+  visualBindingCache = { context, nodes, items, emptyMessage };
+  updateVisualBindingFilter(visualBindingCache, matches);
+}
+
+function updateVisualBindingFilter(cache, matches) {
+  const matched = new Set(matches.map(binding => binding.id));
+  for (const node of cache.nodes.values()) node.classList.toggle('unmatched', Boolean(actionQuery && (!node.dataset.bindingId || !matched.has(node.dataset.bindingId))));
+  for (const [id, item] of cache.items) {
+    const hidden = !matched.has(id);
+    if (item.row.hidden !== hidden) item.row.hidden = hidden;
+    const pending = pendingBindings.has(id);
+    if (item.test.disabled !== pending) item.test.disabled = pending;
+  }
+  cache.emptyMessage.hidden = matches.length > 0;
+  const text = actionQuery ? 'Nenhuma ação corresponde à busca. Limpe a busca ou clique em uma tecla para criar.' : 'Ainda não há ações nesta camada. Escolha uma tecla para começar.';
+  if (cache.emptyMessage.textContent !== text) cache.emptyMessage.textContent = text;
 }
 
 function renderLayers() {
@@ -430,47 +459,43 @@ function updateBindings() {
   const matches = layer.bindings.filter(binding => [binding.name, binding.key, labels[binding.action.type]].join(' ').toLocaleLowerCase('pt-BR').includes(query));
   const focus = document.activeElement?.dataset.focus;
   document.querySelector('#action-count').textContent = query ? matches.length + ' de ' + layer.bindings.length + ' ações encontradas' : layer.bindings.length + (layer.bindings.length === 1 ? ' ação nesta camada' : ' ações nesta camada');
-  container.replaceChildren();
   container.classList.toggle('table-scroll', bindingView === 'table');
   if (bindingView === 'keyboard') {
     renderBindingKeyboard(container, layer, matches);
     restoreFocus(focus);
     return;
   }
-  if (!matches.length) {
-    container.append(query
+  bindingTable ||= createBindingTable({ platform: state.platform, labels, typeLabels: actionTypeLabels, summaryFor: actionSummary,
+    onTest: (layer, binding) => void runBinding(layer, binding), onEdit: binding => startEditor({ kind: 'binding', value: binding }), menuFor: bindingMenu });
+  const table = bindingTable.update(layer, matches, state.events, pendingBindings);
+  if (table.parentNode !== container) container.replaceChildren(table);
+  const oldEmpty = container.querySelector('.empty-state');
+  if (matches.length) oldEmpty?.remove();
+  else if (!oldEmpty || oldEmpty.dataset.query !== query) {
+    oldEmpty?.remove();
+    const message = query
       ? empty('Nenhuma ação encontrada', 'Tente outro nome, tecla ou tipo.', button('Limpar busca', () => { actionQuery = ''; render(); }))
       : empty('Escolha sua primeira tecla', 'Escolha uma tecla para copiar texto, abrir um destino, mostrar uma notificação ou executar uma sequência.',
-        button('Criar primeira ação', () => startEditor({ kind: 'binding', value: null }), '', { symbol: 'plus' })));
-  }
-  if (matches.length) {
-    const body = el('tbody');
-    container.append(el('table', { class: 'binding-table' }, el('caption', { class: 'sr-only' }, 'Ações de ' + layer.name),
-      el('thead', {}, el('tr', {}, [['Tecla', 'binding-key'], ['Nome', ''], ['Tipo', 'type-column'], ['Destino / conteúdo', 'summary-column'], ['Ações', 'controls-column']].map(([label, className]) => el('th', { scope: 'col', class: className }, label)))), body));
-    for (const binding of matches) {
-      const pending = pendingBindings.has(binding.id);
-      const lastResult = state.events.find(event => event.kind === 'action' && (event.bindingId ? event.bindingId === binding.id : event.layer === layer.name && event.key === binding.key));
-      const result = pending ? el('p', { class: 'binding-result info', role: 'status' }, 'Executando ação…') : lastResult ? el('p', { class: 'binding-result ' + lastResult.status },
-        icon(lastResult.status === 'error' ? 'alert' : 'check'), lastResult.message) : null;
-      body.append(el('tr', { class: 'binding-row' + (binding.enabled === false ? ' binding-disabled' : ''), 'data-binding-id': binding.id },
-        el('td', { class: 'binding-key' }, shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null),
-        el('td', { class: 'binding-copy' }, el('strong', {}, binding.name), result),
-        el('td', { class: 'type-column', title: labels[binding.action.type] }, actionTypeLabels[binding.action.type]),
-        el('td', { class: 'summary-column' }, el('span', { class: 'binding-summary', title: actionSummary(binding.action) }, actionSummary(binding.action))),
-        el('td', { class: 'controls-column' }, el('div', { class: 'binding-actions' },
-          button(pending ? 'Executando…' : 'Executar teste: ' + binding.name, () => void runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, title: 'Executar teste: ' + binding.name, disabled: pending, 'data-focus': 'test-' + binding.id }),
-          button('Editar ação: ' + binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar ação: ' + binding.name, 'data-focus': 'edit-' + binding.id }),
-          bindingMenu(layer, binding)))));
-    }
+        button('Criar primeira ação', () => startEditor({ kind: 'binding', value: null }), '', { symbol: 'plus' }));
+    message.dataset.query = query;
+    container.append(message);
   }
   restoreFocus(focus);
 }
 
-function bindingMenu(layer, binding) {
+function bindingMenu(getModelOrLayer, bindingValue) {
+  const model = typeof getModelOrLayer === 'function' ? getModelOrLayer : () => ({ layer: getModelOrLayer, binding: bindingValue });
+  const binding = model().binding;
   const menu = el('div', { class: 'action-menu-content', popover: 'auto', role: 'group', id: 'menu-' + binding.id, 'aria-label': 'Mais opções de ' + binding.name });
-  menu.append(button(binding.enabled === false ? 'Ativar ação' : 'Desativar ação', () => { menu.hidePopover(); void toggleBinding(layer, binding); }, 'quiet', { symbol: binding.enabled === false ? 'play' : 'pause', 'data-focus': 'toggle-' + binding.id }),
-    button('Duplicar ação', () => { menu.hidePopover(); duplicateBinding(binding); }, 'quiet', { symbol: 'copy', 'data-focus': 'duplicate-' + binding.id }),
-    button('Remover ação: ' + binding.name, () => { menu.hidePopover(); void removeBinding(layer, binding); }, 'quiet danger', { symbol: 'trash', 'data-focus': 'remove-' + binding.id }));
+  menu.addEventListener('beforetoggle', event => {
+    if (event.newState !== 'open') return;
+    const { layer, binding } = model();
+    menu.setAttribute('aria-label', 'Mais opções de ' + binding.name);
+    menu.replaceChildren(button(binding.enabled === false ? 'Ativar ação' : 'Desativar ação', () => { menu.hidePopover(); void toggleBinding(layer, binding); }, 'quiet', { symbol: binding.enabled === false ? 'play' : 'pause', 'data-focus': 'toggle-' + binding.id }),
+      button('Duplicar ação', () => { menu.hidePopover(); duplicateBinding(binding); }, 'quiet', { symbol: 'copy', 'data-focus': 'duplicate-' + binding.id }),
+      button('Remover ação: ' + binding.name, () => { menu.hidePopover(); void removeBinding(layer, binding); }, 'quiet danger', { symbol: 'trash', 'data-focus': 'remove-' + binding.id }));
+  });
+  menu.addEventListener('toggle', () => { if (!menu.matches(':popover-open')) menu.replaceChildren(); });
   return el('span', { class: 'action-menu' }, button('Mais opções: ' + binding.name, () => {}, 'quiet', { symbol: 'more', iconOnly: true, title: 'Mais opções: ' + binding.name, popovertarget: menu.id, 'data-focus': 'more-' + binding.id }), menu);
 }
 
@@ -997,10 +1022,10 @@ if (!api) {
     render();
     api.onState(next => {
       const previous = state;
-      const configChanged = JSON.stringify(previous.config) !== JSON.stringify(next.config);
+      const configChanged = previous.configRevision !== next.configRevision;
       const layerChanged = previous.activeLayerId !== next.activeLayerId;
-      const trackingChanged = JSON.stringify(previous.tracking) !== JSON.stringify(next.tracking);
-      const eventsChanged = JSON.stringify(previous.events) !== JSON.stringify(next.events);
+      const trackingChanged = previous.tracking.enabled !== next.tracking.enabled || previous.tracking.mode !== next.tracking.mode || previous.tracking.message !== next.tracking.message;
+      const eventsChanged = previous.events.length !== next.events.length || previous.events[0]?.id !== next.events[0]?.id;
       state = next;
       updateStatus();
       if (trackingChanged) clearPressed();

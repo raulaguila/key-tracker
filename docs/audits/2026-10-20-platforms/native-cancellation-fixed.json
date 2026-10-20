@@ -1,0 +1,25 @@
+{
+  "platform": "linux",
+  "node": "v24.15.0",
+  "productionReader": true,
+  "results": [
+    {
+      "mode": "timeout",
+      "ownedChildReaped": true,
+      "cleanupMs": 4,
+      "pendingCleanups": 0
+    },
+    {
+      "mode": "off",
+      "ownedChildReaped": true,
+      "cleanupMs": 2,
+      "pendingCleanups": 0
+    },
+    {
+      "mode": "quit",
+      "ownedChildReaped": true,
+      "cleanupMs": 2,
+      "pendingCleanups": 0
+    }
+  ]
+}
