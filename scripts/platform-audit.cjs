@@ -104,7 +104,7 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/engine.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file));
+  for (const file of ['app/main.cjs', 'app/engine.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
   return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
