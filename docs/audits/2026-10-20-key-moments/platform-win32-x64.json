@@ -1,0 +1,219 @@
+{
+  "version": 1,
+  "date": "2026-10-20T19:25:21.111Z",
+  "commit": "a73f67ad9eebc307b7d9b7a9e8e259baeba54bb4",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26100",
+    "cpu": "AMD EPYC 9V74 80-Core Processor                ",
+    "logicalCpus": 4,
+    "ramGiB": 15.994869232177734,
+    "node": "v24.21.0",
+    "electron": "44.9.1",
+    "ci": true,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "success",
+      "message": "Notifica\u00e7\u00e3o de auditoria: Notifica\u00e7\u00e3o exibida pelo sistema.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": null,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas n\u00e3o s\u00e3o salvas."
+    },
+    "applicationMonitor": {
+      "status": "ready",
+      "message": "Aguardando aplicativo em foco.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": true
+    },
+    "keyMoments": {
+      "attempted": true,
+      "mode": "global",
+      "registered": true,
+      "schemaPersisted": true,
+      "shared": true,
+      "visualOff": true,
+      "pausedObserves": true,
+      "note": "Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.",
+      "passed": true
+    },
+    "canonicalPersistence": {
+      "bytes": 254920,
+      "legacyBytes": 548895,
+      "canonicalMatches": true,
+      "legacyReadable": true,
+      "rendererReloaded": true
+    },
+    "stateTransport": {
+      "complete": true,
+      "sameConfigRevision": true,
+      "ordered": true
+    }
+  },
+  "startupsMs": [
+    5563.6923,
+    315.33820000000014,
+    330.826
+  ],
+  "shutdowns": [
+    {
+      "graceful": true,
+      "elapsedMs": 306.7542000000003,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 459.4965999999995,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 192.5008999999991,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "package": {
+    "archive": "dist\\win-unpacked\\resources\\app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/preload.cjs": true,
+      "app/config.cjs": true,
+      "app/storage.cjs": true,
+      "app/engine.cjs": true,
+      "app/key-gestures.cjs": true,
+      "app/tracking.cjs": true,
+      "app/tracker-worker.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/safe-export.cjs": true,
+      "app/application-monitor.cjs": true,
+      "app/application-reader.cjs": true,
+      "app/native-process-scope.cjs": true,
+      "app/desktop-tray.cjs": true,
+      "app/window-lifecycle.cjs": true,
+      "app/renderer/app.js": true,
+      "app/renderer/action-editor.js": true,
+      "app/renderer/key-moments.js": true,
+      "app/renderer/binding-table.js": true,
+      "app/renderer/styles.css": true
+    },
+    "nativeFiles": [
+      "\\node_modules\\get-windows\\lib\\binding\\napi-6-darwin-unknown-arm64\\node-active-win.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-6-darwin-unknown-x64\\node-active-win.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-9-darwin-unknown-arm64\\node-get-windows.node",
+      "\\node_modules\\get-windows\\lib\\binding\\napi-9-win32-unknown-x64\\node-get-windows.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\darwin-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\darwin-x64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-loong64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\linux-x64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\win32-arm64\\uiohook-napi.node",
+      "\\node_modules\\uiohook-napi\\prebuilds\\win32-x64\\uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 330.826,
+    "p95": 5563.6923,
+    "max": 5563.6923,
+    "mean": 2069.9521666666665
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.0407427736523944,
+      "p95": 0.3452785942359463,
+      "max": 0.3452785942359463,
+      "mean": 0.10092541722322586
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 335.9765625,
+      "p95": 336.828125,
+      "max": 336.828125,
+      "mean": 336.21796875
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 1.7000000000116415,
+        "p95": 2.3999999999941792,
+        "max": 3.2000000000116415,
+        "mean": 1.815000000000873
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 1.7000000000116415,
+        "p95": 2.099999999976717,
+        "max": 2.099999999976717,
+        "mean": 1.8249999999970896
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 13.800000000017462,
+        "p95": 15.60000000000582,
+        "max": 15.699999999982538,
+        "mean": 13.96999999999971
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 42.30000000001746,
+        "p95": 54.29999999998836,
+        "max": 54.29999999998836,
+        "mean": 46.174999999995634
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

@@ -68,3 +68,41 @@ para todos os layouts, IMEs ou mudanças de fonte depois da captura.
 - Ações já iniciadas podem terminar após soltar/pausar; efeitos não são desfeitos.
 
 Guia de uso: [KEY_MOMENTS.md](../../KEY_MOMENTS.md).
+
+## Editor e integração nos três sistemas
+
+O smoke completo em Electron passou: fluxos existentes, produtividade, HTTP real,
+rascunhos, prévias, temas, tamanhos e geometria de teclado, mais o novo cadastro.
+A nova sonda verificou os três momentos com a mesma tecla, captura lógica/física,
+invalidação ao editar manualmente, teclado visual por momento, duplicação e
+remoção sem afetar os outros momentos. Testou accordion, resumos, valores e ordem
+preservados, foco na primeira etapa inválida e limpeza de mensagens corrigidas.
+Header e rodapé continuaram visíveis em 760×580, nos dois temas, a 100% e 125%.
+A busca continua reutilizando as linhas: a sonda não adicionou nós nas 40 buscas.
+
+Código de produto **a73f67a** aprovado em:
+
+- [Desktop 39483201312](https://github.com/raulaguila/key-tracker/actions/runs/39483201312):
+  testes/sintaxe Windows, macOS e Linux; smoke de UI e nova prova XTest em Linux;
+  instaladores NSIS, DMG/ZIP e AppImage/DEB gerados. Artifacts disponíveis nesse run.
+- [Platform audit 39483201189](https://github.com/raulaguila/key-tracker/actions/runs/39483201189):
+  três runtimes Electron reais, perfis temporários, integridade de 21 arquivos no
+  pacote ASAR e saída limpa das três instâncias de cada sistema.
+
+| Sonda | Windows x64 | macOS ARM64 | Linux x64/X11 |
+| --- | --- | --- | --- |
+| Persistir os três momentos para a mesma tecla | Passou | Passou | Passou |
+| Hook pronto e combinação global registrada | Passou | Passou | Passou |
+| Ligar visualização reaproveita entrada global | Passou | Passou | Passou |
+| Desligar visualização mantém momentos disponíveis | Passou | Passou | Passou |
+| Pausar mantém observação de solturas, sem ativar ações | Passou | Passou | Passou |
+| Configuração canônica/legado e preload após reload | Passou | Passou | Passou |
+| Saída sem encerramento forçado, três instâncias | Passou | Passou | Passou |
+
+Dados: [Windows](platform-win32-x64.json), [macOS](platform-darwin-arm64.json),
+[Linux](platform-linux-x64.json). O runtime dessa sonda carrega o source de produção
+em Electron; o ASAR é conferido separadamente. A prova XTest exercita eventos reais
+da sessão virtual somente em Linux. Não confundir worker pronto/atalho registrado
+em Windows/macOS com certificação da entrega de cada tecla física nesses sistemas.
+Notificações, aplicativos externos em foco, permissões e instalação assinada
+mantêm os limites descritos na auditoria anterior.
