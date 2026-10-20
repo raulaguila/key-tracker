@@ -1,0 +1,45 @@
+name: Platform audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/platform-audit.yml'
+      - 'scripts/platform-audit.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run pack
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Audit Linux runtime
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/platform-audit.cjs
+        env:
+          KEY_TRACKER_UI_NO_SANDBOX: '1'
+      - name: Audit Windows and macOS runtime
+        if: runner.os != 'Linux'
+        run: node scripts/platform-audit.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-audit-${{ runner.os }}-${{ runner.arch }}
+          path: artifacts/os-audit/platform-*.json
+          if-no-files-found: warn
