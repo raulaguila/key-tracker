@@ -179,11 +179,12 @@ test('histórico exporta apenas eventos e etapas sanitizados, com limites e sem 
 });
 
 test('histórico preserva momento configurado sem exportar eventos crus do teclado', () => {
-  const [event] = historySnapshot([{ id: 'phase', kind: 'action', trigger: 'hold', keyCode: 'KeyA', repeatMs: 250,
+  const [event] = historySnapshot([{ id: 'phase', kind: 'action', trigger: 'hold', keyCode: 'KeyA', repeatMs: 250, holdDelayMs: 0,
     rawInput: { code: 'KeyB', key: 'texto privado', direction: 'down' }, ctrlKey: true }]);
   assert.equal(event.trigger, 'hold');
   assert.equal(event.keyCode, 'KeyA');
   assert.equal(event.repeatMs, 250);
+  assert.equal(event.holdDelayMs, 0);
   assert.equal(JSON.stringify(event).includes('texto privado'), false);
   assert.equal(Object.hasOwn(event, 'ctrlKey'), false);
 });

@@ -580,7 +580,7 @@ async function executePreview() {
 
 function testPreviewPanel(layer) {
   return el('section', { class: 'editor test-preview', 'aria-label': 'Prévia e teste da ação' },
-    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução, sem iniciar repetição ou aguardar soltura.')),
+    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução, sem aguardar o delay, iniciar repetição ou aguardar soltura.')),
     el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
     el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
       el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));

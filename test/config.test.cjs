@@ -224,3 +224,51 @@ test('gatilhos validam captura física, intervalo, consistência e reservas', ()
   independent.layers[0].bindings.push({ ...independent.layers[0].bindings[0], id: 'ctrl', key: 'Control+A', repeatMs: 60000 });
   assert.equal(validateConfig(independent).layers[0].bindings.length, 2);
 });
+
+test('holdDelayMs aceita zero e limite, preserva ausência legada e não se aplica a press/release', () => {
+  const config = defaultConfig();
+  const binding = config.layers[0].bindings[0];
+  binding.trigger = 'hold'; binding.keyCode = 'KeyA'; binding.repeatMs = 150;
+  const legacy = validateConfig(config).layers[0].bindings[0];
+  assert.equal(legacy.repeatMs, 150);
+  assert.equal(Object.hasOwn(legacy, 'holdDelayMs'), false);
+  for (const value of [0, 60000]) {
+    binding.holdDelayMs = value;
+    assert.equal(validateConfig(config).layers[0].bindings[0].holdDelayMs, value);
+  }
+  for (const value of [-1, 60001, 0.5, '100', null]) {
+    binding.holdDelayMs = value;
+    assert.throws(() => validateConfig(config), /Delay inicial/);
+  }
+  for (const trigger of ['press', 'release']) {
+    binding.trigger = trigger;
+    binding.holdDelayMs = 'não utilizado';
+    assert.equal(Object.hasOwn(validateConfig(config).layers[0].bindings[0], 'holdDelayMs'), false);
+  }
+});
+
+test('holdDelayMs mantém zero e valor distinto do intervalo no codec e persistência', async t => {
+  const fs = require('node:fs/promises');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { Storage } = require('../app/storage.cjs');
+  const { encodeConfig, decodeConfig } = require('../app/config.cjs');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-delay-test-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const config = defaultConfig();
+  const binding = config.layers[0].bindings[0];
+  binding.trigger = 'hold'; binding.keyCode = 'KeyA'; binding.repeatMs = 300;
+  const storage = new Storage(directory);
+  for (const value of [0, 850]) {
+    binding.holdDelayMs = value;
+    const encoded = encodeConfig(config);
+    assert.equal(decodeConfig(encoded).layers[0].bindings[0].holdDelayMs, value);
+    await storage.save(config);
+    const loaded = await new Storage(directory).load();
+    assert.equal(loaded.layers[0].bindings[0].holdDelayMs, value);
+    assert.equal(loaded.layers[0].bindings[0].repeatMs, 300);
+  }
+  delete binding.holdDelayMs;
+  await storage.save(config);
+  assert.equal(Object.hasOwn((await storage.load()).layers[0].bindings[0], 'holdDelayMs'), false);
+});

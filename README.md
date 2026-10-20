@@ -66,7 +66,8 @@ na bandeja permite continuar usando os atalhos com a janela oculta.
 
 No cadastro, escolha **Ao pressionar**, **Enquanto pressionada** ou **Ao soltar**.
 A mesma tecla pode ter uma ação por momento na camada. Enquanto pressionada tem
-intervalo próprio e aguarda a execução anterior terminar; use Capturar tecla para
+delay inicial e intervalo de repetição separados, aguardando a execução anterior
+terminar; use Capturar tecla para
 configurar manter/soltar. Esses momentos precisam de entrada global disponível
 (Windows, macOS e Linux/X11 com as permissões do sistema; indisponíveis no Wayland).
 [Funcionamento, interrupções e teste dos momentos](docs/KEY_MOMENTS.md).

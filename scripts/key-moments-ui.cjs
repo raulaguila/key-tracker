@@ -27,18 +27,29 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
       await fill('#field-name', 'QA ' + trigger);
       await select('#field-trigger', trigger);
       await capture();
-      if (trigger === 'hold') await fill('#field-repeatMs', '250');
+      assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").disabled'), trigger !== 'hold');
+      assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").closest(".field").hidden'), trigger !== 'hold');
+      if (trigger === 'hold') { await fill('#field-repeatMs', '250'); await fill('#field-holdDelayMs', '900'); }
       await fill('#field-text', trigger);
       await save();
       await until('!document.querySelector("#editor-drawer")', 'Saved moment ' + trigger);
       const item = await binding(trigger);
       assert.equal(item.key, 'A'); assert.equal(item.keyCode, 'KeyA');
-      if (trigger === 'hold') assert.equal(item.repeatMs, 250);
+      if (trigger === 'hold') { assert.equal(item.repeatMs, 250); assert.equal(item.holdDelayMs, 900); }
     }
     assert.equal((await nativeState()).config.layers[0].bindings.length, 3, 'One shortcut keeps all three moments');
     assert.equal(await evaluate('return document.querySelectorAll(".binding-trigger-label").length'), 3);
+    const configured = (await nativeState()).config;
+    const legacy = structuredClone(configured);
+    delete legacy.layers[0].bindings.find(item => item.trigger === 'hold').holdDelayMs;
+    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(legacy) + ');');
+    await edit('hold');
+    assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '250', 'Legacy delay falls back to its repeat interval');
+    await close();
+    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(configured) + ');');
     await edit('hold');
     assert.equal(await evaluate('return document.querySelector("#field-repeatMs").value'), '250');
+    assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '900');
     assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), 'KeyA');
     await fill('#field-key', 'A');
     assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), '', 'Manual shortcut edit invalidates physical capture');
@@ -48,7 +59,7 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     assert.equal(await evaluate('return document.querySelector(".form-errors").hidden'), true, 'Capturing corrects the related validation error');
     assert.equal(await evaluate('return document.querySelector("#field-key").value'), 'A', 'Capture uses logical layout label');
     assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), 'KeyQ', 'Capture separately stores physical position');
-    await capture(); await fill('#field-repeatMs', '300'); await save();
+    await capture(); await fill('#field-name', 'QA hold editada'); await save();
     await until('!document.querySelector("#editor-drawer")', 'Updated hold');
     await click('[data-focus="view-keyboard"]');
     for (const trigger of ['press', 'hold', 'release']) {
@@ -57,12 +68,14 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
       assert.equal(await evaluate('return document.querySelector("[data-code=KeyA]").dataset.bindingId'), expected, 'Visual key selects ' + trigger);
       await click('[data-code="KeyA"]');
       assert.equal(await evaluate('return document.querySelector("#field-trigger").value'), trigger, 'Editing visual key opens selected moment');
+      assert.equal(await evaluate('return document.querySelector("#field-repeatMs").disabled'), trigger !== 'hold');
+      assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").disabled'), trigger !== 'hold');
       await close();
     }
     await click('[data-focus="view-table"]');
     await click('[data-focus="test-' + (await binding('hold')).id + '"]');
     await until('Boolean(document.querySelector(".preview-values"))', 'Moment preview ready');
-    assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /Enquanto pressionada · 300 ms/);
+    assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /Enquanto pressionada · início 900 ms · a cada 250 ms/);
     assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /uma execução/);
     await close();
     await evaluate('document.activeElement.blur();await window.keyboardTracker.setEnabled(true);');
@@ -111,7 +124,8 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     await evaluate('window.__momentsReload=true;');
     await cdp('Page.reload');
     await until('!window.__momentsReload && Boolean(document.querySelector("[data-focus=new-binding]"))', 'Moment persistence reload');
-    assert.equal((await binding('hold')).repeatMs, 300);
+    assert.equal((await binding('hold')).repeatMs, 250);
+    assert.equal((await binding('hold')).holdDelayMs, 900);
     assert.equal((await binding('release')).keyCode, 'KeyA');
     const held = await binding('hold');
     await click('[data-focus="more-' + held.id + '"]');
@@ -119,7 +133,8 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     assert.equal(await evaluate('return document.querySelector("#field-key").value'), '', 'Duplicated action asks for a new shortcut');
     assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), 'KeyA', 'Duplication preserves captured metadata until shortcut changes');
     assert.equal(await evaluate('return document.querySelector("#field-trigger").value'), 'hold');
-    assert.equal(await evaluate('return document.querySelector("#field-repeatMs").value'), '300');
+    assert.equal(await evaluate('return document.querySelector("#field-repeatMs").value'), '250');
+    assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '900');
     await close();
     if (await evaluate('return document.querySelector("#confirm-dialog").open')) await click('#confirm-dialog .danger-solid');
     const pressed = await binding('press');
@@ -129,7 +144,34 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     await until('document.querySelectorAll(".binding-trigger-label").length === 2', 'Removing press preserves other moments');
     assert.equal((await binding('hold')).id, held.id);
     assert.equal((await nativeState()).config.layers[0].bindings.length, 2);
-    console.log('Key moments UI passed: three moments on one shortcut, physical/logical capture, manual invalidation, hold interval/edit/persistence, visual moment selection, explicit preview, unavailable input feedback, one-open sequence/draft/reorder/remove/validation, compact light/dark 760×580 at 100/125% zoom.');
+    await edit('hold');
+    await click('[data-edit-trigger]');
+    for (const invalidDelay of ['-1', '60001']) {
+      await fill('#field-holdDelayMs', invalidDelay); await save();
+      await until('document.activeElement.id === "field-holdDelayMs"', 'Delay validation focuses its field');
+      assert.match(await evaluate('return document.querySelector(".form-errors").textContent'), /Confira|delay|intervalo/i);
+    }
+    await fill('#field-holdDelayMs', '0'); await save();
+    await until('!document.querySelector("#editor-drawer")', 'Zero initial delay saved');
+    assert.equal((await binding('hold')).holdDelayMs, 0);
+    await evaluate('window.__momentsReload=true;'); await cdp('Page.reload');
+    await until('!window.__momentsReload && Boolean(document.querySelector("[data-focus=new-binding]"))', 'Zero delay persistence reload');
+    await edit('hold');
+    assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '0');
+    assert.match(await evaluate('return document.querySelector(".trigger-summary").textContent'), /início 0 ms · a cada 250 ms/);
+    await click('[data-edit-trigger]');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      for (const zoom of [1, 1.25]) {
+        await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(' + zoom + ')');
+        await evaluate('await Promise.all(document.querySelector("#editor-drawer").getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{})));document.querySelector("#field-holdDelayMs").closest(".field").scrollIntoView({block:"center"});');
+        const bounds = await evaluate('const drawer=document.querySelector("#editor-drawer");return {scroll:drawer.scrollWidth,client:drawer.clientWidth};');
+        assert.ok(bounds.scroll <= bounds.client, 'Delay and repeat fields fit compact zoomed drawer');
+        await shot('key-moments-delay-' + theme + '-' + zoom);
+      }
+    }
+    await close();
+    console.log('Key moments UI passed: three moments on one shortcut, physical/logical capture, manual invalidation, independent initial delay/repeat, legacy fallback/zero/validation/edit/duplicate/reload, visual moment selection, explicit preview, unavailable input feedback, one-open sequence/draft/reorder/remove/validation, compact light/dark 760×580 at 100/125% zoom.');
   } finally {
     await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(1280,900)');
     await evaluate('const form=document.querySelector("form[data-draft]");if(form){for(const input of form.querySelectorAll("input,textarea,select"))input.removeAttribute("required");}');

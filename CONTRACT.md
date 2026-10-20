@@ -261,3 +261,20 @@ Prévia/teste continuam após salvar, com execução explícita e resultados por
 Aceite: CRUD e persistência dos três momentos, combinações e mesma tecla em
 momentos diferentes, repetição/soltura reais e cancelamentos, regressões de
 rascunho/ordem/foco/temas/responsividade, hook real Linux e CI/build nos três OS.
+
+## Expansão autorizada: delay inicial de Enquanto pressionada
+
+Autorização: “Também configurar o delay de enquanto a tecla pressionada”.
+Binding hold ganha `holdDelayMs`, inteiro de 0 a 60000 ms, opcional. Define somente
+quanto esperar desde o keydown até a primeira execução. `repeatMs` continua sendo
+o intervalo entre a conclusão de uma execução e a próxima tentativa. Ausência de
+holdDelayMs usa repeatMs (padrão 400), preservando arquivos e comportamento antigos;
+não materializar esse campo ausente na normalização. Press/release não usam o campo.
+Soltar/cancelar antes do delay impede a execução pendente, inclusive delay zero
+agendado. Não há catch-up nem sobreposição. O formulário separa “Delay inicial
+(ms)” e “Repetir a cada (ms)”, mostra ambos no resumo, mantém zero e preserva valores
+na edição/duplicação/backup/reload. Histórico/exportação levam holdDelayMs efetivo;
+teste manual continua uma execução sem aguardar delay ou iniciar loop.
+Aceite: validação dos limites e legado, delay diferente do intervalo, zero,
+cancelamento antes da primeira execução, persistência/duplicação na UI e gates
+existentes de eventos nativos/temas/sistemas operacionais.

@@ -254,3 +254,64 @@ test('soltar um lado do modificador não desfaz combinação se o outro continua
   await tick();
   assert.equal(calls.length, 1);
 });
+
+test('delay inicial distinto do intervalo só afeta primeira execução', async t => {
+  const hold = { ...binding('hold'), holdDelayMs: 30, repeatMs: 400 };
+  const { engine, calls, input, activate } = fixture(t, { bindings: [hold] });
+  activate(); input('down');
+  assert.equal(calls.length, 0);
+  await delay(130);
+  assert.equal(calls.length, 1, 'primeira execução usa delay de 30 ms, não intervalo de 400 ms');
+  await until(() => calls.length === 2);
+  input('up');
+  const event = engine.events.find(event => event.kind === 'action');
+  assert.equal(event.holdDelayMs, 30);
+  assert.equal(event.repeatMs, 400);
+});
+
+test('delay zero é agendado e soltura ou cancelamento síncrono impedem execução pendente', async t => {
+  const hold = { ...binding('hold'), holdDelayMs: 0 };
+  const { engine, calls, input, activate } = fixture(t, { bindings: [hold] });
+  activate(); input('down');
+  assert.equal(calls.length, 0);
+  input('up'); await delay(25);
+  assert.equal(calls.length, 0);
+  input('down'); engine.resetInput(); input('up'); await delay(25);
+  assert.equal(calls.length, 0);
+  input('down'); await until(() => calls.length === 1); input('up');
+  assert.equal(engine.events.find(event => event.kind === 'action').holdDelayMs, 0);
+});
+
+test('cancelar antes do delay inicial impede efeito e release artificial', async t => {
+  const hold = { ...binding('hold'), holdDelayMs: 200, repeatMs: 100 };
+  const { engine, calls, input, activate } = fixture(t, { bindings: [hold, binding('release')] });
+  activate(); input('down');
+  await delay(25); engine.setEditing(true); input('up');
+  await delay(230);
+  assert.equal(calls.length, 0);
+});
+
+test('ação lenta com delay zero aguarda conclusão e depois intervalo, sem reutilizar delay', async t => {
+  const releases = [];
+  const hold = { ...binding('hold'), holdDelayMs: 0, repeatMs: 150 };
+  const { calls, input, activate } = fixture(t, { bindings: [hold], execute: () => new Promise(resolve => releases.push(resolve)) });
+  activate(); input('down'); await until(() => calls.length === 1);
+  await delay(190);
+  assert.equal(calls.length, 1);
+  releases.shift()('OK');
+  await delay(40);
+  assert.equal(calls.length, 1, 'não há repetição imediatamente após concluir com delay zero');
+  await until(() => calls.length === 2);
+  input('up'); releases.shift()('OK'); await tick();
+});
+
+test('hold legado usa intervalo como delay efetivo sem materializar campo na configuração', async t => {
+  const { engine, calls, input, activate } = fixture(t, { bindings: [binding('hold')] });
+  assert.equal(Object.hasOwn(engine.config.layers[0].bindings[0], 'holdDelayMs'), false);
+  activate(); input('down');
+  assert.equal(calls.length, 0);
+  await until(() => calls.length === 1); input('up'); await tick();
+  const event = engine.events.find(event => event.kind === 'action');
+  assert.equal(event.holdDelayMs, 100);
+  assert.equal(event.repeatMs, 100);
+});

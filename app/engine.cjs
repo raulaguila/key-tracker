@@ -5,7 +5,7 @@ const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const PAUSE_RESUME_DEBOUNCE_MS = 400;
-const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400 } : {}) });
+const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400, holdDelayMs: binding.holdDelayMs ?? binding.repeatMs ?? 400 } : {}) });
 
 class Engine extends EventEmitter {
   constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now }) {

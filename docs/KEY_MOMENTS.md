@@ -3,15 +3,21 @@
 Uma combinação pode ter uma ação por momento em cada camada:
 
 - **Ao pressionar:** executa quando a tecla é pressionada.
-- **Enquanto pressionada:** aguarda o intervalo configurado e repete enquanto a
-  tecla continua abaixada. O intervalo vai de 100 a 60.000 ms; a próxima execução
-  espera a anterior terminar. O intervalo mínimo global não substitui esse valor.
+- **Enquanto pressionada:** aguarda o **Delay inicial** (0 a 60.000 ms) antes de
+  executar pela primeira vez. Depois usa **Repetir a cada** (100 a 60.000 ms),
+  esperando a execução anterior terminar. O intervalo mínimo global não substitui
+  esses valores. Soltar antes do delay cancela a execução pendente.
 - **Ao soltar:** executa na soltura real de um gesto iniciado nessa camada.
 
 Por exemplo, A pode copiar um texto ao pressionar, enviar uma requisição a cada
 500 ms enquanto estiver pressionada e mostrar uma notificação ao soltar. Crie
 três ações com A e escolha um momento diferente em cada uma. Cada momento conta
 como uma ação no limite da camada. Não é permitido repetir A no mesmo momento.
+
+Exemplo: delay inicial **1.000 ms** e repetição **300 ms** aguardam um segundo após
+pressionar e repetem a cada 300 ms depois de cada execução concluída. Delay zero
+agenda a primeira execução imediatamente. Configurações antigas sem delay usam
+o intervalo de repetição também na primeira execução, preservando o comportamento.
 
 Use **Capturar tecla** para os momentos de manter/soltar: o aplicativo guarda a
 posição da tecla junto do nome e dos modificadores da combinação. Isso evita
@@ -65,6 +71,6 @@ preserva os campos e o foco. Erros abrem a etapa afetada.
 
 Salve antes de abrir a prévia. **Executar teste** realiza uma única execução
 manual da ação salva, inclusive para Enquanto pressionada: não mantém uma tecla
-pressionada nem inicia um loop. Para conferir o gesto real, feche o editor,
+pressionada, não aguarda o delay nem inicia um loop. Para conferir o gesto real, feche o editor,
 ative as ações e use a combinação no teclado. Os resultados aparecem na ação e
 no Histórico, com o momento configurado, sem salvar as teclas rastreadas.

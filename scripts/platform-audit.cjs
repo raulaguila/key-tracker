@@ -175,7 +175,7 @@ async function main() {
       const moments = structuredClone(original);
       moments.layers[0].bindings = [
         { id: 'phase-press', key: 'A', name: 'Press', action: { type: 'log', message: 'phase press' } },
-        { id: 'phase-hold', key: 'A', name: 'Hold', trigger: 'hold', repeatMs: 125, keyCode: 'KeyA', action: { type: 'log', message: 'phase hold' } },
+        { id: 'phase-hold', key: 'A', name: 'Hold', trigger: 'hold', repeatMs: 125, holdDelayMs: 500, keyCode: 'KeyA', action: { type: 'log', message: 'phase hold' } },
         { id: 'phase-release', key: 'A', name: 'Release', trigger: 'release', keyCode: 'KeyA', action: { type: 'log', message: 'phase release' } }
       ];
       await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(moments) + ');await window.keyboardTracker.setEnabled(true);');
@@ -188,7 +188,7 @@ async function main() {
       const shared = await page.evaluate('const api=window.keyboardTracker;const on=await api.setTracking(true);const off=await api.setTracking(false);const paused=await api.setEnabled(false);return {shared:on.tracking.mode==="global"&&on.input.mode==="global",visualOff:!off.tracking.enabled&&off.input.mode==="global",pausedObserves:!paused.enabled&&paused.input.mode==="global"};');
       const persisted = await readConfigFile(path.join(state.paths.data, 'config.json'));
       result.probes.keyMoments = { attempted: true, mode: phaseState.input.mode, registered: phaseState.shortcuts.registered.includes('A'),
-        schemaPersisted: persisted.layers[0].bindings.length === 3 && persisted.layers[0].bindings[1].trigger === 'hold' && persisted.layers[0].bindings[1].repeatMs === 125 && persisted.layers[0].bindings[2].keyCode === 'KeyA', ...shared,
+        schemaPersisted: persisted.layers[0].bindings.length === 3 && persisted.layers[0].bindings[1].trigger === 'hold' && persisted.layers[0].bindings[1].repeatMs === 125 && persisted.layers[0].bindings[1].holdDelayMs === 500 && persisted.layers[0].bindings[2].keyCode === 'KeyA', ...shared,
         note: 'Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.' };
       result.probes.keyMoments.passed = result.probes.keyMoments.mode === 'global' && result.probes.keyMoments.registered && result.probes.keyMoments.schemaPersisted && Object.values(shared).every(Boolean);
       await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');

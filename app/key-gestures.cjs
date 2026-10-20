@@ -32,13 +32,13 @@ class KeyGestures {
     // A reset is not a keyup. Keep observed keys blocked until their real keyup.
   }
 
-  schedule(gesture) {
+  schedule(gesture, delay = gesture.group.bindings.hold.repeatMs ?? 400) {
     const hold = gesture.group.bindings.hold;
     gesture.timer = setTimeout(async () => {
       if (this.active.get(gesture.code) !== gesture || !this.isActive(gesture.group)) return;
       await this.run(gesture.group, hold);
       if (this.active.get(gesture.code) === gesture && this.isActive(gesture.group)) this.schedule(gesture);
-    }, hold.repeatMs ?? 400);
+    }, delay);
     gesture.timer.unref?.();
   }
 
@@ -65,7 +65,7 @@ class KeyGestures {
     const gesture = { code: event.code, group, timer: null };
     this.active.set(event.code, gesture);
     if (group.bindings.press) void this.run(group, group.bindings.press);
-    if (group.bindings.hold && this.active.get(event.code) === gesture) this.schedule(gesture);
+    if (group.bindings.hold && this.active.get(event.code) === gesture) this.schedule(gesture, group.bindings.hold.holdDelayMs ?? group.bindings.hold.repeatMs ?? 400);
   }
 }
 

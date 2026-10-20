@@ -156,8 +156,9 @@ function validateConfig(value, platform = process.platform) {
       }
       const repeatMs = binding.repeatMs ?? 400;
       if (trigger === 'hold' && (!Number.isInteger(repeatMs) || repeatMs < 100 || repeatMs > 60000)) throw new Error('Intervalo de repetição deve ser de 100 a 60000 ms.');
+      if (trigger === 'hold' && binding.holdDelayMs !== undefined && (!Number.isInteger(binding.holdDelayMs) || binding.holdDelayMs < 0 || binding.holdDelayMs > 60000)) throw new Error('Delay inicial deve ser de 0 a 60000 ms.');
       return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true),
-        ...(trigger === 'press' ? {} : { trigger }), ...(keyCode ? { keyCode } : {}), ...(trigger === 'hold' ? { repeatMs } : {}), action: validateAction(binding.action, platform) };
+        ...(trigger === 'press' ? {} : { trigger }), ...(keyCode ? { keyCode } : {}), ...(trigger === 'hold' ? { repeatMs, ...(binding.holdDelayMs === undefined ? {} : { holdDelayMs: binding.holdDelayMs }) } : {}), action: validateAction(binding.action, platform) };
     });
     result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), applications: normalizedApplications, bindings });
   }
