@@ -200,3 +200,39 @@ Provas:
 Evidências em `artifacts/ui-audit/`: `dark-drawer-final.png`, `drawer-<largura>-<tema>.png`
 e `<tela>-<largura>-<sidebar>-<tema>.png`. A avaliação visual segue limitada a Linux;
 as verificações de Windows/macOS permanecem de build/testes pelo CI.
+
+## Indicadores e encaixe do Enter ISO/ABNT2 — concluídos
+
+Os estados agora combinam cor, símbolo e texto. Ativo usa verde/círculo cheio;
+pausado, âmbar/duas barras; suspensão por edição ou digitação, azul/losango.
+No Rastreio, desligado é neutro/vazio, inicialização é azul/pontilhada, captura
+global é verde e captura local é âmbar/vazia. Atalhos parcialmente indisponíveis
+recebem “Ativo · com restrições”, acompanhando o aviso existente.
+
+As linhas de digitação calculavam suas larguras separadamente com flex, bordas e
+paddings diferentes. O teste reproduziu 19 px entre `]` e a parte inferior do
+Enter, em vez dos 4 px do restante do teclado. Uma grade compartilhada em quartos
+de unidade uniformiza as teclas, e o recorte do Enter usa a mesma geometria.
+O contorno interno do Enter também foi completado para deixar seu limite claro.
+
+Provas desta correção:
+
+- 27 testes de lógica passaram e a sintaxe foi verificada.
+- Electron real: ativação, pausa, suspensão por campo e por drawer e retomada,
+  com cores distintas nos temas claro/escuro; captura local difere de desligado.
+- 90 combinações do teclado: cinco layouts × três formatos × três larguras
+  (1440, 980 e 390 px) × dois temas. Medições conferem unidades iguais,
+  superfícies visíveis sem cobertura por outras teclas e intervalo de 4 px
+  entre a tecla vizinha e a parte inferior do Enter ISO/ABNT2.
+- `]` e Enter pressionados simultaneamente continuam separados e visíveis,
+  com destaque e liberação corretos nos dois temas.
+- Os fluxos anteriores e as 112 combinações de telas/tema/sidebar, além das
+  14 verificações do drawer, continuam passando.
+- Inspeção X11 isolada confirmou “Captura global” com indicador ativo.
+- axe-core 4.12.1: zero violações WCAG A/AA no estado ativo claro, suspenso escuro
+  e Rastreio ABNT2 escuro. O último marcou oito símbolos de teclas para revisão
+  manual; eles usam os mesmos tokens de texto/superfície das demais teclas.
+
+Capturas: `status-<estado>-<tema>.png`, `tracking-abnt2-enter-<tema>.png` e
+`tracking-abnt2-dark-final.png` em `artifacts/ui-audit/` (ignorado pelo Git).
+A inspeção visual foi feita no Linux; Windows/macOS seguem verificados pelo CI.

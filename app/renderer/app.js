@@ -139,9 +139,9 @@ function updateStatus() {
   if (!state) return;
   const suspended = state.enabled && state.editing;
   const editingForm = Boolean(editor || isDirty());
-  document.querySelector('#engine-status').textContent = suspended ? editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? 'Ativo' : 'Pausado';
+  document.querySelector('.engine-status').dataset.status = suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length ? 'limited' : 'active' : 'paused';
+  document.querySelector('#engine-status').textContent = suspended ? editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
   document.querySelector('#engine-detail').textContent = suspended ? editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
-  document.querySelector('#engine-dot').classList.toggle('enabled', state.enabled && !state.editing);
   document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing);
   document.querySelector('#control-shortcuts').hidden = state.editing;
   document.querySelector('#control-shortcuts').textContent = state.config.settings.layerShortcut + ' alternar · ' + state.config.settings.pauseShortcut.replace('CommandOrControl', state.platform === 'darwin' ? '⌘' : 'Ctrl') + ' pausar';
@@ -595,7 +595,8 @@ function bindingForm(layer) {
 function renderTracking() {
   const tracking = state.tracking;
   const mode = !tracking.enabled ? 'Desligado' : tracking.mode === 'global' ? 'Captura global' : tracking.mode === 'starting' ? 'Iniciando captura' : 'Somente nesta janela';
-  main.append(heading('Rastreio do teclado', '', el('span', { class: 'tracking-mode' }, el('span', { class: 'status-dot' + (tracking.enabled ? ' enabled' : ''), 'aria-hidden': 'true' }), mode)));
+  const status = !tracking.enabled ? 'off' : tracking.mode === 'global' ? 'active' : tracking.mode === 'starting' ? 'starting' : 'limited';
+  main.append(heading('Rastreio do teclado', '', el('span', { class: 'tracking-mode status-indicator', 'data-status': status, role: 'status', 'aria-atomic': 'true' }, el('span', { class: 'status-dot', 'aria-hidden': 'true' }), mode)));
   const layout = field('keyboard-layout', 'Layout', keyboardPreference.layout, { choices: [['auto', 'Automático (sistema)'], ...Object.entries(layouts).map(([id, item]) => [id, item.name])] });
   const size = field('keyboard-size', 'Formato', keyboardPreference.size, { choices: [['full', 'Completo'], ['tkl', 'Sem numérico (TKL)'], ['compact', 'Compacto (60%)']] });
   const geometry = field('keyboard-geometry', 'Padrão físico', keyboardPreference.geometry, { choices: [['auto', 'Referência do layout'], ['ansi', 'ANSI'], ['iso', 'ISO'], ['abnt2', 'ABNT2']] });

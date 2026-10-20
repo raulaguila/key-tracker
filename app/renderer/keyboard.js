@@ -5,6 +5,8 @@ export function keyboardView(platform, nodes, { layout: chosen, size = 'full' })
   function key(code, label, units = 1, extra = '') {
     const actual = chosen.keys[code] ?? label;
     const element = el('span', { class: 'keycap u-' + String(units).replace('.', '-') + ' ' + extra, 'data-code': code, title: code || undefined }, extra === 'iso-enter' ? el('span', { class: 'iso-shape' }, 'Enter') : actual);
+    // All typing rows share a 15-unit grid, subdivided into quarter units.
+    element.style.setProperty('--key-span', units * 4);
     if (code) nodes.set(code, element);
     return element;
   }

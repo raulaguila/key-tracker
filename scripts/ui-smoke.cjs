@@ -140,6 +140,38 @@ async function main() {
     await select('#field-theme', 'light');
     await click('[data-view="layers"]');
 
+    // Status uses real engine transitions and stays distinct in both themes.
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await until('document.querySelector(".engine-status").dataset.status === "paused" && !document.querySelector("#engine-toggle").disabled', 'Paused engine ready');
+      const pausedColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
+      assert.equal(await evaluate('return getComputedStyle(document.querySelector("#engine-dot")).borderLeftWidth'), '2px', 'Paused has a pause symbol');
+      await shot('status-paused-' + theme);
+      await click('#engine-toggle');
+      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Real shortcuts active');
+      const activeColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
+      assert.notEqual(activeColor, pausedColor, 'Active and paused colors differ: ' + theme);
+      assert.equal((await nativeState()).enabled, true);
+      await shot('status-active-' + theme);
+      await evaluate('document.querySelector("#field-action-search").focus();');
+      await until('document.querySelector(".engine-status").dataset.status === "suspended"', 'Typing suspends shortcuts');
+      const suspendedColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
+      assert.notEqual(suspendedColor, activeColor);
+      assert.notEqual(suspendedColor, pausedColor);
+      assert.match(await evaluate('return document.querySelector("#engine-status").textContent'), /digitação/);
+      await shot('status-suspended-' + theme);
+      await evaluate('document.activeElement.blur();');
+      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Blur resumes shortcuts');
+      await click('[data-focus="new-layer"]');
+      await until('document.querySelector(".engine-status").dataset.status === "suspended"', 'Drawer suspends shortcuts');
+      assert.match(await evaluate('return document.querySelector("#engine-status").textContent'), /edição/);
+      await click('[data-drawer-close]');
+      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Closing drawer resumes shortcuts');
+      await click('#engine-toggle');
+      await until('document.querySelector(".engine-status").dataset.status === "paused"', 'Engine paused again');
+    }
+    await evaluate('window.keyboardAppearance.set("light");');
+
     // Modal drawer keeps the table at its original width and owns keyboard focus.
     const detailWidth = await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width');
     await evaluate('document.querySelector("[data-focus=\\"new-layer\\"]").focus();');
@@ -298,9 +330,13 @@ async function main() {
     assert.ok(await evaluate('return document.querySelector(".platform-note").innerText.includes("Wayland")'), 'Platform guidance remains available');
 
     await click('[data-view="tracking"]');
+    assert.equal(await evaluate('return document.querySelector(".tracking-mode").dataset.status'), 'off');
+    const trackingOffColor = await evaluate('return getComputedStyle(document.querySelector(".tracking-mode")).color');
     await click('input[role="switch"]');
     await until('Boolean(document.querySelector(".tracking-limitation"))', 'Wayland fallback visible');
     assert.equal((await nativeState()).tracking.mode, 'local');
+    assert.equal(await evaluate('return document.querySelector(".tracking-mode").dataset.status'), 'limited');
+    assert.notEqual(await evaluate('return getComputedStyle(document.querySelector(".tracking-mode")).color'), trackingOffColor);
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65 });
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: '1', code: 'Numpad1', windowsVirtualKeyCode: 97 });
     assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 2);
@@ -314,11 +350,63 @@ async function main() {
     await click('input[role="switch"]');
     assert.equal((await nativeState()).tracking.enabled, false);
 
+    async function assertKeyboardGeometry(context) {
+      const collisions = await evaluate(`
+        const failures = [];
+        const scroller = document.querySelector('.keyboard-scroll');
+        const previousScroll = scroller.scrollLeft;
+        const previousY = window.scrollY;
+        const unitWidths = [...document.querySelectorAll('.keyboard-main > .keyboard-row:not(.functions) > .u-1:not(.void)')].map(key => key.getBoundingClientRect().width);
+        if (Math.max(...unitWidths) - Math.min(...unitWidths) > .1) failures.push({ code: 'inconsistent-unit-widths', unitWidths });
+        for (const key of document.querySelectorAll('.keycap[data-code]:not(.void)')) {
+          key.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          const rect = key.getBoundingClientRect();
+          const visible = scroller.getBoundingClientRect();
+          for (const x of [rect.left + 2, (rect.left + rect.right) / 2, rect.right - 2]) {
+            if (x < Math.max(0, visible.left) || x >= Math.min(innerWidth, visible.right)) continue;
+            for (const y of [rect.top + 2, (rect.top + rect.bottom) / 2, rect.bottom - 2]) {
+              const hit = document.elementFromPoint(x, y)?.closest('.keycap');
+              if (hit !== key) failures.push({ code: key.dataset.code, coveredBy: hit?.dataset.code, x, y });
+            }
+          }
+        }
+        const enter = document.querySelector('.iso-enter');
+        if (enter) {
+          enter.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          const bracket = document.querySelector('.keycap[data-code="Backslash"]').getBoundingClientRect();
+          const shape = enter.querySelector('.iso-shape').getBoundingClientRect();
+          const y = (bracket.top + bracket.bottom) / 2;
+          let firstEnter = null;
+          for (let x = bracket.right - 8; x < shape.right; x += .25) {
+            if (document.elementFromPoint(x, y)?.closest('.keycap') === enter) { firstEnter = x; break; }
+          }
+          const gap = firstEnter === null ? null : firstEnter - bracket.right;
+          if (gap === null || gap < 3.5 || gap > 4.5) failures.push({ code: 'Backslash/Enter', gap });
+        }
+        scroller.scrollLeft = previousScroll;
+        window.scrollTo(0, previousY);
+        return failures;
+      `);
+      assert.deepEqual(collisions, [], 'Every visible key surface stays unobstructed: ' + context);
+    }
+
     const configBeforePreview = (await nativeState()).config;
     for (const [layout, code, label] of [['br', 'Semicolon', 'Ç'], ['us', 'Semicolon', ';'], ['pt', 'Quote', 'º'], ['fr', 'KeyQ', 'A'], ['de', 'KeyY', 'Z']]) {
       await select('#field-keyboard-layout', layout);
       assert.equal(await evaluate('return document.querySelector(\'.keycap[data-code="' + code + '"]\').textContent'), label, 'Layout legends: ' + layout);
+      for (const size of ['compact', 'tkl', 'full']) {
+        await select('#field-keyboard-size', size);
+        for (const width of [1440, 980, 390]) {
+          await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+          for (const theme of ['light', 'dark']) {
+            await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+            await assertKeyboardGeometry(layout + ', ' + size + ', ' + width + ', ' + theme);
+          }
+        }
+      }
+      await cdp('Emulation.clearDeviceMetricsOverride');
     }
+    await evaluate('window.keyboardAppearance.set("light");');
     await select('#field-keyboard-layout', 'br');
     assert.ok(await evaluate('return Boolean(document.querySelector(".iso-enter") && document.querySelector(\'.keycap[data-code="IntlRo"]\'))'), 'ABNT2 includes ISO Enter and the extra slash');
     for (const size of ['compact', 'tkl', 'full']) {
@@ -338,6 +426,19 @@ async function main() {
     await shot('tracking-abnt2');
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ç', code: 'Semicolon', windowsVirtualKeyCode: 186 });
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: '/', code: 'IntlRo', windowsVirtualKeyCode: 193 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: ']', code: 'Backslash', windowsVirtualKeyCode: 220 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 2, '] and Enter remain distinct pressed keys');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await assertKeyboardGeometry('ABNT2, ] and Enter pressed, ' + theme);
+      await delay(180);
+      await shot('tracking-abnt2-enter-' + theme);
+    }
+    await evaluate('window.keyboardAppearance.set("light");');
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: ']', code: 'Backslash', windowsVirtualKeyCode: 220 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 0);
     await click('input[role="switch"]');
     await click('.keyboard-help summary');
     await select('#field-keyboard-geometry', 'ansi');
@@ -457,7 +558,7 @@ async function main() {
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
+    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

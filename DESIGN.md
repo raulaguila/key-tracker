@@ -23,6 +23,10 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
   Instalações novas começam recolhidas; preferências existentes são preservadas.
 - Barra superior de 48 px com estado e pausa. Camada em uso, atalhos e plataforma
   ficam na barra inferior compacta. Durante edição, o rodapé informa a suspensão.
+  Indicadores combinam texto, cor e formato: ativo em verde com círculo cheio,
+  pausado em âmbar com duas barras e suspenso em azul com losango. Rastreio
+  desligado usa círculo vazio neutro; captura local ou atalhos com restrições
+  usam círculo vazio âmbar. Inicialização usa contorno pontilhado azul.
 - Camadas usam navegação própria e painel de ações. “Em uso” identifica a camada
   dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
   Escolher uma camada para editar não muda a camada em uso.
@@ -70,6 +74,9 @@ família única de ícones SVG e representação de teclas adaptada ao SO.
 Camadas usam uma coluna de 176 px (144 px em janelas intermediárias); abaixo de
 580 px ficam em uma faixa acima da tabela. A navegação continua lateral e
 recolhível. O teclado usa teclas de 32 px em uma região com rolagem própria.
+As linhas de digitação compartilham uma grade de 15 unidades, subdividida em
+quartos, com intervalos de 4 px. O recorte do Enter ISO/ABNT2 acompanha essa
+medida e mantém contorno completo junto à tecla `]`.
 Em ponteiros de toque, controles crescem para 44 px. Botões, formulários e textos
 longos quebram linhas. Avisos ficam afastados da área principal de salvamento. Não há
 dependência de fontes externas, bibliotecas ou scripts inline.
