@@ -131,11 +131,19 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       content.append(message.wrapper); read = () => ({ type: kind, message: message.input.value });
     } else if (kind === 'sequence' && allowSequence) {
       const steps = [];
+      const accordionName = 'sequence-' + crypto.randomUUID();
+      const count = el('span', { class: 'sequence-count', role: 'status' });
       const list = el('div', { class: 'sequence-steps', 'data-sequence-steps': '' });
       const add = button('Adicionar etapa', () => addStep({ type: 'clipboard', text: '' }, true), '', { symbol: 'plus', 'data-step-add': '' });
+      function describeStep(step, index) {
+        step.summary.replaceChildren(el('span', { class: 'step-summary-copy' },
+          el('strong', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.editor.type]),
+          el('small', {}, step.editor.describe())));
+      }
+      function openStep(step) { for (const item of steps) item.node.open = item === step; }
       function updateSteps() {
         for (const [index, step] of steps.entries()) {
-          step.summary.textContent = 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.editor.type];
+          describeStep(step, index);
           step.node.dataset.stepIndex = String(index + 1);
           step.up.disabled = index === 0; step.down.disabled = index === steps.length - 1; step.remove.disabled = steps.length === 1;
           step.up.setAttribute('aria-label', 'Mover etapa ' + (index + 1) + ' para cima');
@@ -144,6 +152,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         }
         list.replaceChildren(...steps.map(step => step.node));
         add.disabled = steps.length >= 10;
+        count.textContent = steps.length + ' de 10';
       }
       function move(step, direction) {
         const index = steps.indexOf(step); const destination = index + direction;
@@ -161,16 +170,17 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         step.down = button('Mover etapa para baixo', () => move(step, 1), 'quiet', { symbol: 'down', iconOnly: true, 'data-step-down': '' });
         step.remove = button('Remover etapa', () => {
           const index = steps.indexOf(step); if (steps.length <= 1) return;
-          steps.splice(index, 1); updateSteps(); (steps[Math.min(index, steps.length - 1)]?.summary || add).focus(); onDirty();
+          steps.splice(index, 1); updateSteps(); const target = steps[Math.min(index, steps.length - 1)]; if (!steps.some(item => item.node.open)) openStep(target); target.summary.focus(); onDirty();
         }, 'quiet danger', { symbol: 'trash', iconOnly: true, 'data-step-remove': '' });
-        step.node = el('details', { class: 'sequence-step', 'data-sequence-step': '', open: focus || steps.length === 0 }, step.summary,
+        step.node = el('details', { class: 'sequence-step', name: accordionName, 'data-sequence-step': '', open: focus || steps.length === 0 }, step.summary,
           el('div', { class: 'sequence-step-toolbar' }, el('span', { class: 'hint' }, 'Ordem da execução'), el('div', { class: 'button-row' }, step.up, step.down, step.remove)), step.editor.node);
-        step.editor.node.addEventListener('change', () => { step.summary.textContent = 'Etapa ' + (steps.indexOf(step) + 1) + ' · ' + actionTypeLabels[step.editor.type]; });
+        step.editor.node.addEventListener('change', () => describeStep(step, steps.indexOf(step)));
+        step.editor.node.addEventListener('input', () => describeStep(step, steps.indexOf(step)));
         steps.push(step); updateSteps();
-        if (focus) { step.editor.node.querySelector('select')?.focus(); onDirty(); }
+        if (focus) { openStep(step); step.editor.node.querySelector('select')?.focus(); onDirty(); }
       }
-      content.append(el('p', { class: 'context-note' }, 'As etapas executam em ordem e param na primeira falha. Efeitos concluídos não são desfeitos.'), list, add,
-        el('p', { class: 'hint sequence-limit' }, 'De 1 a 10 etapas. As variáveis usam a tecla e a camada que iniciaram a sequência.'));
+      content.append(el('p', { class: 'context-note' }, 'A primeira falha interrompe as próximas etapas. Efeitos concluídos não são desfeitos.'), list, el('div', { class: 'sequence-add-row' }, add, count),
+        el('p', { class: 'hint sequence-limit' }, 'As variáveis usam a tecla e a camada que iniciaram a sequência.'));
       (value.steps?.length ? value.steps : [{ type: 'clipboard', text: '' }]).forEach(action => addStep(action));
       read = () => ({ type: kind, steps: steps.map(step => step.editor.read()) });
     }
@@ -182,5 +192,22 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
     host.replaceChildren(cache.get(kind).node); node.dataset.actionType = kind;
   }
   type.input.addEventListener('change', show); show();
-  return { node, read: () => cache.get(type.input.value).read(), get type() { return type.input.value; } };
+  function describe() {
+    const value = key => host.querySelector('[name="' + name(key) + '"]')?.value || '';
+    const destination = target => {
+      try { const url = new URL(target); return url.host + url.pathname; } catch { return 'Defina o destino'; }
+    };
+    const filename = target => target.replace(/[\\/]$/, '').split(/[\\/]/).at(-1) || 'Defina o destino';
+    switch (type.input.value) {
+      case 'clipboard': return value('text') ? 'Texto configurado · ' + value('text').length + ' caracteres' : 'Defina o texto';
+      case 'open': return value('kind') === 'url' ? destination(value('target')) : filename(value('target'));
+      case 'notification': return value('title') || 'Defina o título';
+      case 'layer': return layers.find(layer => layer.id === value('layerId'))?.name || 'Escolha a camada';
+      case 'http': return value('method') + ' · ' + destination(value('url'));
+      case 'file': return (value('mode') === 'append' ? 'Acrescentar · ' : 'Criar · ') + (value('filename') || 'Defina o nome');
+      case 'log': return value('message') ? 'Mensagem configurada' : 'Defina a mensagem';
+      default: return 'Configure as etapas';
+    }
+  }
+  return { node, read: () => cache.get(type.input.value).read(), describe, get type() { return type.input.value; } };
 }

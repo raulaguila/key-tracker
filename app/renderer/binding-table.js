@@ -2,7 +2,7 @@ import { el, icon, button, shortcut } from './ui.js';
 
 // Keep keyed rows while searching or receiving execution results. Handlers read
 // the current model, so reused rows never operate on an older configuration.
-export function createBindingTable({ platform, labels, typeLabels, summaryFor, onTest, onEdit, menuFor }) {
+export function createBindingTable({ platform, labels, typeLabels, summaryFor, onTest, onEdit, menuFor, triggerFor, triggerDescription }) {
   const caption = el('caption', { class: 'sr-only' });
   const body = el('tbody');
   const node = el('table', { class: 'binding-table' }, caption,
@@ -46,10 +46,11 @@ export function createBindingTable({ platform, labels, typeLabels, summaryFor, o
       if (!record) { record = create(binding); records.set(binding.id, record); }
       record.binding = binding; record.layer = layer;
       const disabled = binding.enabled === false;
-      if (record.keyValue !== binding.key || record.disabled !== disabled) {
-        record.key.replaceChildren(shortcut(binding.key, platform), ...(disabled ? [el('small', { class: 'disabled-label' }, 'Desativada')] : []));
+      const momentKey = triggerDescription(binding);
+      if (record.keyValue !== binding.key || record.disabled !== disabled || record.momentKey !== momentKey) {
+        record.key.replaceChildren(shortcut(binding.key, platform), el('small', { class: 'binding-trigger-label' }, momentKey), ...(disabled ? [el('small', { class: 'disabled-label' }, 'Desativada')] : []));
         record.row.classList.toggle('binding-disabled', disabled);
-        record.keyValue = binding.key; record.disabled = disabled;
+        record.keyValue = binding.key; record.disabled = disabled; record.momentKey = momentKey;
       }
       if (record.name.textContent !== binding.name) record.name.textContent = binding.name;
       labelButton(record.edit, 'Editar ação: ' + binding.name);
@@ -64,7 +65,7 @@ export function createBindingTable({ platform, labels, typeLabels, summaryFor, o
       const pending = pendingBindings.has(binding.id);
       labelButton(record.test, pending ? 'Executando…' : 'Executar teste: ' + binding.name);
       if (record.test.disabled !== pending) record.test.disabled = pending;
-      const result = results.get(binding.id) || legacy.find(event => event.layer === layer.name && event.key === binding.key);
+      const result = results.get(binding.id) || legacy.find(event => event.layer === layer.name && event.key === binding.key && (event.trigger || 'press') === triggerFor(binding));
       const resultKey = pending ? 'pending' : result?.id;
       if (record.resultKey !== resultKey) {
         record.feedback?.remove(); record.feedback = null;

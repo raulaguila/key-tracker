@@ -8,6 +8,7 @@ const KEYS = new Set(['Space', 'Tab', 'Enter', 'Escape', 'Backspace', 'Delete', 
 const ALIASES = { ctrl: 'Control', control: 'Control', cmd: 'Command', command: 'Command', commandorcontrol: 'CommandOrControl', cmdorctrl: 'CommandOrControl', alt: 'Alt', option: 'Alt', shift: 'Shift', super: 'Super', meta: 'Super', return: 'Enter', esc: 'Escape', arrowup: 'Up', arrowdown: 'Down', arrowleft: 'Left', arrowright: 'Right', ' ': 'Space' };
 const PUNCTUATION = { '=': 'Equal', '-': 'Minus', ',': 'Comma', '.': 'Period', '/': 'Slash', '\\': 'Backslash', ';': 'Semicolon', "'": 'Quote', '`': 'Backquote', '[': 'BracketLeft', ']': 'BracketRight' };
 const ELECTRON_KEYS = { Equal: '=', Minus: '-', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Semicolon: ';', Quote: "'", Backquote: '`', BracketLeft: '[', BracketRight: ']' };
+const PHYSICAL_KEYS = new Set(['Space', 'Tab', 'Enter', 'Escape', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Equal', 'Minus', 'Comma', 'Period', 'Slash', 'Backslash', 'Semicolon', 'Quote', 'Backquote', 'BracketLeft', 'BracketRight', 'IntlBackslash', 'IntlRo', 'IntlYen', ...Array.from({ length: 26 }, (_, i) => 'Key' + String.fromCharCode(65 + i)), ...Array.from({ length: 10 }, (_, i) => 'Digit' + i), ...Array.from({ length: 24 }, (_, i) => 'F' + (i + 1))]);
 
 function text(value, label, max = 200, allowEmpty = false) {
   if (typeof value !== 'string' || value.length > max || (!allowEmpty && !value.trim())) throw new Error(`${label} inválido (máximo ${max} caracteres).`);
@@ -132,12 +133,31 @@ function validateConfig(value, platform = process.platform) {
       return application.trim();
     });
     const keys = new Set();
+    const physicalGroups = new Map();
+    const groupCodes = new Map();
     const bindings = layer.bindings.map(binding => {
       const key = normalizeShortcut(binding.key);
       const effective = effectiveShortcut(key, platform);
-      if (keys.has(effective) || reserved.includes(effective)) throw new Error(`Atalho ${key} duplicado ou reservado na camada ${layer.name}.`);
-      keys.add(effective);
-      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true), action: validateAction(binding.action, platform) };
+      const trigger = binding.trigger ?? 'press';
+      if (!['press', 'hold', 'release'].includes(trigger)) throw new Error('Momento da tecla inválido.');
+      const combination = effective + ':' + trigger;
+      if (keys.has(combination) || reserved.includes(effective)) throw new Error(`Atalho ${key} duplicado neste momento ou reservado na camada ${layer.name}.`);
+      keys.add(combination);
+      const keyCode = binding.keyCode;
+      if (keyCode !== undefined && !PHYSICAL_KEYS.has(keyCode)) throw new Error('Posição física da tecla inválida. Capture uma tecla suportada.');
+      if (trigger !== 'press' && !keyCode) throw new Error('Capture a tecla para configurar os momentos enquanto pressionada ou ao soltar.');
+      if (keyCode) {
+        if (groupCodes.has(effective) && groupCodes.get(effective) !== keyCode) throw new Error(`Os momentos do atalho ${key} devem usar a mesma posição física. Capture novamente a combinação.`);
+        groupCodes.set(effective, keyCode);
+        const nativeModifiers = new Set(effective.split('+').slice(0, -1).map(value => value === 'Command' || value === 'Super' ? 'Meta' : value));
+        const physical = ['Control', 'Alt', 'Shift', 'Meta'].filter(value => nativeModifiers.has(value)).join('+') + ':' + keyCode;
+        if (physicalGroups.has(physical) && physicalGroups.get(physical) !== effective) throw new Error('A mesma posição física e modificadores estão associados a combinações diferentes. Capture novamente a tecla.');
+        physicalGroups.set(physical, effective);
+      }
+      const repeatMs = binding.repeatMs ?? 400;
+      if (trigger === 'hold' && (!Number.isInteger(repeatMs) || repeatMs < 100 || repeatMs > 60000)) throw new Error('Intervalo de repetição deve ser de 100 a 60000 ms.');
+      return { id: id(binding.id), key, name: text(binding.name, 'Nome da ação', 100), enabled: optionalBoolean(binding.enabled, 'Estado da ação', true),
+        ...(trigger === 'press' ? {} : { trigger }), ...(keyCode ? { keyCode } : {}), ...(trigger === 'hold' ? { repeatMs } : {}), action: validateAction(binding.action, platform) };
     });
     result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), applications: normalizedApplications, bindings });
   }

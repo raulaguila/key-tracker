@@ -1,0 +1,28 @@
+{
+  "platform": "linux",
+  "electron": "44.9.1",
+  "isolatedXvfb": true,
+  "layout": "fr",
+  "scope": "Independent synthetic physical-key proof; no user keyboard or layout was modified.",
+  "rendererCapture": {
+    "key": "a",
+    "code": "KeyQ"
+  },
+  "logicalShortcutRegistered": true,
+  "actions": {
+    "press": 1,
+    "hold": 4,
+    "release": 1
+  },
+  "hookCodes": [
+    {
+      "code": "KeyQ",
+      "direction": "down"
+    },
+    {
+      "code": "KeyQ",
+      "direction": "up"
+    }
+  ],
+  "passed": true
+}

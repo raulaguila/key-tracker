@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Storage, readConfigFile } = require('./storage.cjs');
@@ -123,6 +123,18 @@ else {
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
+    const suspendActions = () => {
+      engine.resetInput();
+      if (engine.enabled) {
+        engine.setEnabled(false);
+        engine.record('info', 'Atalhos pausados ao bloquear ou suspender o sistema. Ative novamente quando estiver pronto.');
+        engine.publish();
+      }
+    };
+    powerMonitor.on('suspend', suspendActions);
+    powerMonitor.on('lock-screen', suspendActions);
+    powerMonitor.on('resume', () => engine.resetInput());
+    powerMonitor.on('unlock-screen', () => engine.resetInput());
     engine.on('state', state => send('state', statePayload(state)));
     engine.on('key', key => send('key', key));
 

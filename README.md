@@ -64,6 +64,17 @@ evitar uma retomada por repetição logo após pausar.
 Por padrão, fechar a janela encerra o app e todos os hooks. A opção de manter
 na bandeja permite continuar usando os atalhos com a janela oculta.
 
+No cadastro, escolha **Ao pressionar**, **Enquanto pressionada** ou **Ao soltar**.
+A mesma tecla pode ter uma ação por momento na camada. Enquanto pressionada tem
+intervalo próprio e aguarda a execução anterior terminar; use Capturar tecla para
+configurar manter/soltar. Esses momentos precisam de entrada global disponível
+(Windows, macOS e Linux/X11 com as permissões do sistema; indisponíveis no Wayland).
+[Funcionamento, interrupções e teste dos momentos](docs/KEY_MOMENTS.md).
+
+O editor mantém gatilho e rodapé acessíveis durante a rolagem. Sequências exibem
+resumos e uma etapa aberta por vez; os campos continuam preservados ao trocar
+tipo, mover ou recolher etapas. Salve antes de preparar a prévia e executar teste.
+
 ## Configurar e usar mais rápido
 
 ### Tipos de ação
@@ -200,6 +211,7 @@ exportação; não há cofre de credenciais nesta versão.
 ```bash
 npm run check
 npm test
+npm run test:input # Linux: eventos nativos em Xvfb próprio
 npm run pack
 npm run dist
 ```

@@ -3,7 +3,9 @@ const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage } = require('./actions.cjs');
+const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const PAUSE_RESUME_DEBOUNCE_MS = 400;
+const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400 } : {}) });
 
 class Engine extends EventEmitter {
   constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now }) {
@@ -36,12 +38,19 @@ class Engine extends EventEmitter {
     this.lastRun = new Map();
     this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
+    this.input = { mode: 'off', message: '' };
+    this.inputGroupCache = new Map();
+    this.gestures = new KeyGestures({
+      findGroup: event => this.inputGroups().find(group => group.keyCode === event.code && matchesModifiers(event, group.modifiers)),
+      isActive: group => this.enabled && !this.editing && this.input.mode === 'global' && this.activeLayerId === group.layerId && this.registrations.has(group.effective),
+      run: (group, binding) => this.runInputBinding(group, binding)
+    });
   }
 
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state() {
-    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, application: this.application, desktop: this.desktop, events: this.events });
+    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, events: this.events });
   }
 
   publish() {
@@ -61,6 +70,7 @@ class Engine extends EventEmitter {
   setEnabled(enabled) {
     if (typeof enabled !== 'boolean') throw new Error('Estado de ativação inválido.');
     if (this.enabled === enabled) return this.state();
+    this.resetInput();
     if (enabled) this.armed = true;
     this.enabled = enabled;
     this.syncShortcuts();
@@ -79,6 +89,7 @@ class Engine extends EventEmitter {
   setEditing(editing) {
     if (typeof editing !== 'boolean') throw new Error('Estado de edição inválido.');
     if (this.editing === editing) return this.state();
+    this.resetInput();
     this.editing = editing;
     if (!editing && this.pendingApplication) {
       this.pendingApplication = false;
@@ -90,6 +101,7 @@ class Engine extends EventEmitter {
 
   setLayer(id) {
     if (!this.config.layers.some(layer => layer.id === id)) throw new Error('Camada não encontrada.');
+    if (id !== this.activeLayerId) this.resetInput();
     this.activeLayerId = id;
     this.manualLayerId = id;
     this.pendingApplication = false;
@@ -130,6 +142,7 @@ class Engine extends EventEmitter {
       }
     }
     if (id !== this.activeLayerId) {
+      this.resetInput();
       this.activeLayerId = id;
       this.record('info', `Camada ativa: ${this.activeLayer.name}.`);
     }
@@ -139,9 +152,11 @@ class Engine extends EventEmitter {
     const valid = validateConfig(config, this.platform);
     const serialized = JSON.stringify(valid);
     await this.storage.save(valid);
+    this.resetInput();
     const contextRules = value => JSON.stringify([value.settings.autoSwitchLayers, value.layers.map(layer => [layer.id, layer.applications])]);
     const contextChanged = contextRules(this.config) !== contextRules(valid);
     this.config = valid;
+    this.inputGroupCache.clear();
     if (serialized !== this.serializedConfig) this.configRevision++;
     this.serializedConfig = serialized;
     this.previews.clear();
@@ -168,13 +183,20 @@ class Engine extends EventEmitter {
 
   syncShortcuts() {
     const desired = new Map();
+    const unavailable = new Map();
     if (this.armed) {
       const pause = this.config.settings.pauseShortcut;
       desired.set(effectiveShortcut(pause, this.platform), pause);
       if (this.enabled && !this.editing) {
         const cycle = this.config.settings.layerShortcut;
         desired.set(effectiveShortcut(cycle, this.platform), cycle);
-        for (const binding of this.activeLayer.bindings) if (binding.enabled) desired.set(effectiveShortcut(binding.key, this.platform), binding.key);
+        const inputGroups = new Set(this.inputGroups().map(group => group.effective));
+        for (const binding of this.activeLayer.bindings) if (binding.enabled) {
+          const effective = effectiveShortcut(binding.key, this.platform);
+          if (inputGroups.has(effective) && this.input.mode !== 'global') {
+            unavailable.set(effective, { key: binding.key, message: this.input.mode === 'unavailable' ? 'Gatilhos de tecla indisponíveis neste ambiente. A combinação não foi reservada.' : 'Aguardando entrada global para reservar esta combinação.' });
+          } else desired.set(effective, binding.key);
+        }
       }
     }
     for (const [effective, key] of this.registrations) {
@@ -183,7 +205,7 @@ class Engine extends EventEmitter {
         this.registrations.delete(effective);
       }
     }
-    this.failed = [];
+    this.failed = [...unavailable.values()];
     for (const [effective, key] of desired) {
       if (this.registrations.has(effective)) continue;
       let registered = false;
@@ -216,12 +238,65 @@ class Engine extends EventEmitter {
       return;
     }
     const layer = this.activeLayer;
+    if (this.inputGroups().some(group => group.effective === effective)) return;
     const binding = layer.bindings.find(binding => binding.enabled && effectiveShortcut(binding.key, this.platform) === effective);
     if (binding) {
       const key = JSON.stringify([layer.id, binding.id]);
       if (now - (this.lastRun.get(key) ?? -Infinity) < settings.cooldownMs) return;
       this.lastRun.set(key, now);
       void this.runBinding(layer.id, binding.id).catch(error => { this.record('error', error.message); this.publish(); });
+    }
+  }
+
+  needsInput() {
+    return this.armed && this.config.layers.some(layer => layer.bindings.some(binding => binding.enabled && ['hold', 'release'].includes(binding.trigger)));
+  }
+
+  inputGroups() {
+    if (this.inputGroupCache.has(this.activeLayerId)) return this.inputGroupCache.get(this.activeLayerId);
+    const grouped = new Map();
+    for (const binding of this.activeLayer.bindings) {
+      if (!binding.enabled) continue;
+      const effective = effectiveShortcut(binding.key, this.platform);
+      if (!grouped.has(effective)) grouped.set(effective, { layerId: this.activeLayerId, layerName: this.activeLayer.name, effective, modifiers: shortcutModifiers(effective), bindings: {} });
+      const group = grouped.get(effective);
+      const trigger = binding.trigger || 'press';
+      group.bindings[trigger] = binding;
+      if (trigger !== 'press') group.keyCode = binding.keyCode;
+    }
+    const groups = [...grouped.values()].filter(group => group.bindings.hold || group.bindings.release);
+    this.inputGroupCache.set(this.activeLayerId, groups);
+    return groups;
+  }
+
+  updateInput({ mode, message = '' }) {
+    if (!['off', 'starting', 'global', 'unavailable'].includes(mode)) throw new Error('Estado de entrada inválido.');
+    if (mode === this.input.mode && message === this.input.message) return this.state();
+    if (mode !== 'global') this.resetInput();
+    const modeChanged = mode !== this.input.mode;
+    this.input = { mode, message: String(message).slice(0, 500) };
+    if (modeChanged) this.syncShortcuts();
+    return this.publish();
+  }
+
+  handleInput(event) { this.gestures.handle(event); }
+
+  resetInput() { this.gestures.reset(); }
+
+  async runInputBinding(group, binding) {
+    if (!this.enabled || this.editing || this.input.mode !== 'global' || group.layerId !== this.activeLayerId || !this.registrations.has(group.effective)) return;
+    const trigger = binding.trigger || 'press';
+    if (trigger === 'hold' && (this.inFlight.has(binding.id) || this.inFlight.size >= 4)) return;
+    if (trigger !== 'hold') {
+      const key = JSON.stringify([group.layerId, binding.id]);
+      const now = this.now();
+      if (now - (this.lastRun.get(key) ?? -Infinity) < this.config.settings.cooldownMs) return;
+      this.lastRun.set(key, now);
+    }
+    try { await this.runBinding(group.layerId, binding.id); }
+    catch (error) {
+      this.record('error', `${binding.name}: ${error.message}`, { kind: 'action', bindingId: binding.id, layer: group.layerName, key: binding.key, ...triggerDetails(binding), durationMs: 0 });
+      this.publish();
     }
   }
 
@@ -260,7 +335,7 @@ class Engine extends EventEmitter {
     const started = this.now();
     let httpStatus;
     const steps = [];
-    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { steps: structuredClone(steps) } : {}) });
+    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { steps: structuredClone(steps) } : {}) });
     try {
       prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
       const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,
@@ -283,7 +358,7 @@ class Engine extends EventEmitter {
     return this.publish();
   }
 
-  dispose() { this.enabled = false; this.armed = false; this.previews.clear(); this.shortcutsAPI.unregisterAll(); this.registrations.clear(); }
+  dispose() { this.resetInput(); this.enabled = false; this.armed = false; this.previews.clear(); this.shortcutsAPI.unregisterAll(); this.registrations.clear(); }
 }
 
 module.exports = { Engine };

@@ -579,3 +579,43 @@ dialog::backdrop { background: var(--backdrop); }
 @media (pointer: coarse) {
   .sequence-step > summary { min-height: 44px; }
 }
+
+/* Keep the trigger visible while editing one action or sequence step. */
+.editor-drawer .compact-binding-editor .editor-heading { padding: 16px 48px 12px 16px; }
+.editor-drawer .compact-binding-editor .form-fields { padding: 16px; }
+.compact-binding-editor .field { margin-bottom: 12px; }
+.trigger-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 8px; margin-top: 10px; font-size: 11px; }
+.trigger-summary > .shortcut { max-width: 100%; }
+.trigger-summary-moment { font-weight: 500; }
+.trigger-summary-interval, .trigger-summary-enabled, .trigger-unset { color: var(--muted); }
+.trigger-summary .button { margin-left: auto; }
+.binding-trigger { border-block: 1px solid var(--line); margin: 0 0 12px; }
+.binding-trigger:not([open]) { display: none; }
+.compact-binding-editor > .form-fields > .action-configuration { padding-top: 8px; margin-top: 0; border-top: 0; }
+.editor-drawer:has(.compact-binding-editor) { scroll-padding-block: 140px 80px; }
+.binding-trigger > summary { font-size: 12px; padding: 10px 0; }
+.trigger-fields { padding: 2px 0 12px; }
+.trigger-options { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; }
+.trigger-options > .field:only-child, .trigger-options > .field:has(+ [hidden]) { grid-column: 1 / -1; }
+.trigger-enabled { display: flex; gap: 7px; align-items: center; font-size: 12px; cursor: pointer; }
+.trigger-enabled input { accent-color: var(--primary); margin: 0; width: 15px; height: 15px; }
+.physical-key-help, .physical-key-state, .trigger-input-state { margin-top: 8px; font-size: 11px; }
+.physical-key-state { color: var(--success); }
+.trigger-input-state, .input-mode-status { color: var(--muted); }
+.trigger-input-state[data-mode="unavailable"], .input-mode-status[data-mode="unavailable"] { color: var(--warning); }
+.input-mode-status { font-size: 11px; margin: 0 0 12px; }
+.binding-trigger-label { display: block; font-size: 10px; line-height: 1.4; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.visual-trigger-label { flex: 0 1 146px; color: var(--muted); font-size: 10px; }
+.step-summary-copy { display: inline-flex; vertical-align: middle; flex-direction: column; gap: 3px; max-width: calc(100% - 20px); }
+.step-summary-copy strong { font-size: 12px; font-weight: 500; }
+.step-summary-copy small { font-size: 11px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sequence-step > summary { padding: 10px 0; }
+.sequence-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sequence-count { color: var(--muted); font-size: 11px; }
+@media (max-width: 580px) {
+  .visual-trigger-label { order: 1; flex-basis: auto; }
+  .trigger-options { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+@media (pointer: coarse) {
+  .binding-trigger > summary, .trigger-enabled { min-height: 44px; }
+}

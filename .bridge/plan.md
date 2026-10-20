@@ -1,14 +1,10 @@
-# Bridge plan — Correções da auditoria de plataformas
+# Bridge plan — Momentos da tecla e editor compacto
 
 <!-- bridge:plan-schema 1 -->
 
 ## Checklist
 
-- [x] /keel harden persistência, cooldown e cancelamento nativo A01–A07
-- [x] /impeccable optimize snapshots e renderização A08; recomendar editor de fluxos
-- [x] /bridge sync transporte IPC, exportação, dependências e regressões
-- [x] /bridge ship testes, medição, builds nos três sistemas e commit
-
-Código validado: 1336247. Desktop 39479659642 e Platform audit 39479659479
-passaram em Windows, macOS e Linux. Evidências e limites:
-docs/audits/2026-10-20-platforms/remediation.md.
+- [x] /keel build gatilhos press/hold/release e ciclo de vida de entrada
+- [x] /impeccable craft drawer compacto e etapas resumidas conforme CONTRACT
+- [x] /bridge sync esquema, IPC, disponibilidade nativa, regressões e prova real
+- [ ] /bridge ship testes, builds nativos, documentação e commit

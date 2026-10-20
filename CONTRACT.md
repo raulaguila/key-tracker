@@ -210,3 +210,54 @@ Aceite: regressões dos oito achados, testes e build locais, comparação de per
 no mesmo host e CI Windows/macOS/Linux. Limitações de assinatura, hardware e eventos
 físicos permanecem explícitas. Cadastro de fluxo recebe recomendação de UX; redesign
 completo não integra estas correções.
+
+## Expansão autorizada: momentos da tecla e editor compacto
+
+Autorização: “Quero poder configurar também ação para quando pressionar a tecla,
+quando a tecla estiver pressionada e quando soltar a tecla ... E siga com a proposta”.
+
+Binding v1 ganha `trigger: 'press'|'hold'|'release'` (ausente = press),
+`repeatMs` somente em hold, inteiro de 100 a 60000 ms, padrão 400.
+`keyCode` opcional em press e obrigatório em hold/release contém o código físico
+DOM capturado pelo formulário (ex.: KeyA); não é texto digitado. O atalho mantém
+seu rótulo lógico e modificadores. Na mesma camada, a mesma combinação pode ter
+uma ação por momento, com códigos físicos consistentes. Duplicatas do mesmo
+momento e atalhos reservados continuam rejeitados. Press legado permanece válido.
+
+Press dispara uma vez por gesto nos grupos que usam eventos de tecla; hold
+começa após repeatMs e repete sem sobrepor execuções; release dispara uma vez
+na soltura real do gesto iniciado nessa camada. Modificadores precisam continuar
+pressionados; soltá-los encerra o gesto. Pausa, edição, troca de camada/config,
+perda do hook, bloqueio/suspensão da sessão e saída cancelam todos os gestos e
+repetições, sem gerar ações de soltura artificiais. Não aplicar ações ao sair da
+edição se a tecla já estava pressionada. Execuções iniciadas não são desfeitas.
+
+Um worker de entrada compartilhado atende rastreio e gatilhos de tecla de forma
+independente. Começa somente por ativação explícita de ações que precisem dele
+ou do rastreio. Desligar o rastreio não desliga os gatilhos ativos, e ativar gatilhos
+não liga a visualização. Worker encaminha somente posições, direção e modificadores;
+nenhum texto/tecla capturada é salvo em histórico. Registro global continua
+verificando conflitos e preservando pausa. Gatilhos hold/release só executam com
+hook global disponível: Wayland e falta de permissão exibem indisponibilidade,
+sem fingir suporte local nem executar por temporizador sem keyup real.
+Grupos dependentes do hook não tomam o atalho de outros aplicativos enquanto
+a entrada global estiver indisponível; os controles globais de pausa continuam.
+Após a primeira ativação, o hook observa solturas também durante pausa/edição
+enquanto existirem gatilhos habilitados desse tipo, para não reinterpretar uma
+tecla mantida como um gesto novo ao retomar. Bloquear/suspender o SO também pausa
+as ações; retomar exige ativação explícita. O intervalo hold é próprio e a próxima
+execução só é agendada depois da anterior terminar. Soltar um modificador encerra
+o gesto sem disparar a ação de soltura da tecla principal.
+
+State ganha `input: {mode:'off'|'starting'|'global'|'unavailable', message:string}`
+para informar a disponibilidade desses gatilhos. Novos campos passam por backup,
+prévia, duplicação, histórico e exportação; teste manual continua uma execução
+explícita, independente do momento, sem iniciar repetição.
+
+UI adota a proposta action-flow-ux.md: drawer compacto, gatilho resumido no topo,
+momento e intervalo em controles claros, lista numerada com resumos e uma etapa
+aberta, rodapé fixo Salvar/Cancelar, validação abre a etapa afetada e preserva foco.
+Prévia/teste continuam após salvar, com execução explícita e resultados por etapa.
+Aceite: CRUD e persistência dos três momentos, combinações e mesma tecla em
+momentos diferentes, repetição/soltura reais e cancelamentos, regressões de
+rascunho/ordem/foco/temas/responsividade, hook real Linux e CI/build nos três OS.

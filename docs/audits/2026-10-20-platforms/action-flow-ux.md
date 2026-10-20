@@ -4,6 +4,10 @@ Data: 20/10/2026. Status: recomendação de UX, sem redesign aplicado ao produto
 A correção de A08 otimiza atualização de estado, linhas e menus; não muda este
 fluxo de cadastro. A proposta abaixo usa os tipos, limites e APIs existentes.
 
+Atualização: o usuário aprovou a adoção desta proposta junto dos momentos da tecla.
+O drawer compacto está implementado; veja o [guia atual](../../KEY_MOMENTS.md) e a
+[validação da entrega](../2026-10-20-key-moments/report.md).
+
 ## Direção recomendada
 
 Manter o drawer e um fluxo linear: **gatilho → etapas → salvar → prévia → teste**.

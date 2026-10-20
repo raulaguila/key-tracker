@@ -2,6 +2,7 @@ import { el, icon, button, shortcut, heading, field, toast, announce, confirmDia
 import { keyboardView } from './keyboard.js';
 import { createActionEditor, actionLabels, actionTypeLabels } from './action-editor.js';
 import { createBindingTable } from './binding-table.js';
+import { createBindingTrigger, triggerLabels, triggerFor, triggerDescription } from './key-moments.js';
 import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
@@ -22,6 +23,7 @@ let historyFilter = 'all';
 let bindingView = 'table';
 try { bindingView = localStorage.getItem('keyboard-tracker.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
 let visualModifiers = '';
+let visualTrigger = 'press';
 let previewGeneration = 0;
 let bindingTable;
 let visualBindingCache;
@@ -163,11 +165,12 @@ function updateStatus() {
   toggle.disabled = !state || (!state.enabled && state.editing);
   if (!state) return;
   const suspended = state.enabled && state.editing;
+  const inputLimited = state.input?.mode === 'unavailable';
   const editingForm = Boolean(editor || isDirty());
   const navigatingKeyboard = Boolean(document.activeElement?.closest('.keyboard-interactive'));
-  document.querySelector('.engine-status').dataset.status = suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length ? 'limited' : 'active' : 'paused';
-  document.querySelector('#engine-status').textContent = suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
-  document.querySelector('#engine-detail').textContent = suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
+  document.querySelector('.engine-status').dataset.status = suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'limited' : 'active' : 'paused';
+  document.querySelector('#engine-status').textContent = suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
+  document.querySelector('#engine-detail').textContent = suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? inputLimited ? 'Alguns momentos da tecla estão indisponíveis. Confira a entrada global.' : 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
   document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing);
   document.querySelector('#control-shortcuts').hidden = state.editing;
   document.querySelector('#control-shortcuts').textContent = state.config.settings.layerShortcut + ' alternar · ' + state.config.settings.pauseShortcut.replace('CommandOrControl', state.platform === 'darwin' ? '⌘' : 'Ctrl') + ' pausar';
@@ -182,6 +185,8 @@ function updateStatus() {
     picker.value = state.activeLayerId;
   }
   updateApplicationStatus();
+  editor?.triggerControls?.setInputState(state.input, state.enabled);
+  updateInputStatus();
   const closeToTray = document.querySelector('#field-closeToTray');
   if (closeToTray) {
     closeToTray.disabled = !state.desktop?.trayAvailable;
@@ -300,8 +305,19 @@ function updateApplicationStatus() {
   node.textContent = application.message + (current ? ' Aplicativo: ' + (current.name || current.path || current.bundleId) + '.' : '');
 }
 
+function updateInputStatus() {
+  const node = document.querySelector('#input-status');
+  if (!node) return;
+  const relevant = [layerById(), layerById(state.activeLayerId)].some(layer => layer?.bindings.some(binding => binding.enabled !== false && triggerFor(binding) !== 'press'));
+  node.hidden = !relevant;
+  const mode = state.input?.mode || 'off';
+  node.dataset.mode = mode;
+  const message = state.input?.message || (mode === 'global' ? 'Entrada global disponível para os momentos da tecla.' : mode === 'starting' ? 'Preparando a entrada global…' : mode === 'unavailable' ? 'Entrada global indisponível. Enquanto pressionada e Ao soltar não executarão ações.' : 'Ative as ações para verificar a entrada global dos momentos da tecla.');
+  if (node.textContent !== message) node.textContent = message;
+}
+
 function renderBindingKeyboard(container, layer, matches) {
-  const context = [container, state.configRevision, layer.id, state.platform, keyboardPreference.layout, keyboardPreference.size, keyboardPreference.geometry, layoutReadGeneration, layoutStatus, visualModifiers];
+  const context = [container, state.configRevision, layer.id, state.platform, keyboardPreference.layout, keyboardPreference.size, keyboardPreference.geometry, layoutReadGeneration, layoutStatus, visualModifiers, visualTrigger];
   if (visualBindingCache && context.every((value, index) => value === visualBindingCache.context[index])) {
     updateVisualBindingFilter(visualBindingCache, matches);
     return;
@@ -315,6 +331,9 @@ function renderBindingKeyboard(container, layer, matches) {
   const modifiers = field('keyboard-modifiers', 'Combinação', visualModifiers, { choices: [...combinations].map(value => [value, names(value)]) });
   modifiers.input.dataset.focus = 'keyboard-modifiers';
   modifiers.input.addEventListener('change', () => { visualModifiers = modifiers.input.value; updateBindings(); });
+  const moment = field('keyboard-trigger', 'Momento', visualTrigger, { choices: Object.entries(triggerLabels) });
+  moment.input.dataset.focus = 'keyboard-trigger';
+  moment.input.addEventListener('change', () => { visualTrigger = moment.input.value; updateBindings(); });
   const layoutChoice = field('editor-keyboard-layout', 'Layout', keyboardPreference.layout, { choices: [['auto', 'Automático'], ...Object.entries(layouts).map(([id, item]) => [id, item.name])] });
   layoutChoice.input.dataset.focus = 'editor-keyboard-layout';
   layoutChoice.input.addEventListener('change', () => changeKeyboardPreference('layout', layoutChoice.input.value));
@@ -323,13 +342,13 @@ function renderBindingKeyboard(container, layer, matches) {
     const key = shortcutForCode(code, layout);
     if (!key) return;
     const value = [visualModifiers, key].filter(Boolean).join('+');
-    const existing = layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers);
-    startEditor({ kind: 'binding', value: existing || null, seed: existing ? undefined : { key: value } });
+    const existing = layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers && triggerFor(binding) === visualTrigger);
+    startEditor({ kind: 'binding', value: existing || null, seed: existing ? undefined : { key: value, trigger: visualTrigger } });
   } });
   const matched = new Set(matches.map(binding => binding.id));
   for (const [code, node] of nodes) {
     const key = shortcutForCode(code, layout);
-    const binding = key && layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers);
+    const binding = key && layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers && triggerFor(binding) === visualTrigger);
     if (!key) { node.disabled = true; node.title = 'Use “Nova ação” para capturar combinações compatíveis.'; node.setAttribute('aria-label', (node.textContent || code) + ': sem atalho simples compatível'); continue; }
     const value = [visualModifiers, key].filter(Boolean).join('+');
     const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut].some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
@@ -340,16 +359,16 @@ function renderBindingKeyboard(container, layer, matches) {
     node.dataset.focus = 'visual-key-' + code;
     node.dataset.shortcut = value;
     if (binding) node.dataset.bindingId = binding.id;
-    const label = value + ': ' + (binding ? binding.name + (binding.enabled === false ? ' · desativada' : '') + '. Editar ação' : 'Criar ação');
+    const label = value + ' · ' + triggerLabels[visualTrigger] + ': ' + (binding ? binding.name + (binding.enabled === false ? ' · desativada' : '') + '. Editar ação' : 'Criar ação');
     node.setAttribute('aria-label', label);
     node.title = label;
   }
   container.classList.remove('table-scroll');
-  container.append(el('div', { class: 'binding-visual-toolbar' }, modifiers.wrapper, layoutChoice.wrapper), keyboard,
+  container.append(el('div', { class: 'binding-visual-toolbar' }, modifiers.wrapper, moment.wrapper, layoutChoice.wrapper), keyboard,
     el('div', { class: 'keyboard-caption' }, el('span', {}, 'Clique em uma tecla para configurar. Use as setas para navegar.'), el('span', {}, 'Rosa: ativada · tracejado: desativada')),
     el('p', { class: 'hint visual-layout-note' }, keyboardPreference.layout === 'auto' ? layoutStatus : layout.name + '. O layout visual não altera os atalhos salvos.'),
     el('div', { class: 'visual-binding-list', role: 'list', 'aria-label': 'Todas as ações, incluindo outras combinações' }, layer.bindings.map(binding => el('div', { 'data-binding-id': binding.id, class: 'visual-binding-item' + (binding.enabled === false ? ' binding-disabled' : ''), role: 'listitem' },
-      button(binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet visual-binding-edit', { 'data-focus': 'edit-' + binding.id }), shortcut(binding.key, state.platform), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null,
+      button(binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet visual-binding-edit', { 'data-focus': 'edit-' + binding.id }), shortcut(binding.key, state.platform), el('small', { class: 'visual-trigger-label' }, triggerDescription(binding)), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null,
       button('Executar teste: ' + binding.name, () => runBinding(layer, binding), 'quiet', { symbol: 'play', iconOnly: true, disabled: pendingBindings.has(binding.id), 'data-focus': 'test-' + binding.id }), bindingMenu(layer, binding)))));
   const first = [...nodes.values()].find(node => !node.disabled);
   if (first) first.tabIndex = 0;
@@ -401,6 +420,7 @@ function renderLayers() {
       button('Duplicar camada', () => duplicateLayer(layer), 'quiet', { symbol: 'copy', iconOnly: true, title: 'Duplicar camada', 'data-focus': 'duplicate-layer' }),
       button('Editar camada', () => startEditor({ kind: 'layer', value: layer }), 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar camada', 'data-focus': 'edit-layer' }),
       button('Nova ação', () => startEditor({ kind: 'binding', value: null }), 'primary', { symbol: 'plus', 'data-focus': 'new-binding' }))));
+  detail.append(el('p', { id: 'input-status', class: 'input-mode-status', role: 'status', hidden: true }));
   const search = field('action-search', 'Buscar ações', actionQuery, { type: 'search', placeholder: 'Buscar ação, tecla ou tipo…' });
   search.input.addEventListener('input', () => { actionQuery = search.input.value; updateBindings(); });
   const modes = el('div', { class: 'filter-group binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('keyboard-tracker.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
@@ -456,7 +476,7 @@ function updateBindings() {
   if (!container) return;
   const layer = layerById();
   const query = actionQuery.trim().toLocaleLowerCase('pt-BR');
-  const matches = layer.bindings.filter(binding => [binding.name, binding.key, labels[binding.action.type]].join(' ').toLocaleLowerCase('pt-BR').includes(query));
+  const matches = layer.bindings.filter(binding => [binding.name, binding.key, labels[binding.action.type], triggerDescription(binding)].join(' ').toLocaleLowerCase('pt-BR').includes(query));
   const focus = document.activeElement?.dataset.focus;
   document.querySelector('#action-count').textContent = query ? matches.length + ' de ' + layer.bindings.length + ' ações encontradas' : layer.bindings.length + (layer.bindings.length === 1 ? ' ação nesta camada' : ' ações nesta camada');
   container.classList.toggle('table-scroll', bindingView === 'table');
@@ -465,7 +485,7 @@ function updateBindings() {
     restoreFocus(focus);
     return;
   }
-  bindingTable ||= createBindingTable({ platform: state.platform, labels, typeLabels: actionTypeLabels, summaryFor: actionSummary,
+  bindingTable ||= createBindingTable({ platform: state.platform, labels, typeLabels: actionTypeLabels, summaryFor: actionSummary, triggerFor, triggerDescription,
     onTest: (layer, binding) => void runBinding(layer, binding), onEdit: binding => startEditor({ kind: 'binding', value: binding }), menuFor: bindingMenu });
   const table = bindingTable.update(layer, matches, state.events, pendingBindings);
   if (table.parentNode !== container) container.replaceChildren(table);
@@ -560,7 +580,7 @@ async function executePreview() {
 
 function testPreviewPanel(layer) {
   return el('section', { class: 'editor test-preview', 'aria-label': 'Prévia e teste da ação' },
-    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, 'Confira os valores resolvidos. A ação só será executada ao escolher “Executar teste”.')),
+    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução, sem iniciar repetição ou aguardar soltura.')),
     el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
     el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
       el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));
@@ -620,7 +640,7 @@ function updateTestPreview() {
 }
 
 async function removeBinding(layer, binding) {
-  if (!await confirmDialog({ title: 'Remover esta ação?', message: '“' + binding.name + '” deixará de ser executada pela tecla ' + binding.key + ' nesta camada.', confirmLabel: 'Remover ação', danger: true })) return;
+  if (!await confirmDialog({ title: 'Remover esta ação?', message: '“' + binding.name + '” (' + triggerDescription(binding) + ') será removida. As outras ações deste atalho serão mantidas.', confirmLabel: 'Remover ação', danger: true })) return;
   const config = copyConfig();
   config.layers.find(item => item.id === layer.id).bindings = layer.bindings.filter(item => item.id !== binding.id);
   await perform(() => saveConfiguration(config), 'Ação removida.');
@@ -644,12 +664,12 @@ async function saveConfiguration(config, focusKey) {
   return result;
 }
 
-function shortcutField(name, label, value, hint) {
+function shortcutField(name, label, value, hint, options = {}) {
   const item = field(name, label, value, { required: true, placeholder: 'Ex.: A ou Control+Shift+A', hint });
   const record = button('Capturar tecla', () => {
     if (capture?.input === item.input) { stopCapture(); return; }
     stopCapture();
-    capture = { input: item.input, button: record };
+    capture = { input: item.input, button: record, onCapture: options.onCapture };
     record.replaceChildren(icon('keyboard'), el('span', {}, 'Pressione uma tecla…'));
     record.setAttribute('aria-pressed', 'true');
     item.wrapper.classList.add('capturing');
@@ -657,6 +677,7 @@ function shortcutField(name, label, value, hint) {
     requestEditing(true);
     record.focus();
   }, '', { symbol: 'keyboard', 'aria-pressed': 'false' });
+  item.input.addEventListener('input', () => options.onManualInput?.());
   const controls = el('div', { class: 'input-with-button' });
   item.input.replaceWith(controls);
   controls.append(item.input, record);
@@ -675,6 +696,7 @@ function stopCapture() {
 function formError(form, error) {
   const box = form.querySelector('.form-errors');
   box.replaceChildren(icon('alert'), el('p', {}, error.message || String(error)));
+  box.dataset.fieldName = error.fieldName || '';
   box.hidden = false;
   const input = error.fieldName ? form.elements.namedItem(error.fieldName) : form.querySelector('[aria-invalid="true"]');
   if (input instanceof HTMLElement) {
@@ -739,15 +761,17 @@ function layerForm() {
 function bindingForm(layer) {
   const current = editor.value;
   const initial = current || editor.seed;
+  const triggers = createBindingTrigger({ initial, platform: state.platform, shortcutField, onDirty: syncEditing, invalid, getInputState: key => ({ input: state.input, enabled: state.enabled, groupRequiresInput: layer.bindings.some(binding => binding.key === key && binding.enabled !== false && triggerFor(binding) !== 'press') }) });
+  editor.triggerControls = triggers;
   const actionEditor = createActionEditor({ initial: initial?.action || { type: 'clipboard', text: '' }, layers: state.config.layers, api,
     defaultDirectory: defaultFilesPath(), onDirty: syncEditing, onError: message => toast(message, 'error'), invalid });
-  return formShell(current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
+  const form = formShell(current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     const key = String(data.get('key')).trim();
     if (!name) invalid('Dê um nome para identificar esta ação.', 'name');
     if (!key) invalid('Digite ou capture uma tecla para esta ação.', 'key');
-    const binding = { id: current?.id || newId('binding'), name, key, action: actionEditor.read(), enabled: data.get('enabled') === 'on' };
+    const binding = { id: current?.id || newId('binding'), name, ...triggers.read(), action: actionEditor.read() };
     const config = copyConfig();
     const bindings = config.layers.find(item => item.id === layer.id).bindings;
     if (current) bindings[bindings.findIndex(item => item.id === current.id)] = binding;
@@ -755,12 +779,27 @@ function bindingForm(layer) {
     await saveConfiguration(config, 'edit-' + binding.id);
     toast('Ação salva em ' + layer.name + '.');
   },
-    el('div', { class: 'form-grid' }, field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Copiar resposta ou abrir meu projeto' }).wrapper,
-      shortcutField('key', 'Tecla ou combinação', initial?.key || '', 'Capture a combinação ou digite, por exemplo, Control+Shift+A.')),
-    checkboxField('enabled', 'Ação ativada', initial?.enabled !== false, 'Desative para guardar a configuração sem registrar este atalho.'),
-    actionEditor.node,
+    field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Copiar resposta ou abrir meu projeto' }).wrapper,
+    triggers.node, actionEditor.node,
     el('details', { class: 'variable-help' }, el('summary', {}, 'Personalizar com variáveis'), el('p', {}, 'Use em textos, notificações, URLs, parâmetros e conteúdo de arquivos. Numa sequência, todas as etapas usam a tecla e a camada de origem.'),
       el('dl', {}, [['{{key}}', 'Tecla configurada'], ['{{layer}}', 'Nome da camada de origem'], ['{{date}}', 'Data UTC: ano-mês-dia'], ['{{timestamp}}', 'Instante UTC, seguro para nomes de arquivo']].map(([term, description]) => [el('dt', {}, el('code', {}, term)), el('dd', {}, description)]))));
+  form.classList.add('compact-binding-editor');
+  let invalidTarget;
+  form.addEventListener('invalid', event => {
+    event.preventDefault();
+    if (invalidTarget) return;
+    invalidTarget = event.target;
+    queueMicrotask(() => {
+      for (let parent = invalidTarget.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+      const message = invalidTarget.validity.valueMissing ? 'Preencha este campo para continuar.' : invalidTarget.name === 'repeatMs' ? 'Use um intervalo inteiro entre 100 e 60000 ms.' : 'Confira o valor deste campo.';
+      formError(form, { message, fieldName: invalidTarget.name });
+      invalidTarget = null;
+    });
+  }, true);
+  const header = form.querySelector('.editor-heading');
+  header.querySelector('p').classList.add('sr-only');
+  header.append(triggers.summary);
+  return form;
 }
 
 function renderTracking() {
@@ -850,7 +889,7 @@ function updateHistory() {
   for (const event of events) {
     const date = new Date(event.time);
     const valid = !Number.isNaN(date.getTime());
-    const context = () => el('span', { class: 'event-meta' }, event.layer || '', event.key ? shortcut(event.key, state.platform) : null);
+    const context = () => el('span', { class: 'event-meta' }, event.layer || '', event.key ? shortcut(event.key, state.platform) : null, event.key ? el('span', { class: 'event-trigger' }, triggerDescription(event)) : null);
     body.append(el('tr', {},
       el('td', { class: 'event-time' }, el('time', { datetime: valid ? date.toISOString() : undefined, title: valid ? date.toLocaleString('pt-BR') : '' },
         valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
@@ -927,15 +966,23 @@ function accelerator(event) {
   if (event.altKey) parts.push('Alt');
   if (event.shiftKey) parts.push('Shift');
   const mapped = { Space: 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' };
-  const key = event.code.startsWith('Key') ? event.code.slice(3) : event.code.startsWith('Digit') ? event.code.slice(5) : mapped[event.code] || event.code;
+  const physical = event.code.startsWith('Key') ? event.code.slice(3) : event.code.startsWith('Digit') ? event.code.slice(5) : mapped[event.code] || event.code;
+  const logical = shortcutForCode(event.code, { keys: { [event.code]: event.key === ' ' ? undefined : event.key } });
+  const key = logical || physical;
   if (!key || key === 'Unidentified') return null;
   return [...parts, key].join('+');
 }
 
 document.addEventListener('focusin', syncEditing);
 document.addEventListener('focusout', () => queueMicrotask(syncEditing));
-document.addEventListener('input', event => { event.target.removeAttribute('aria-invalid'); syncEditing(); });
-document.addEventListener('change', syncEditing);
+function clearFieldError(event) {
+  event.target.removeAttribute('aria-invalid');
+  const box = event.target.closest('form')?.querySelector('.form-errors');
+  if (box?.dataset.fieldName && box.dataset.fieldName === event.target.name) { box.hidden = true; box.replaceChildren(); delete box.dataset.fieldName; }
+  syncEditing();
+}
+document.addEventListener('input', clearFieldError);
+document.addEventListener('change', clearFieldError);
 document.addEventListener('keydown', event => {
   if (document.querySelector('#confirm-dialog').open) return;
   if (capture) {
@@ -946,9 +993,10 @@ document.addEventListener('keydown', event => {
     if (value) {
       const input = capture.input;
       input.value = value;
+      capture.onCapture?.(event.code, value);
       stopCapture();
       input.focus();
-      syncEditing();
+      clearFieldError({ target: input });
       announce('Atalho capturado: ' + value);
     }
     return;

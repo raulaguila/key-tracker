@@ -30,6 +30,11 @@ jobs:
         run: xvfb-run -a npm run test:ui
         env:
           KEY_TRACKER_UI_NO_SANDBOX: '1'
+      - name: Verify native key moments in isolated X11
+        if: runner.os == 'Linux'
+        run: npm run test:input
+        env:
+          KEY_TRACKER_UI_NO_SANDBOX: '1'
       - name: Build native installer
         if: github.event_name != 'pull_request'
         run: npm run dist

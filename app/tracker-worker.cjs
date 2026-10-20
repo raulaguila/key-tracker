@@ -13,7 +13,8 @@ function send(direction, event) {
     if (pressed.has(code)) return;
     pressed.add(code);
   } else pressed.delete(code);
-  process.parentPort.postMessage({ type: 'key', ...key, direction, source: 'global' });
+  process.parentPort.postMessage({ type: 'key', ...key, direction, source: 'global',
+    ctrlKey: Boolean(event.ctrlKey), altKey: Boolean(event.altKey), shiftKey: Boolean(event.shiftKey), metaKey: Boolean(event.metaKey) });
 }
 
 uIOhook.on('keydown', event => send('down', event));

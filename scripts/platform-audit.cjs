@@ -120,7 +120,7 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/engine.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
   return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
@@ -169,6 +169,30 @@ async function main() {
     result.probes.applicationMonitor = await page.evaluate('const app=(await window.keyboardTracker.getState()).application;return {status:app.status,message:app.message,identified:Boolean(app.current)};');
     result.probes.tray = await page.evaluate('return (await window.keyboardTracker.getState()).desktop;');
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
+    if (process.platform === 'darwin' && !result.probes.accessibilityTrusted) {
+      result.probes.keyMoments = { attempted: false, reason: 'Accessibility not authorized; no OS permission prompt triggered by the audit.' };
+    } else {
+      const moments = structuredClone(original);
+      moments.layers[0].bindings = [
+        { id: 'phase-press', key: 'A', name: 'Press', action: { type: 'log', message: 'phase press' } },
+        { id: 'phase-hold', key: 'A', name: 'Hold', trigger: 'hold', repeatMs: 125, keyCode: 'KeyA', action: { type: 'log', message: 'phase hold' } },
+        { id: 'phase-release', key: 'A', name: 'Release', trigger: 'release', keyCode: 'KeyA', action: { type: 'log', message: 'phase release' } }
+      ];
+      await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(moments) + ');await window.keyboardTracker.setEnabled(true);');
+      let phaseState;
+      for (let i = 0; i < 150; i++) {
+        phaseState = await page.evaluate('return await window.keyboardTracker.getState();');
+        if (phaseState.input.mode !== 'starting') break;
+        await delay(50);
+      }
+      const shared = await page.evaluate('const api=window.keyboardTracker;const on=await api.setTracking(true);const off=await api.setTracking(false);const paused=await api.setEnabled(false);return {shared:on.tracking.mode==="global"&&on.input.mode==="global",visualOff:!off.tracking.enabled&&off.input.mode==="global",pausedObserves:!paused.enabled&&paused.input.mode==="global"};');
+      const persisted = await readConfigFile(path.join(state.paths.data, 'config.json'));
+      result.probes.keyMoments = { attempted: true, mode: phaseState.input.mode, registered: phaseState.shortcuts.registered.includes('A'),
+        schemaPersisted: persisted.layers[0].bindings.length === 3 && persisted.layers[0].bindings[1].trigger === 'hold' && persisted.layers[0].bindings[1].repeatMs === 125 && persisted.layers[0].bindings[2].keyCode === 'KeyA', ...shared,
+        note: 'Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.' };
+      result.probes.keyMoments.passed = result.probes.keyMoments.mode === 'global' && result.probes.keyMoments.registered && result.probes.keyMoments.schemaPersisted && Object.values(shared).every(Boolean);
+      await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
+    }
     const metrics = () => native.evaluate('return process.mainModule.require("electron").app.getAppMetrics().map(p=>({type:p.type,cpu:p.cpu.percentCPUUsage,rssKiB:p.memory.workingSetSize}));');
     await metrics(); const samples = [];
     for (let i = 0; i < 5; i++) { await delay(1000); samples.push(await metrics()); }
@@ -199,7 +223,7 @@ async function main() {
     result.probes.stateTransport = await page.evaluate('const api=window.keyboardTracker;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;

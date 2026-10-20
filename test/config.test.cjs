@@ -177,3 +177,50 @@ test('limite canônico considera defaults normalizados, sem contar campos legado
   assert.deepEqual(JSON.parse(encoded), loaded);
   assert.throws(() => decodeConfig('{"secret":"invalid json'), /JSON válido/);
 });
+
+test('mesma combinação permite um binding por momento e legado press não infla o arquivo', () => {
+  const config = defaultConfig();
+  const original = structuredClone(config.layers[0].bindings[0]);
+  const encoded = JSON.stringify(validateConfig(config));
+  config.layers[0].bindings[0].trigger = 'press';
+  assert.equal(JSON.stringify(validateConfig(config)), encoded);
+  config.layers[0].bindings.push({ ...original, id: 'hold-A', trigger: 'hold', keyCode: 'KeyA', repeatMs: 250 });
+  config.layers[0].bindings.push({ ...original, id: 'release-A', trigger: 'release', keyCode: 'KeyA' });
+  const values = validateConfig(config).layers[0].bindings;
+  assert.equal(values.length, 3);
+  assert.equal(values[1].repeatMs, 250);
+  assert.equal(values[2].trigger, 'release');
+  config.layers[0].bindings.push({ ...original, id: 'duplicate-release', trigger: 'release', keyCode: 'KeyA' });
+  assert.throws(() => validateConfig(config), /duplicado neste momento/);
+});
+
+test('gatilhos validam captura física, intervalo, consistência e reservas', () => {
+  const create = () => {
+    const config = defaultConfig();
+    Object.assign(config.layers[0].bindings[0], { trigger: 'hold', keyCode: 'KeyA' });
+    return config;
+  };
+  assert.equal(validateConfig(create()).layers[0].bindings[0].repeatMs, 400);
+  for (const [field, values] of [['trigger', ['invalid', true]], ['repeatMs', [0, 99, 60001, 1.5, '400']], ['keyCode', ['', 'Unidentified', 'ControlLeft', {}, 'KeyAA']]]) {
+    for (const value of values) {
+      const config = create(); config.layers[0].bindings[0][field] = value;
+      assert.throws(() => validateConfig(config));
+    }
+  }
+  const missing = create(); delete missing.layers[0].bindings[0].keyCode;
+  assert.throws(() => validateConfig(missing), /Capture a tecla/);
+  const reserved = create(); reserved.layers[0].bindings[0].key = 'F8';
+  assert.throws(() => validateConfig(reserved), /reservado/);
+  const mismatch = create();
+  mismatch.layers[0].bindings.push({ ...mismatch.layers[0].bindings[0], id: 'release', trigger: 'release', keyCode: 'KeyQ' });
+  assert.throws(() => validateConfig(mismatch), /mesma posição física/);
+  const collision = create();
+  collision.layers[0].bindings.push({ ...collision.layers[0].bindings[0], id: 'other', key: 'Q' });
+  assert.throws(() => validateConfig(collision), /combinações diferentes/);
+  const meta = create(); meta.layers[0].bindings[0].key = 'Command+A';
+  meta.layers[0].bindings.push({ ...meta.layers[0].bindings[0], id: 'super', key: 'Super+A', trigger: 'release' });
+  assert.throws(() => validateConfig(meta, 'darwin'), /combinações diferentes/);
+  const independent = create(); independent.layers[0].bindings[0].repeatMs = 100;
+  independent.layers[0].bindings.push({ ...independent.layers[0].bindings[0], id: 'ctrl', key: 'Control+A', repeatMs: 60000 });
+  assert.equal(validateConfig(independent).layers[0].bindings.length, 2);
+});

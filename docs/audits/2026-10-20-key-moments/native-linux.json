@@ -1,0 +1,31 @@
+{
+  "platform": "linux",
+  "electron": "44.9.1",
+  "nativeHook": true,
+  "isolatedXvfb": true,
+  "scope": "Synthetic XTest events in an owned display; no physical keyboard or Windows/macOS certification.",
+  "concurrentGlobalShortcut": {
+    "A": true,
+    "ControlB": true
+  },
+  "firstGesture": {
+    "press": 1,
+    "hold": 10,
+    "release": 1,
+    "combo-press": 0,
+    "combo-hold": 0,
+    "combo-release": 0
+  },
+  "visualTrackingReusedWorker": true,
+  "editingCancelledHeldGesture": true,
+  "pauseResumeCancelledHeldGesture": true,
+  "modifierCancellation": {
+    "press": 1,
+    "hold": 2,
+    "release": 0,
+    "nativeCtrlFlag": true
+  },
+  "workerCrashCancelledGesture": true,
+  "forks": 1,
+  "passed": true
+}
