@@ -83,6 +83,8 @@ export function field(name, label, value = '', options = {}) {
 let toastTimer;
 export function toast(message, status = 'success') {
   const node = document.querySelector('#toast');
+  // Feedback must share the modal's top layer to remain visible and dismissible.
+  (document.querySelector('#editor-drawer[open]') || document.body).append(node);
   clearTimeout(toastTimer);
   node.className = 'toast ' + status;
   node.replaceChildren(icon(status === 'error' ? 'alert' : 'check'), el('span', {}, message),

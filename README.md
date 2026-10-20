@@ -15,7 +15,8 @@ npm start
 
 O aplicativo começa com as ações pausadas e o rastreio desligado.
 
-A interface compacta usa ações em tabela e editor lateral. Distingue a camada
+A interface compacta usa ações em tabela e um drawer de edição sobreposto, sem
+apertar o conteúdo ao fundo. Distingue a camada
 em uso da camada aberta para configuração. O editor protege alterações não salvas,
 e os testes mostram execução e resultado
 na própria ação. Headers e parâmetros HTTP são preenchidos como pares nome/valor;
@@ -25,6 +26,12 @@ Instalações novas começam com o menu recolhido. **Expandir menu** restaura os
 rótulos e **Recolher menu** libera espaço. Os ícones mantêm dicas por mouse ou foco.
 A preferência fica salva neste computador. Ajuda, locais dos arquivos e permissões
 podem ser abertos nas respectivas seções expansíveis.
+
+Em **Configurações → Aparência → Tema**, escolha **Claro**, **Escuro** ou
+**Seguir o sistema**. A mudança é imediata e fica salva neste computador.
+Os drawers de ações/camadas fecham por Escape, botão de fechar ou clique no fundo;
+alterações não salvas pedem confirmação. Escape durante a captura de um atalho
+cancela primeiro a captura. Ao fechar, a página mantém foco e rolagem.
 
 Em **Rastreio**, escolha **Automático (sistema)** ou BR ABNT2, US, PT, AZERTY e
 QWERTZ. Se a leitura automática não estiver disponível, a tela informa e usa US

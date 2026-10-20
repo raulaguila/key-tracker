@@ -3,12 +3,13 @@
 ## Cena e direção
 
 Uma pessoa configura seus atalhos na mesa de trabalho, durante o dia, alternando
-entre o aplicativo e seus programas usuais. Superfícies claras permitem conferir
-nomes, teclas e resultados com pouco esforço. Interface de ferramenta, em pt-BR,
+entre o aplicativo e seus programas usuais. Temas claro e escuro permitem conferir
+nomes, teclas e resultados conforme a iluminação. Interface de ferramenta, em pt-BR,
 com uma família de fontes do sistema e hierarquia compacta.
 
 Estratégia **restrained**: branco puro no conteúdo, neutros de baixa saturação na
-navegação e um único rosa profundo nos controles principais e na seleção.
+navegação e rosa nos controles principais e na seleção. No tema escuro, superfícies
+ganham níveis de luminosidade e o rosa fica mais claro para manter contraste.
 Âncora fornecida pelo script Impeccable: `oklch(0.570 0.158 353.3)`; a cor de ação
 foi escurecida para `oklch(0.48 0.16 353.3)` para texto branco legível. Todas as cores
 estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflito.
@@ -26,12 +27,19 @@ estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflit
   dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
   Escolher uma camada para editar não muda a camada em uso.
 - Ações usam tabela com linhas a partir de 44 px, controles de 30–32 px e título
-  de 18 px. O editor abre à direita em janelas largas; em janelas menores substitui
-  a tabela, com contexto e retorno explícitos. A tabela fica inerte durante edição.
+  de 18 px. Criação/edição de ações e camadas abre um drawer modal sobreposto de
+  até 480 px. A tabela mantém a largura e a rolagem; o fundo fica inerte e escurecido.
+  Cabeçalho e salvamento permanecem visíveis durante a rolagem do formulário.
   Nome/tecla precedem a ação. Parâmetros e headers HTTP usam pares nome/valor em
   uma seção expansível; rascunhos são preservados ao alternar o tipo de ação.
 - Ações destrutivas e descarte de alterações usam um diálogo nativo HTML com foco
   inicial na opção de continuar/cancelar. Navegação e fechamento protegem rascunhos.
+- Escape, botão de fechar e clique no fundo fecham o drawer, com confirmação se
+  houver alterações. Escape durante a captura de atalho cancela primeiro a captura.
+  O foco começa no nome, fica contido no drawer e retorna ao controle de origem.
+- Configurações → Aparência oferece Claro, Escuro e Seguir o sistema. A seleção
+  aplica na hora, persiste localmente e não faz parte da configuração exportada.
+  O tema salvo é lido antes do CSS; mudanças do sistema só afetam a opção Sistema.
 - Testes têm estado de execução, resultado inline e confirmação visível. Falhas
   retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
 - Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de

@@ -171,9 +171,16 @@ function render(focusKey) {
   keyNodes.clear();
   main.dataset.view = view;
   document.querySelector('#page-name').textContent = { layers: 'Camadas', tracking: 'Rastreio', history: 'Histórico', settings: 'Configurações' }[view];
+  const feedback = document.querySelector('#toast');
+  if (feedback?.closest('#editor-drawer')) document.body.append(feedback);
   main.replaceChildren();
   ({ layers: renderLayers, tracking: renderTracking, history: renderHistory, settings: renderSettings })[view]();
   for (const form of main.querySelectorAll('form[data-draft]')) form.dataset.baseline = serializeForm(form);
+  const drawer = main.querySelector('#editor-drawer');
+  if (drawer) {
+    drawer.showModal();
+    drawer.querySelector('form input')?.focus({ preventScroll: true });
+  }
   restoreFocus(previousFocus);
   updateStatus();
   syncEditing();
@@ -197,20 +204,18 @@ function navigate(next) {
 
 function startEditor(value) {
   void guardNavigation(() => {
-    editor = { ...value, returnFocus: document.activeElement?.dataset.focus };
+    editor = { ...value, returnFocus: document.activeElement?.dataset.focus || (value.kind === 'binding' ? 'new-binding' : 'new-layer'), scrollY: window.scrollY };
     requestEditing(true);
     render();
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    main.querySelector('form input')?.focus({ preventScroll: true });
   });
 }
 
 function closeEditor() {
   void guardNavigation(() => {
-    const focus = editor?.returnFocus;
+    const previous = editor;
     editor = null;
-    render(focus);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    render(previous?.returnFocus);
+    window.scrollTo({ top: previous?.scrollY || 0, behavior: 'instant' });
   });
 }
 
@@ -237,7 +242,6 @@ function renderLayers() {
   const layer = layerById();
   const current = layer.id === state.activeLayerId;
   const detail = el('section', { class: 'layer-detail', 'aria-label': 'Ações de ' + layer.name });
-  detail.inert = Boolean(editor);
   detail.append(el('div', { class: 'detail-heading' },
     el('div', {}, el('div', { class: 'title-line' }, el('h1', { id: 'layer-title' }, layer.name),
       el('span', { class: 'badge ' + (current ? 'success' : '') }, current ? 'Em uso' : 'Visualizando')),
@@ -251,12 +255,35 @@ function renderLayers() {
     el('div', { id: 'bindings', class: 'binding-list table-scroll' }),
     el('p', { class: 'test-explanation' }, 'O teste executa a ação de verdade, mesmo com os atalhos pausados.'),
     el('details', { class: 'usage-help' }, el('summary', {}, 'Atalhos e uso'), el('p', {}, 'Selecionar uma camada abre suas ações para edição. “Usar esta camada” troca a camada dos atalhos. Enquanto ativas, as teclas configuradas podem substituir a digitação em outros programas.')));
-  const workspace = el('div', { class: 'layer-workspace' + (editor ? ' with-editor' : '') }, detail);
-  if (editor) workspace.append(el('section', { class: 'inspector', 'aria-label': 'Editor de configuração' },
-    button('Voltar para as ações', closeEditor, 'quiet back-button', { symbol: 'back' }),
-    el('p', { class: 'editor-context' }, editor.kind === 'binding' ? 'Camada: ' + layer.name : 'Organização das camadas'),
-    editor.kind === 'layer' ? layerForm() : bindingForm(layer)));
+  const workspace = el('div', { class: 'layer-workspace' }, detail);
   main.append(el('div', { class: 'layer-layout' }, list, workspace));
+  if (editor) {
+    const form = editor.kind === 'layer' ? layerForm() : bindingForm(layer);
+    const header = form.querySelector('.editor-heading');
+    header.querySelector('h2').id = 'drawer-title';
+    header.querySelector('p').id = 'drawer-description';
+    header.prepend(el('p', { class: 'editor-context' }, editor.kind === 'binding' ? 'Camada: ' + layer.name : 'Organização das camadas'));
+    header.append(button('Fechar editor', closeEditor, 'quiet drawer-close', { symbol: 'close', iconOnly: true, 'data-drawer-close': '' }));
+    const danger = form.querySelector('.danger-zone');
+    if (danger) form.querySelector('.form-fields').append(danger);
+    const drawer = el('dialog', { id: 'editor-drawer', class: 'editor-drawer', 'aria-labelledby': 'drawer-title', 'aria-describedby': 'drawer-description' }, form);
+    drawer.addEventListener('cancel', event => {
+      event.preventDefault();
+      closeEditor();
+    });
+    // A drag starting inside the form must not become a backdrop dismissal.
+    let backdropPointer;
+    const outside = event => {
+      const rect = drawer.getBoundingClientRect();
+      return event.target === drawer && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom);
+    };
+    drawer.addEventListener('pointerdown', event => { backdropPointer = event.button === 0 && outside(event) ? event.pointerId : undefined; });
+    drawer.addEventListener('pointerup', event => {
+      if (backdropPointer !== undefined && backdropPointer === event.pointerId && outside(event)) closeEditor();
+      backdropPointer = undefined;
+    });
+    main.append(drawer);
+  }
   updateBindings();
 }
 
@@ -334,10 +361,11 @@ async function removeLayer(layer) {
 async function saveConfiguration(config, focusKey) {
   const result = await api.saveConfig(config);
   state = result;
+  const previous = editor;
   editor = null;
   stopCapture();
-  render(focusKey);
-  window.scrollTo({ top: 0, behavior: 'instant' });
+  render(focusKey || previous?.returnFocus);
+  window.scrollTo({ top: previous?.scrollY || 0, behavior: 'instant' });
   return result;
 }
 
@@ -667,6 +695,9 @@ function defaultFilesPath() {
 
 function renderSettings() {
   main.append(heading('Configurações'));
+  const theme = field('theme', 'Tema', window.keyboardAppearance.preference, { choices: [['system', 'Seguir o sistema'], ['light', 'Claro'], ['dark', 'Escuro']], hint: 'Aplicado na hora e salvo neste computador.' });
+  theme.input.addEventListener('change', () => window.keyboardAppearance.set(theme.input.value));
+  const appearance = el('section', { class: 'settings-section appearance-section' }, el('div', { class: 'section-heading' }, el('h2', {}, 'Aparência')), theme.wrapper);
   const settings = state.config.settings;
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {
     const data = new FormData(form);
@@ -696,7 +727,7 @@ function renderSettings() {
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
       el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. Para rastreio global integral, use uma sessão X11. Os atalhos globais dependem do portal do compositor.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'Atalhos ocupados por outro programa são informados na barra de avisos. O rastreio global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
-  main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), data));
+  main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
 }
 
 async function importConfiguration() {

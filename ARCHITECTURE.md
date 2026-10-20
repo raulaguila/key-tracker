@@ -24,6 +24,8 @@ inclui os prebuilds e os extrai do ASAR.
   sem NumLock e constantes internacionais conhecidas do libuiohook.
 - `app/renderer/`: interface e renderização de códigos físicos do teclado.
 - `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
+- `app/renderer/appearance.js`: bootstrap antes do CSS, preferência visual
+  claro/escuro/sistema e acompanhamento do esquema de cores do sistema.
 - `app/renderer/keyboard.js`: geometrias de referência ANSI/ISO/ABNT2 e tamanhos.
 - `app/renderer/keyboard-layouts.mjs`: legendas manuais, resolução do mapa do
   sistema, normalização das preferências e leitura com timeout/fallback.
@@ -90,6 +92,15 @@ No fechamento, o renderer cancela `beforeunload` e só abre o diálogo na tarefa
 seguinte, após o Electron concluir o cancelamento. Confirmar libera o fechamento.
 Headers/query em pares são convertidos ao mesmo contrato de objetos de strings.
 O teste manual distingue resultado de execução de sucesso no transporte IPC.
+
+Os formulários de ações/camadas ficam em um `<dialog>` modal usado como drawer
+na top layer. A largura da tabela não muda. O navegador contém o foco; `cancel`
+é interceptado para encaminhar Escape à proteção de rascunhos. O backdrop exige
+pointerdown e pointerup fora do drawer para evitar fechamento durante arraste.
+Formulários continuam dentro do main para preservar a detecção de alterações.
+Ao salvar/fechar, foco e rolagem voltam ao contexto de origem. Avisos assíncronos
+compartilham a top layer e são devolvidos ao body antes de remover o drawer.
+Tema usa somente armazenamento visual local; não altera o contrato das ações.
 
 ## Entrega e prova
 

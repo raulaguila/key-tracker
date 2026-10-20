@@ -166,3 +166,37 @@ Provas desta integração:
 
 Capturas desta fase permanecem em `artifacts/ui-audit/` (ignorado pelo Git), incluindo
 `tracking-abnt2.png`, `native-azerty.png` e as quatro telas em três larguras.
+
+## Tema escuro e drawer sobreposto — concluídos
+
+Configurações oferece Claro, Escuro e Seguir o sistema, aplicados imediatamente
+e salvos como preferência visual local. O tema é carregado antes do CSS. A paleta
+escura usa superfícies graduais, rosa mais claro e cores semânticas contrastadas;
+formulários, teclado, confirmações, estados e feedback usam os mesmos tokens.
+
+O editor em coluna foi substituído por drawer modal de até 480 px, sobre a página.
+A tabela não encolhe. O foco fica contido no formulário, com restauração ao fechar;
+o cabeçalho e o salvamento são sticky. Escape, X e backdrop passam pela mesma
+proteção de rascunhos. Escape durante a captura de atalho cancela só a captura.
+Confirmações podem aparecer sobre o drawer; feedback assíncrono continua visível.
+
+Provas:
+
+- 27 testes passaram; cadastro/edição/exclusão, HTTP 201/503, configurações e
+  proteção de rascunhos continuam passando no Electron real.
+- Preferência de tema após recarregar, resposta a mudanças do sistema e prioridade
+  de escolha manual; alternar o tema preserva os campos ainda não salvos.
+- Escape, X, backdrop, confirmação de descarte, Tab/Shift+Tab contidos e retorno
+  de foco. Lista real de 30 ações comprovou preservação da rolagem ao abrir/fechar.
+- 112 combinações: quatro telas × sete larguras × dois estados de sidebar ×
+  dois temas. Sem overflow horizontal da página.
+- 14 verificações adicionais do drawer: sete larguras × dois temas, conferindo
+  encaixe na janela e largura idêntica da tabela antes/depois de abrir.
+- axe-core 4.12.1 no formulário escuro: zero violações WCAG A/AA e nenhum item
+  incompleto. Configurações escuras: zero violações, com um rótulo marcado para
+  revisão manual de contraste (texto e marcador obrigatório usam tokens legíveis).
+- Capturas inspecionadas de desktop e janela compacta em ambos os temas.
+
+Evidências em `artifacts/ui-audit/`: `dark-drawer-final.png`, `drawer-<largura>-<tema>.png`
+e `<tela>-<largura>-<sidebar>-<tema>.png`. A avaliação visual segue limitada a Linux;
+as verificações de Windows/macOS permanecem de build/testes pelo CI.

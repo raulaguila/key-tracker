@@ -92,6 +92,14 @@ async function main() {
     async function select(selector, value) {
       await evaluate('const input=document.querySelector(' + JSON.stringify(selector) + ');input.value=' + JSON.stringify(value) + ';input.dispatchEvent(new Event("change",{bubbles:true}));');
     }
+    async function press(key, code, windowsVirtualKeyCode, modifiers = 0) {
+      await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode, modifiers });
+      await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode, modifiers });
+    }
+    async function backdropClick() {
+      await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 20, y: 80, button: 'left', clickCount: 1 });
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 20, y: 80, button: 'left', clickCount: 1 });
+    }
     const nativeState = () => evaluate('return await window.keyboardTracker.getState();');
     const save = () => evaluate('document.querySelector("form[data-draft]").requestSubmit();');
     async function shot(name) {
@@ -106,6 +114,60 @@ async function main() {
     assert.equal(initial.enabled, false);
     assert.equal(initial.tracking.enabled, false);
     await shot('layers');
+    assert.equal(await evaluate('return document.documentElement.dataset.themePreference'), 'system');
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    await until('document.documentElement.dataset.theme === "dark"', 'System dark theme applies');
+    await click('[data-view="settings"]');
+    await select('#field-theme', 'light');
+    assert.equal(await evaluate('return document.documentElement.dataset.theme'), 'light', 'Explicit light overrides the dark system');
+    await select('#field-theme', 'dark');
+    await fill('#field-layerShortcut', 'F10');
+    await select('#field-theme', 'light');
+    assert.equal(await evaluate('return document.querySelector("#field-layerShortcut").value'), 'F10', 'Theme changes preserve unsaved settings');
+    await select('#field-theme', 'dark');
+    await click('[data-view="layers"]');
+    await click('#confirm-dialog .danger-solid');
+    await until('document.querySelector("main").dataset.view === "layers" && !document.querySelector("form[data-draft]")', 'Discarded settings before theme reload');
+    await evaluate('window.__qaBeforeReload = true;');
+    await cdp('Page.reload');
+    await until('!window.__qaBeforeReload && Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Theme reload');
+    assert.equal(await evaluate('return document.documentElement.dataset.theme'), 'dark', 'Manual theme survives reload');
+    assert.deepEqual((await nativeState()).config, initial.config, 'Appearance is independent of action configuration');
+    await click('[data-view="settings"]');
+    await select('#field-theme', 'system');
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    await until('document.documentElement.dataset.theme === "light"', 'System theme changes stay live');
+    await select('#field-theme', 'light');
+    await click('[data-view="layers"]');
+
+    // Modal drawer keeps the table at its original width and owns keyboard focus.
+    const detailWidth = await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width');
+    await evaluate('document.querySelector("[data-focus=\\"new-layer\\"]").focus();');
+    await click('[data-focus="new-layer"]');
+    await delay(180);
+    assert.equal(await evaluate('return Boolean(document.querySelector("#editor-drawer:modal"))'), true);
+    assert.equal(await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width'), detailWidth, 'Drawer never squeezes the underlying table');
+    assert.equal(await evaluate('return document.activeElement.id'), 'field-name');
+    await evaluate('document.querySelector("#editor-drawer [type=submit]").focus();');
+    await press('Tab', 'Tab', 9);
+    assert.ok(await evaluate('return document.querySelector("#editor-drawer").contains(document.activeElement)'), 'Tab remains inside the drawer');
+    await press('Tab', 'Tab', 9, 8);
+    assert.ok(await evaluate('return document.querySelector("#editor-drawer").contains(document.activeElement)'), 'Shift+Tab remains inside the drawer');
+    await backdropClick();
+    await until('!document.querySelector("#editor-drawer")', 'Clean backdrop closes the drawer');
+    assert.equal(await evaluate('return document.activeElement.dataset.focus'), 'new-layer', 'Focus returns to the trigger');
+    await click('[data-focus="new-layer"]');
+    await fill('#field-name', 'Rascunho do drawer');
+    await press('Escape', 'Escape', 27);
+    await until('document.querySelector("#confirm-dialog").open', 'Escape protects a dirty drawer');
+    await click('#confirm-dialog [data-cancel]');
+    assert.equal(await evaluate('return document.querySelector("#field-name").value'), 'Rascunho do drawer');
+    await backdropClick();
+    await until('document.querySelector("#confirm-dialog").open', 'Backdrop protects a dirty drawer');
+    await click('#confirm-dialog [data-cancel]');
+    await click('[data-drawer-close]');
+    await click('#confirm-dialog .danger-solid');
+    await until('!document.querySelector("#editor-drawer")', 'Explicit discard closes the drawer');
     assert.equal(await evaluate('return document.documentElement.dataset.sidebar'), 'collapsed', 'New installations use the compact rail');
     await click('#sidebar-toggle');
 
@@ -150,6 +212,10 @@ async function main() {
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'HTTP QA');
     await fill('#field-key', 'B');
+    await click('#editor-drawer .input-with-button button');
+    await press('Escape', 'Escape', 27);
+    assert.equal(await evaluate('return Boolean(document.querySelector("#editor-drawer:modal"))'), true, 'Escape cancels shortcut capture before closing the drawer');
+    assert.equal(await evaluate('return document.querySelector("#confirm-dialog").open'), false);
     await select('#field-type', 'http');
     await fill('#field-url', endpoint);
     await fill('#field-body', '{"key":"{{key}}"}');
@@ -186,6 +252,13 @@ async function main() {
     await until('Boolean(document.querySelector(".binding-result.error"))', 'Failed HTTP visible inline');
     assert.equal(await evaluate('return document.querySelector("#toast").classList.contains("error")'), true);
     await shot('execution-error');
+
+    await click('[data-focus="test-' + binding.id + '"]');
+    await click('[data-focus="edit-' + binding.id + '"]');
+    await until('Boolean(document.querySelector("#editor-drawer > #toast.error:not([hidden])"))', 'Async error feedback stays visible above the modal');
+    await press('Escape', 'Escape', 27);
+    await until('!document.querySelector("#editor-drawer")', 'Unchanged editor closes after async feedback');
+    assert.ok(await evaluate('return Boolean(document.body.querySelector(":scope > #toast"))'), 'Feedback survives removal of the drawer');
 
     await click('[data-focus="edit-' + binding.id + '"]');
     await fill('#field-name', 'Alteração não salva');
@@ -335,26 +408,56 @@ async function main() {
     await until('!(await window.keyboardTracker.getState()).config.layers.some(item => item.id === ' + JSON.stringify(temporaryLayer.id) + ')', 'Layer deleted after confirmation');
     assert.equal((await nativeState()).activeLayerId, layer.id, 'Deleting an unused layer preserves the active layer');
 
-    for (const width of [1440, 1280, 980, 800, 760, 580, 390]) {
-      await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
-      for (const collapsed of [false, true]) {
-        const current = await evaluate('return document.documentElement.dataset.sidebar === "collapsed"');
-        if (current !== collapsed) await click('#sidebar-toggle');
-        for (const name of ['layers', 'tracking', 'history', 'settings']) {
-          await click('[data-view="' + name + '"]');
-          const dimensions = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
-          assert.ok(dimensions.scroll <= dimensions.width, 'No page overflow at ' + width + 'px, ' + name + ', collapsed=' + collapsed + ': ' + JSON.stringify(dimensions));
-          if ([1280, 800, 390].includes(width)) await shot(name + '-' + width + (collapsed ? '-collapsed' : '-expanded'));
+    // A long, real action list exercises page position without DOM-only spacers.
+    const beforeScrollFixture = (await nativeState()).config;
+    const scrollFixture = structuredClone(beforeScrollFixture);
+    scrollFixture.layers.find(item => item.id === layer.id).bindings = Array.from({ length: 30 }, (_, index) => ({
+      id: 'scroll-' + index, key: 'Control+Alt+' + (index < 24 ? 'F' + (index + 1) : String(index - 23)), name: 'Scroll QA ' + index, action: { type: 'log', message: 'QA' }
+    }));
+    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(scrollFixture) + ');');
+    await until('Boolean(document.querySelector("[data-focus=\\"edit-scroll-29\\"]"))', 'Long action list rendered');
+    await evaluate('document.querySelector("[data-focus=\\"edit-scroll-29\\"]").focus();');
+    const scrollPosition = await evaluate('return window.scrollY');
+    assert.ok(scrollPosition > 0);
+    await click('[data-focus="edit-scroll-29"]');
+    assert.equal(await evaluate('return window.scrollY'), scrollPosition, 'Opening the drawer preserves background scroll');
+    await click('[data-drawer-close]');
+    assert.equal(await evaluate('return window.scrollY'), scrollPosition, 'Closing the drawer preserves background scroll');
+    assert.equal(await evaluate('return document.activeElement.dataset.focus'), 'edit-scroll-29');
+    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(beforeScrollFixture) + ');');
+    await until('!document.querySelector("[data-focus=\\"edit-scroll-29\\"]")', 'Temporary action fixture restored');
+
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      for (const width of [1440, 1280, 980, 800, 760, 580, 390]) {
+        await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+        for (const collapsed of [false, true]) {
+          const current = await evaluate('return document.documentElement.dataset.sidebar === "collapsed"');
+          if (current !== collapsed) await click('#sidebar-toggle');
+          for (const name of ['layers', 'tracking', 'history', 'settings']) {
+            await click('[data-view="' + name + '"]');
+            const dimensions = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
+            assert.ok(dimensions.scroll <= dimensions.width, 'No page overflow at ' + width + 'px, ' + name + ', theme=' + theme + ', collapsed=' + collapsed + ': ' + JSON.stringify(dimensions));
+            if ([1280, 800, 390].includes(width)) await shot(name + '-' + width + (collapsed ? '-collapsed' : '-expanded') + '-' + theme);
+          }
         }
+        await click('[data-view="layers"]');
+        const widthBefore = await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width');
+        await click('[data-focus="new-layer"]');
+        await delay(180);
+        const drawerSize = await evaluate('const rect=document.querySelector("#editor-drawer").getBoundingClientRect();return {left:rect.left,right:rect.right,width:rect.width, viewport:innerWidth};');
+        assert.ok(drawerSize.left >= 0 && drawerSize.right <= drawerSize.viewport, 'Drawer fits viewport: ' + JSON.stringify(drawerSize));
+        assert.equal(await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width'), widthBefore, 'Unchanged background width at ' + width + 'px, ' + theme);
+        if ([1280, 800, 390].includes(width)) await shot('drawer-' + width + '-' + theme);
+        await click('[data-drawer-close]');
       }
-      if ([1280, 800, 390].includes(width)) await shot('settings-' + width);
     }
     await cdp('Emulation.clearDeviceMetricsOverride');
     assert.equal(exceptions.length, 0, 'No uncaught renderer exceptions: ' + JSON.stringify(exceptions));
     const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, and 56 responsive combinations.');
+    console.log('UI smoke passed: compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

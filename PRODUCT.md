@@ -27,7 +27,8 @@ pressionadas e soltas em um teclado visual.
 
 Interface em português, de ferramenta utilitária, com aparência clara e controles
 familiares. O usuário aprovou o protótipo compacto: menos espaçamento, controles
-menores, tabela de ações, editor lateral e sidebar recolhível. Texto legível,
+menores, tabela de ações e sidebar recolhível. Na revisão posterior, pediu tema
+escuro e substituição do editor em coluna por drawer sobreposto. Texto legível,
 foco visível e movimento reduzido continuam sendo critérios da implementação.
 
 ## Fora da primeira versão
