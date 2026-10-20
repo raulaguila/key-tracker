@@ -34,7 +34,13 @@ async function main() {
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';
-  electron.stderr.on('data', chunk => { output = (output + chunk).slice(-6000); });
+  let mainInspectorURL;
+  electron.stderr.on('data', chunk => {
+    const combined = output + chunk;
+    // Keep startup metadata even when headless DBus/GPU warnings fill the tail.
+    mainInspectorURL ??= combined.match(/Debugger listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/)?.[1];
+    output = combined.slice(-6000);
+  });
   let socket;
   const pending = new Map();
   const exceptions = [];
@@ -110,8 +116,8 @@ async function main() {
     async function nativeClose() {
       // Exercise BrowserWindow.close in the actual main process. Renderer
       // window.close follows Chromium's direct destruction path instead.
-      const address = output.match(/Debugger listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/)?.[1];
-      assert.ok(address, 'Main process inspector is isolated on loopback');
+      const address = mainInspectorURL;
+      assert.ok(address, 'Main process inspector is isolated on loopback: ' + output.slice(-1200));
       const mainSocket = new WebSocket(address);
       await new Promise((resolve, reject) => { mainSocket.addEventListener('open', resolve, {once:true});mainSocket.addEventListener('error',reject,{once:true}); });
       try {
