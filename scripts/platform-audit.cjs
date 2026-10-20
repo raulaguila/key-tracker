@@ -150,6 +150,22 @@ async function main() {
     const run = async bindingId => page.evaluate('const api=window.keyboardTracker;const state=await api.getState();const layer=state.config.layers[0];const preview=await api.previewBinding(layer.id,' + JSON.stringify(bindingId) + ');const next=await api.runBinding(layer.id,' + JSON.stringify(bindingId) + ',preview.previewId);return next.events.find(e=>e.bindingId===' + JSON.stringify(bindingId) + ');');
     const copied = await run('audit-copy');
     result.probes.clipboard = { status: copied.status, ...(await native.evaluate('const value=await process.mainModule.require("electron").clipboard.readText();return {matched:value==="keyboard-platform-audit-A",length:value.length,expectedLength:25};')) };
+    fixture.layers[0].bindings.push({ id: 'audit-sequence', key: 'D', name: 'Intervalo de auditoria', action: { type: 'sequence', stepDelayMs: 80, steps: [
+      { type: 'clipboard', text: 'keyboard-platform-audit-first' },
+      { type: 'clipboard', text: 'keyboard-platform-audit-last' }
+    ] } });
+    await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');');
+    const sequenceConfig = await readConfigFile(path.join(state.paths.data, 'config.json'));
+    const sequencePreview = await page.evaluate('const api=window.keyboardTracker;const state=await api.getState();return await api.previewBinding(state.config.layers[0].id,"audit-sequence");');
+    const sequenced = await run('audit-sequence');
+    result.probes.sequenceDelay = {
+      schemaPersisted: sequenceConfig.layers[0].bindings.find(binding => binding.id === 'audit-sequence').action.stepDelayMs === 80,
+      previewed: sequencePreview.action.stepDelayMs === 80,
+      status: sequenced.status, stepDelayMs: sequenced.stepDelayMs, durationMs: sequenced.durationMs,
+      steps: sequenced.steps.map(step => ({ index: step.index, status: step.status })),
+      finalClipboard: await native.evaluate('return (await process.mainModule.require("electron").clipboard.readText())==="keyboard-platform-audit-last";')
+    };
+    result.probes.sequenceDelay.passed = result.probes.sequenceDelay.schemaPersisted && result.probes.sequenceDelay.previewed && sequenced.status === 'success' && sequenced.stepDelayMs === 80 && sequenced.durationMs >= 70 && sequenced.steps.length === 2 && sequenced.steps.every(step => step.status === 'success') && result.probes.sequenceDelay.finalClipboard;
     fixture.layers[0].bindings.push({ id: 'audit-app', key: 'B', name: 'Aplicativo de auditoria', action: { type: 'open', kind: 'application', target: process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'whoami.exe') : '/usr/bin/true' } });
     fixture.layers[0].bindings.push({ id: 'audit-notification', key: 'C', name: 'Notificação de auditoria', action: { type: 'notification', title: 'Keyboard Tracker audit', message: 'Temporary CI integration probe' } });
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');');
@@ -223,7 +239,7 @@ async function main() {
     result.probes.stateTransport = await page.evaluate('const api=window.keyboardTracker;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;

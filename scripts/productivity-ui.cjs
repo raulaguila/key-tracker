@@ -116,7 +116,31 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
 
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'Sequência QA'); await fill('#field-key', 'F'); await select('#field-type', 'sequence');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '0', 'New sequences start without an inter-step delay');
     await stepField(0, 'text', 'Primeira etapa {{key}}');
+    for (const invalidDelay of ['-1', '60001']) {
+      await fill('#field-stepDelayMs', invalidDelay); await save();
+      await until('document.activeElement.id === "field-stepDelayMs"', 'Inter-step delay validation focuses the field');
+      assert.match(await evaluate('return document.querySelector(".form-errors").textContent'), /entre 0 e 60000/);
+    }
+    await fill('#field-stepDelayMs', '75');
+    await select('#field-type', 'clipboard'); await select('#field-type', 'sequence');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '75', 'Switching action types retains sequence timing');
+    assert.equal(await evaluate(`return document.querySelector('[data-sequence-step] [name$="-text"]').value`), 'Primeira etapa {{key}}');
+    const appearanceBefore = await evaluate('return document.documentElement.dataset.themePreference');
+    await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(760,580)');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      for (const zoom of [1, 1.25]) {
+        await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(' + zoom + ')');
+        await evaluate('await Promise.all(document.querySelector("#editor-drawer").getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{})));document.querySelector("#field-stepDelayMs").closest(".field").scrollIntoView({block:"center"});');
+        const bounds = await evaluate('const drawer=document.querySelector("#editor-drawer");return {scroll:drawer.scrollWidth,client:drawer.clientWidth};');
+        assert.ok(bounds.scroll <= bounds.client, 'Sequence timing fits compact drawer in both themes and zooms');
+        await shot('productivity-step-delay-' + theme + '-' + zoom);
+      }
+    }
+    await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(1280,900)');
+    await evaluate('window.keyboardAppearance.set(' + JSON.stringify(appearanceBefore) + ');');
     await click('[data-step-add]');
     await stepField(1, 'type', 'file');
     await stepField(1, 'directory', directory); await stepField(1, 'filename', 'sequence.txt'); await stepField(1, 'content', '{{layer}} / {{key}}');
@@ -132,17 +156,23 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     assert.equal(await evaluate('return document.querySelectorAll("[data-sequence-step]")[2].querySelector("[name$=\\"-text\\"]").value'), 'NÃO EXECUTAR');
     await click('[data-sequence-step]:nth-of-type(3) [data-step-down]');
     await click('[data-step-add]'); await click('[data-sequence-step]:last-of-type [data-step-remove]');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '75', 'Step reorder/removal keeps the uniform delay');
     await save(); await until('!document.querySelector("#editor-drawer")', 'Sequence saved');
     const sequence = await bindingByName('Sequência QA');
     assert.deepEqual(sequence.action.steps.map(step => step.type), ['clipboard', 'file', 'http', 'clipboard']);
+    assert.equal(sequence.action.stepDelayMs, 75);
     await preview(sequence);
     const previewText = await evaluate('return document.querySelector("#test-preview-content").textContent');
     assert.ok(!previewText.includes('sequence-secret-qa'), 'Nested HTTP header is masked in the preview');
+    assert.match(previewText, /75 ms entre etapas/);
+    assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /respeita o delay entre etapas/);
     await assert.rejects(fs.access(path.join(directory, 'sequence.txt')));
     assert.equal(request, undefined, 'Sequence preview sends no request');
     await shot('productivity-sequence-preview');
     const result = await run(sequence);
     assert.equal(result.status, 'error');
+    assert.equal(result.stepDelayMs, 75);
+    assert.ok(result.durationMs >= 140, 'Manual test respects two inter-step waits before the failing third step');
     assert.deepEqual(result.steps.map(step => step.status), ['success', 'success', 'error']);
     assert.equal(result.steps[2].httpStatus, 503);
     assert.equal(await fs.readFile(path.join(directory, 'sequence.txt'), 'utf8'), 'Produtividade QA / F');
@@ -153,6 +183,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     await shot('productivity-sequence-result'); await close();
     await click('[data-view="history"]');
     assert.ok(await evaluate('return Boolean([...document.querySelectorAll("#events details")].length)'), 'History provides execution details');
+    assert.match(await evaluate('return document.querySelector("#events").textContent'), /75 ms entre etapas/);
     assert.ok(await evaluate('return Boolean(document.querySelector("[data-focus=export-history]"))'), 'History offers native export');
     await shot('productivity-history');
 
@@ -162,11 +193,27 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     assert.deepEqual((await nativeState()).config, persisted, 'All new action types survive a real reload');
     await click('[data-focus="edit-' + sequence.id + '"]');
     assert.equal(await evaluate('return document.querySelectorAll("[data-sequence-step]").length'), 4, 'Saved sequence reopens as structured steps');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '75', 'Saved delay survives reload');
+    await close();
+    await click('[data-focus="more-' + sequence.id + '"]'); await click('[data-focus="duplicate-' + sequence.id + '"]');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '75', 'Duplicate preserves sequence timing');
+    assert.equal(await evaluate('return document.querySelectorAll("[data-sequence-step]").length'), 4);
+    await close();
+    if (await evaluate('return document.querySelector("#confirm-dialog").open')) await click('#confirm-dialog .danger-solid');
+    await click('[data-focus="edit-' + sequence.id + '"]'); await fill('#field-stepDelayMs', '0'); await save();
+    await until('!document.querySelector("#editor-drawer")', 'Zero sequence delay saved');
+    await reload('Zero sequence delay reload');
+    assert.equal((await bindingByName('Sequência QA')).action.stepDelayMs, 0);
+    const legacy = (await nativeState()).config;
+    delete legacy.layers[0].bindings.find(item => item.id === sequence.id).action.stepDelayMs;
+    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(legacy) + ');');
+    await click('[data-focus="edit-' + sequence.id + '"]');
+    assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '0', 'Legacy sequences without the field retain zero delay');
     await close();
   } finally {
     await nativeEvaluate(clipboardExpression + '.writeText(' + JSON.stringify(clipboardBefore) + ')').catch(() => {});
     await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(before.config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
     await new Promise(resolve => server.close(resolve));
   }
-  console.log('Productivity UI passed: five action types, real clipboard/application launch, preview isolation, sequence ordering/drafts, partial failure, private history and persistence.');
+  console.log('Productivity UI passed: five action types, real clipboard/application launch, preview isolation, sequence delay/default/limits/zero/drafts/reorder/duplicate/reload/manual wait/history/themes/zoom, partial failure, private history and persistence.');
 };

@@ -91,6 +91,10 @@ tipo, mover ou recolher etapas. Salve antes de preparar a prévia e executar tes
 | Criar ou acrescentar arquivo | Salva conteúdo no destino escolhido ou em Documentos/Keyboard Tracker |
 
 O editor de sequências permite adicionar, remover e mudar a ordem das etapas.
+**Delay entre etapas (ms)** define um intervalo de 0 a 60.000 ms, contado após
+cada etapa terminar e antes da próxima. Zero executa sem espera adicional;
+não há espera antes da primeira nem após a última. O teste manual respeita esse
+intervalo. Sequências antigas continuam sem espera adicional.
 Se uma falhar, as próximas não executam; efeitos das anteriores permanecem.
 O Histórico e o teste mostram o resultado de cada etapa iniciada. Não há sequência
 dentro de sequência. Variáveis usam a tecla e a camada de origem e o mesmo

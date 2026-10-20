@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
 const { validateOpenTarget } = require('./config.cjs');
 
 function variables(context, now = new Date()) {
@@ -19,7 +20,7 @@ function prepareAction(action, context, { documents, layers = [], platform = pro
     case 'open': return { type: 'open', kind: action.kind, target: validateOpenTarget(action.kind, interpolate(action.target, vars), platform) };
     case 'notification': return { type: 'notification', title: interpolate(action.title, vars), message: interpolate(action.message, vars) };
     case 'layer': return { type: 'layer', layerId: action.layerId, layerName: layers.find(layer => layer.id === action.layerId)?.name ?? action.layerId };
-    case 'sequence': return { type: 'sequence', steps: action.steps.map(step => prepareAction(step, context, { documents, layers, platform }, now)) };
+    case 'sequence': return { type: 'sequence', stepDelayMs: action.stepDelayMs ?? 0, steps: action.steps.map(step => prepareAction(step, context, { documents, layers, platform }, now)) };
     case 'file': {
       const directory = action.directory || path.join(documents, 'Keyboard Tracker');
       if (!path.isAbsolute(directory)) throw new Error('Escolha uma pasta absoluta para salvar o arquivo.');
@@ -112,6 +113,7 @@ async function executeAction(action, context, options = {}) {
           onStep?.(details('error', message));
           throw new Error(`Sequência interrompida na etapa ${index + 1} de ${prepared.steps.length}: ${message}`);
         }
+        if (index < prepared.steps.length - 1 && prepared.stepDelayMs > 0) await delay(prepared.stepDelayMs);
       }
       return `Sequência concluída: ${prepared.steps.length} ${prepared.steps.length === 1 ? 'etapa' : 'etapas'}.`;
     }

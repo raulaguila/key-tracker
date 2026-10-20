@@ -5,6 +5,7 @@ export const actionLabels = {
   layer: 'Trocar camada', sequence: 'Executar sequência', http: 'Requisição HTTP', file: 'Criar ou acrescentar em arquivo', log: 'Registro em log (legado)'
 };
 export const actionTypeLabels = { clipboard: 'Copiar', open: 'Abrir', notification: 'Notificação', layer: 'Camada', sequence: 'Sequência', http: 'HTTP', file: 'Arquivo', log: 'Log legado' };
+export const sequenceDelayLabel = value => (value ?? 0) + ' ms entre etapas';
 
 // Each type retains its own DOM while detached. Switching types therefore keeps
 // incomplete pairs, field values, expanded sections and sequence order intact.
@@ -130,6 +131,8 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       const message = makeField('message', 'Mensagem do log', value.message || '', { required: true, multiline: true, placeholder: 'A tecla {{key}} foi acionada na camada {{layer}}.', hint: 'Compatibilidade com ações existentes. O histórico de execução já é registrado automaticamente.' });
       content.append(message.wrapper); read = () => ({ type: kind, message: message.input.value });
     } else if (kind === 'sequence' && allowSequence) {
+      const delay = makeField('stepDelayMs', 'Delay entre etapas (ms)', value.stepDelayMs ?? 0, { type: 'number', min: 0, max: 60000, step: 1, required: true, hint: 'Após cada etapa terminar, antes da próxima. Zero executa sem espera.' });
+      delay.wrapper.classList.add('sequence-delay');
       const steps = [];
       const accordionName = 'sequence-' + crypto.randomUUID();
       const count = el('span', { class: 'sequence-count', role: 'status' });
@@ -179,10 +182,14 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         steps.push(step); updateSteps();
         if (focus) { openStep(step); step.editor.node.querySelector('select')?.focus(); onDirty(); }
       }
-      content.append(el('p', { class: 'context-note' }, 'A primeira falha interrompe as próximas etapas. Efeitos concluídos não são desfeitos.'), list, el('div', { class: 'sequence-add-row' }, add, count),
+      content.append(delay.wrapper, el('p', { class: 'context-note' }, 'A primeira falha interrompe as próximas etapas. Efeitos concluídos não são desfeitos.'), list, el('div', { class: 'sequence-add-row' }, add, count),
         el('p', { class: 'hint sequence-limit' }, 'As variáveis usam a tecla e a camada que iniciaram a sequência.'));
       (value.steps?.length ? value.steps : [{ type: 'clipboard', text: '' }]).forEach(action => addStep(action));
-      read = () => ({ type: kind, steps: steps.map(step => step.editor.read()) });
+      read = () => {
+        const stepDelayMs = Number(delay.input.value);
+        if (!delay.input.value.trim() || !Number.isInteger(stepDelayMs) || stepDelayMs < 0 || stepDelayMs > 60000) fail('Use um delay entre etapas inteiro entre 0 e 60000 ms.', 'stepDelayMs');
+        return { type: kind, stepDelayMs, steps: steps.map(step => step.editor.read()) };
+      };
     }
     return { node: content, read };
   }
@@ -206,6 +213,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       case 'http': return value('method') + ' · ' + destination(value('url'));
       case 'file': return (value('mode') === 'append' ? 'Acrescentar · ' : 'Criar · ') + (value('filename') || 'Defina o nome');
       case 'log': return value('message') ? 'Mensagem configurada' : 'Defina a mensagem';
+      case 'sequence': return sequenceDelayLabel(value('stepDelayMs') || 0);
       default: return 'Configure as etapas';
     }
   }

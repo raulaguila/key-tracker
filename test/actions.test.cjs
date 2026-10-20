@@ -186,7 +186,7 @@ test('novos tipos e sequência persistem e recarregam sem converter ações lega
   const root = await directory(t);
   const storage = new Storage(root);
   const config = defaultConfig();
-  config.layers[0].bindings[0].action = { type: 'sequence', steps: [
+  config.layers[0].bindings[0].action = { type: 'sequence', stepDelayMs: 850, steps: [
     { type: 'clipboard', text: 'Texto {{key}}' },
     { type: 'open', kind: 'path', target: root },
     { type: 'notification', title: 'Título', message: 'Mensagem' },
@@ -197,5 +197,61 @@ test('novos tipos e sequência persistem e recarregam sem converter ações lega
   const loaded = await new Storage(root).load();
   assert.equal(loaded.version, 1);
   assert.deepEqual(loaded, saved);
+  assert.equal(loaded.layers[0].bindings[0].action.stepDelayMs, 850);
   assert.deepEqual(await fs.readdir(root), ['config.json']);
+});
+
+test('delay entre etapas começa após conclusão, libera event loop e não espera após última etapa', async () => {
+  const { setTimeout: delay } = require('node:timers/promises');
+  const calls = [];
+  const finished = [];
+  const steps = [];
+  let releaseFirst, reachedLast;
+  const last = new Promise(resolve => { reachedLast = resolve; });
+  const action = { type: 'sequence', stepDelayMs: 60, steps: ['um', 'dois', 'três'].map(text => ({ type: 'clipboard', text })) };
+  const running = executeAction(action, context, {
+    desktopActions: { clipboard: async text => {
+      calls.push({ text, at: performance.now() });
+      if (text === 'um') await new Promise(resolve => { releaseFirst = resolve; });
+      finished.push(performance.now());
+    } },
+    onStep: step => { steps.push(step); if (step.index === 3) reachedLast(); }
+  });
+  assert.deepEqual(calls.map(call => call.text), ['um']); // no initial delay
+  await delay(25);
+  assert.equal(calls.length, 1);
+  releaseFirst();
+  await delay(10); // runs while the sequence is waiting
+  assert.equal(calls.length, 1);
+  await last;
+  assert.deepEqual(calls.map(call => call.text), ['um', 'dois', 'três']);
+  assert.ok(calls[1].at - finished[0] >= 50);
+  assert.ok(calls[2].at - finished[1] >= 50);
+  assert.ok(steps[0].durationMs >= 20);
+  assert.ok(steps[1].durationMs < 60); // excludes its following gap
+  assert.equal(await Promise.race([running.then(() => true), delay(10).then(() => false)]), true);
+});
+
+test('zero, legado e etapa única não agendam espera; falha encerra sem delay final', async () => {
+  const { setTimeout: delay } = require('node:timers/promises');
+  for (const [stepDelayMs, count] of [[undefined, 3], [0, 3], [60000, 1]]) {
+    const calls = [];
+    const action = { type: 'sequence', ...(stepDelayMs === undefined ? {} : { stepDelayMs }), steps: Array.from({ length: count }, (_, index) => ({ type: 'clipboard', text: String(index) })) };
+    const running = executeAction(action, context, { desktopActions: { clipboard: text => calls.push(text) } });
+    assert.equal(await Promise.race([running.then(() => true), delay(10).then(() => false)]), true);
+    assert.equal(calls.length, count);
+  }
+  const steps = [];
+  let reachedFailure;
+  const failure = new Promise(resolve => { reachedFailure = resolve; });
+  const action = { type: 'sequence', stepDelayMs: 60, steps: ['ok', 'falha', 'não executar'].map(text => ({ type: 'clipboard', text })) };
+  const running = executeAction(action, context, {
+    desktopActions: { clipboard: text => { if (text === 'falha') throw new Error('conteúdo privado'); } },
+    onStep: step => { steps.push(step); if (step.status === 'error') reachedFailure(); }
+  });
+  const rejected = assert.rejects(running, /etapa 2 de 3: Não foi possível copiar/);
+  await failure;
+  assert.equal(await Promise.race([rejected.then(() => true), delay(10).then(() => false)]), true);
+  assert.deepEqual(steps.map(step => step.status), ['success', 'error']);
+  assert.doesNotMatch(JSON.stringify(steps), /conteúdo privado/);
 });

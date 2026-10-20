@@ -81,7 +81,8 @@ function validateAction(action, platform = process.platform, nested = false) {
     case 'sequence': {
       if (nested) throw new Error('Sequências não podem conter outras sequências.');
       if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 10) throw new Error('Configure entre 1 e 10 etapas na sequência.');
-      return { type: 'sequence', steps: action.steps.map(step => validateAction(step, platform, true)) };
+      if (action.stepDelayMs !== undefined && (!Number.isInteger(action.stepDelayMs) || action.stepDelayMs < 0 || action.stepDelayMs > 60000)) throw new Error('Delay entre etapas deve ser um inteiro entre 0 e 60000 ms.');
+      return { type: 'sequence', ...(action.stepDelayMs === undefined ? {} : { stepDelayMs: action.stepDelayMs }), steps: action.steps.map(step => validateAction(step, platform, true)) };
     }
     case 'file': {
       const filename = text(action.filename, 'Nome do arquivo', 200);

@@ -272,3 +272,22 @@ test('holdDelayMs mantém zero e valor distinto do intervalo no codec e persist�
   await storage.save(config);
   assert.equal(Object.hasOwn((await storage.load()).layers[0].bindings[0], 'holdDelayMs'), false);
 });
+
+test('stepDelayMs valida limites e preserva omissão legada e zero no codec', () => {
+  const { validateAction, encodeConfig, decodeConfig } = require('../app/config.cjs');
+  const config = defaultConfig();
+  const action = { type: 'sequence', steps: [{ type: 'clipboard', text: 'Texto' }] };
+  config.layers[0].bindings[0].action = action;
+  assert.deepEqual(validateAction(action), action);
+  const legacy = encodeConfig(config);
+  assert.equal(legacy.includes('stepDelayMs'), false);
+  assert.equal(encodeConfig(decodeConfig(legacy)), legacy);
+  for (const value of [0, 60000]) {
+    action.stepDelayMs = value;
+    assert.equal(decodeConfig(encodeConfig(config)).layers[0].bindings[0].action.stepDelayMs, value);
+  }
+  for (const value of [-1, 60001, 0.5, '100', null, Infinity]) {
+    action.stepDelayMs = value;
+    assert.throws(() => validateConfig(config), /Delay entre etapas/);
+  }
+});

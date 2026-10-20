@@ -1,14 +1,17 @@
-# Bridge plan — Delay inicial de Enquanto pressionada
+# Bridge plan — Delay entre etapas de sequência
 
 <!-- bridge:plan-schema 1 -->
 
 ## Checklist
 
-- [x] /keel build delay inicial independente, compatibilidade e regressões
-- [x] /impeccable craft controles compactos de delay e repetição
-- [x] /bridge sync histórico, persistência, documentação e validação
-- [x] /bridge ship testes, CI e commit
+- [x] /keel build intervalo entre etapas e prévia congelada
+- [x] /impeccable craft campo de sequência e apresentação dos tempos
+- [x] /bridge sync histórico, persistência, documentação e regressões
+- [ ] /bridge ship testes, builds e commit
 
-Código: 12804c6. Validação local: 134 testes, smoke completo e pacote/diagnóstico
-Linux. CI: Desktop 39484477197 e Platform audit 39484477174.
-Guia: docs/KEY_MOMENTS.md. Evidências: docs/audits/2026-10-20-key-moments/report.md.
+Sync sem lacunas: configuração opcional preserva legado; prévia e evento usam
+`stepDelayMs` efetivo; renderer e exportação consomem o mesmo campo. Provas locais:
+139 testes passaram; sintaxe, UI completa, XTest Linux e pacote/sonda Electron
+passaram. Sonda mediu 82 ms para intervalo de 80 ms e confirmou clipboard final.
+Quatro capturas do novo campo conferidas em light/dark, zoom 100%/125%.
+Pendente: commit e CI dos três sistemas.

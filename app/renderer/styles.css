@@ -613,6 +613,8 @@ dialog::backdrop { background: var(--backdrop); }
 .sequence-step > summary { padding: 10px 0; }
 .sequence-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sequence-count { color: var(--muted); font-size: 11px; }
+.sequence-delay.field { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 6px 12px; align-items: center; }
+.sequence-delay > small { grid-column: 1 / -1; }
 @media (max-width: 580px) {
   .visual-trigger-label { order: 1; flex-basis: auto; }
   .trigger-options { grid-template-columns: minmax(0, 1fr); gap: 0; }

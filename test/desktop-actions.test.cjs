@@ -159,7 +159,7 @@ test('histórico exporta apenas eventos e etapas sanitizados, com limites e sem 
   const config = path.join(directory, 'config.json');
   const target = path.join(directory, 'history.json');
   await fs.writeFile(config, 'configuração preservada');
-  const events = [{ id: '1', time: '2026-10-20T00:00:00Z', kind: 'action', status: 'success', message: 'Texto copiado.', durationMs: 2, headers: { secret: 'não exportar' }, text: 'não exportar', steps: [{ index: 1, type: 'clipboard', status: 'success', message: 'Texto copiado.', durationMs: 1, text: 'não exportar' }] }];
+  const events = [{ id: '1', time: '2026-10-20T00:00:00Z', kind: 'action', status: 'success', message: 'Texto copiado.', durationMs: 2, stepDelayMs: 500, headers: { secret: 'não exportar' }, text: 'não exportar', steps: [{ index: 1, type: 'clipboard', status: 'success', message: 'Texto copiado.', durationMs: 1, text: 'não exportar' }] }];
   let destination = target;
   const dialog = { showSaveDialog: async () => ({ canceled: false, filePath: destination }) };
   await exportSessionHistory({ events, dialog, protectedPaths: [config] });
@@ -167,6 +167,8 @@ test('histórico exporta apenas eventos e etapas sanitizados, com limites e sem 
   assert.equal(exported.version, 1);
   assert.equal(exported.events[0].steps[0].index, 1);
   assert.equal(exported.events[0].durationMs, 2);
+  assert.equal(exported.events[0].stepDelayMs, 500);
+  assert.equal(historySnapshot([{ stepDelayMs: 0 }])[0].stepDelayMs, 0);
   assert.equal(JSON.stringify(exported).includes('não exportar'), false);
   assert.equal(historySnapshot(Array(150).fill(events[0])).length, 100);
   destination = config;

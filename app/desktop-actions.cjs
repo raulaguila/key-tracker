@@ -160,7 +160,7 @@ async function chooseActionTarget({ kind, dialog, window, platform = process.pla
 
 function historySnapshot(events) {
   const strings = ['id', 'time', 'kind', 'status', 'message', 'layer', 'key', 'bindingId', 'trigger', 'keyCode'];
-  const numbers = ['durationMs', 'httpStatus', 'repeatMs', 'holdDelayMs'];
+  const numbers = ['durationMs', 'httpStatus', 'repeatMs', 'holdDelayMs', 'stepDelayMs'];
   const pick = (value, textKeys, numberKeys) => Object.fromEntries([
     ...textKeys.filter(key => typeof value[key] === 'string').map(key => [key, value[key]]),
     ...numberKeys.filter(key => Number.isFinite(value[key])).map(key => [key, value[key]])

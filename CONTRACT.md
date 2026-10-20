@@ -278,3 +278,29 @@ teste manual continua uma execução sem aguardar delay ou iniciar loop.
 Aceite: validação dos limites e legado, delay diferente do intervalo, zero,
 cancelamento antes da primeira execução, persistência/duplicação na UI e gates
 existentes de eventos nativos/temas/sistemas operacionais.
+
+## Expansão autorizada: intervalo entre etapas da sequência
+
+Autorização: “Adicione também a opção de configurar um delay entre as etapas de
+uma sequência de ações”. Action sequence ganha `stepDelayMs`, opcional, inteiro
+entre 0 e 60000 ms. Ausente equivale a zero e permanece ausente ao normalizar,
+preservando arquivos e limites antigos. O intervalo é único para a sequência.
+Aplica-se depois da conclusão bem-sucedida de uma etapa e antes de iniciar a
+próxima, sem espera antes da primeira, após a última ou após falha. Uma sequência
+com uma etapa não espera. Zero não acrescenta espera. Não bloqueia o event loop.
+
+Preparação/prévia congela esse valor junto das etapas, sem I/O. Execução por token
+usa o valor congelado. Sequência mantém a vaga de execução durante as esperas;
+duração total inclui o tempo de espera, duração de cada etapa mede só a etapa.
+Histórico/exportação incluem stepDelayMs efetivo; logs não recebem dados privados.
+Pausa mantém a política existente: impede novos disparos, sem desfazer/cancelar
+uma sequência já iniciada. Sair encerra o aplicativo e seus temporizadores.
+
+UI: campo “Delay entre etapas (ms)” na configuração da sequência, de 0 a 60000,
+com ajuda “Após cada etapa terminar, antes da próxima. Zero executa sem espera.”
+A edição, duplicação, mudança de tipo, reordenação, salvamento/importação e reload
+preservam o valor. Resumo/prévia informam o intervalo. Teste manual respeita o
+delay da sequência; ignora somente o delay inicial do momento da tecla.
+Aceite: legado/limites/zero, ordem e tempos reais sem espera extra, falha parcial,
+prévia congelada, persistência/rascunhos/duplicação/UI em ambos os temas e gates
+existentes dos três sistemas.

@@ -1,6 +1,6 @@
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
-import { createActionEditor, actionLabels, actionTypeLabels } from './action-editor.js';
+import { createActionEditor, actionLabels, actionTypeLabels, sequenceDelayLabel } from './action-editor.js';
 import { createBindingTable } from './binding-table.js';
 import { createBindingTrigger, triggerLabels, triggerFor, triggerDescription } from './key-moments.js';
 import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
@@ -467,7 +467,7 @@ function actionSummary(action) {
   if (action.type === 'open') return action.target;
   if (action.type === 'notification') return action.title;
   if (action.type === 'layer') return 'Usar ' + (layerById(action.layerId)?.name || 'camada de destino');
-  if (action.type === 'sequence') return action.steps.length + ' etapas · ' + action.steps.map(step => actionTypeLabels[step.type]).join(' → ');
+  if (action.type === 'sequence') return action.steps.length + ' etapas · ' + sequenceDelayLabel(action.stepDelayMs) + ' · ' + action.steps.map(step => actionTypeLabels[step.type]).join(' → ');
   return action.message;
 }
 
@@ -580,7 +580,7 @@ async function executePreview() {
 
 function testPreviewPanel(layer) {
   return el('section', { class: 'editor test-preview', 'aria-label': 'Prévia e teste da ação' },
-    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução, sem aguardar o delay, iniciar repetição ou aguardar soltura.')),
+    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução: ignora o delay inicial da tecla e respeita o delay entre etapas. Não inicia repetição nem aguarda soltura.')),
     el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
     el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
       el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));
@@ -588,7 +588,7 @@ function testPreviewPanel(layer) {
 
 function actionPreview(action) {
   if (action.type === 'sequence') return el('section', { class: 'sequence-preview' },
-    el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem. A primeira falha interrompe as próximas; efeitos concluídos não são desfeitos.'),
+    el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem · ' + sequenceDelayLabel(action.stepDelayMs) + '. A primeira falha interrompe as próximas; efeitos concluídos não são desfeitos.'),
     el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {}, el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.type]), actionPreview(step)))));
   const entries = action.type === 'http' ? [['Método', action.method], ['URL final', action.url], ['Headers', Object.entries(action.headers || {}).map(([key, value]) => key + ': ' + value).join('\n') || 'Sem headers'], ['Corpo', action.body || 'Sem corpo']]
     : action.type === 'file' ? [['Operação', action.mode === 'append' ? 'Acrescentar ao final' : 'Criar sem sobrescrever'], ['Arquivo', action.target], ['Conteúdo', action.content || 'Arquivo vazio']]
@@ -600,11 +600,11 @@ function actionPreview(action) {
   return el('dl', { class: 'preview-values' }, entries.map(([label, value]) => [el('dt', {}, label), el('dd', {}, el('pre', {}, value))]));
 }
 
-function executionSteps(steps, open = false, total, eventId) {
+function executionSteps(steps, open = false, total, eventId, stepDelayMs) {
   if (!steps?.length) return null;
   const interrupted = steps.some(step => step.status === 'error');
   return el('details', { class: 'execution-steps', open, 'data-event-steps': eventId },
-    el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' iniciadas' : ' registradas')),
+    el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' iniciadas' : ' registradas') + ' · ' + sequenceDelayLabel(stepDelayMs)),
     el('ol', {}, steps.map(step => el('li', { value: step.index, class: 'execution-step ' + step.status },
       el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'error' ? 'alert' : 'check'), step.status === 'error' ? 'Falhou' : 'Concluída')),
       el('p', {}, step.message), el('p', { class: 'hint' }, [Number.isFinite(step.durationMs) ? step.durationMs + ' ms' : null, step.httpStatus ? 'HTTP ' + step.httpStatus : null].filter(Boolean).join(' · '))))),
@@ -626,7 +626,7 @@ function updateTestPreview() {
   if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
     el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
     el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.'),
-    executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined)));
+    executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined, undefined, target.result.stepDelayMs)));
   if (target.error) content.append(el('div', { class: 'form-errors', role: 'alert' }, icon('alert'), target.error));
   if (target.resolvedAction) {
     const action = target.resolvedAction;
@@ -791,7 +791,7 @@ function bindingForm(layer) {
     invalidTarget = event.target;
     queueMicrotask(() => {
       for (let parent = invalidTarget.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
-      const message = invalidTarget.validity.valueMissing ? 'Preencha este campo para continuar.' : invalidTarget.name === 'repeatMs' ? 'Use um intervalo inteiro entre 100 e 60000 ms.' : 'Confira o valor deste campo.';
+      const message = invalidTarget.validity.valueMissing ? 'Preencha este campo para continuar.' : invalidTarget.name === 'repeatMs' ? 'Use um intervalo inteiro entre 100 e 60000 ms.' : invalidTarget.name === 'stepDelayMs' ? 'Use um delay entre etapas inteiro entre 0 e 60000 ms.' : 'Confira o valor deste campo.';
       formError(form, { message, fieldName: invalidTarget.name });
       invalidTarget = null;
     });
@@ -895,7 +895,7 @@ function updateHistory() {
         valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
       el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
         { success: 'Concluído', error: 'Erro', info: 'Sistema' }[event.status] || event.status)),
-      el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, expandedEvents.has(event.id), undefined, event.id)),
+      el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, expandedEvents.has(event.id), undefined, event.id, event.stepDelayMs)),
       el('td', { class: 'event-context' }, context())));
   }
 

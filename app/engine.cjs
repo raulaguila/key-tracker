@@ -335,7 +335,7 @@ class Engine extends EventEmitter {
     const started = this.now();
     let httpStatus;
     const steps = [];
-    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { steps: structuredClone(steps) } : {}) });
+    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0, steps: structuredClone(steps) } : {}) });
     try {
       prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
       const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,

@@ -71,6 +71,12 @@ preserva os campos e o foco. Erros abrem a etapa afetada.
 
 Salve antes de abrir a prévia. **Executar teste** realiza uma única execução
 manual da ação salva, inclusive para Enquanto pressionada: não mantém uma tecla
-pressionada, não aguarda o delay nem inicia um loop. Para conferir o gesto real, feche o editor,
+pressionada, não aguarda o delay inicial da tecla nem inicia um loop. O **Delay
+entre etapas** de uma sequência é respeitado, inclusive no teste: de 0 a 60.000 ms
+após a conclusão de cada etapa, antes da próxima, sem espera inicial ou final.
+Zero e sequências antigas não acrescentam espera. Uma falha interrompe a sequência
+sem esperar pelo próximo intervalo. Pausar impede novos disparos; uma sequência
+já iniciada termina normalmente.
+Para conferir o gesto real, feche o editor,
 ative as ações e use a combinação no teclado. Os resultados aparecem na ação e
 no Histórico, com o momento configurado, sem salvar as teclas rastreadas.

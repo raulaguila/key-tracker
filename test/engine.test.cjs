@@ -403,6 +403,63 @@ test('sequências contam como uma execução e mantêm os limites de ação e co
   assert.equal(engine.events.filter(event => event.kind === 'action').length, 4);
 });
 
+test('token congela intervalo e histórico inclui gap somente na duração total', async () => {
+  const { executeAction, prepareAction, freezePreparedAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  config.layers[0].bindings[0].action = { type: 'sequence', stepDelayMs: 60, steps: [
+    { type: 'clipboard', text: 'texto privado' }, { type: 'clipboard', text: 'outro texto privado' }
+  ] };
+  const calledAt = [];
+  const logs = [];
+  const { engine } = fixture({ config, execute: executeAction, desktopActions: { clipboard: () => calledAt.push(performance.now()) } });
+  engine.storage.appendLog = async event => logs.push(event);
+  const layer = engine.activeLayer;
+  const binding = layer.bindings[0];
+  const preview = engine.previewBinding(layer.id, binding.id);
+  assert.equal(calledAt.length, 0);
+  assert.equal(preview.action.stepDelayMs, 60);
+  assert.equal(Object.isFrozen(engine.previews.get(preview.previewId).prepared), true);
+  preview.action.stepDelayMs = 0; // detached presentation cannot modify the token
+  binding.action.stepDelayMs = 0; // prepared execution must also ignore changes to its source
+  const state = await engine.runBinding(layer.id, binding.id, preview.previewId);
+  const event = state.events.find(item => item.bindingId === binding.id);
+  assert.equal(event.stepDelayMs, 60);
+  assert.ok(calledAt[1] - calledAt[0] >= 50);
+  assert.ok(event.durationMs - event.steps.reduce((sum, step) => sum + step.durationMs, 0) >= 50);
+  assert.equal(logs.at(-1).stepDelayMs, 60);
+  assert.doesNotMatch(JSON.stringify(logs), /texto privado/);
+  const legacy = freezePreparedAction(prepareAction({ type: 'sequence', steps: [{ type: 'clipboard', text: 'x' }] }, { key: 'A', layer: 'Origem' }));
+  assert.equal(legacy.stepDelayMs, 0);
+});
+
+test('esperas de sequência mantêm quatro vagas, impedem duplicação e continuam após pausa', async () => {
+  const { executeAction } = require('../app/actions.cjs');
+  const config = defaultConfig();
+  config.layers[0].bindings = [...'ABCDE'].map((key, index) => ({ id: 'delay-' + index, key, name: key,
+    action: { type: 'sequence', stepDelayMs: 60, steps: [{ type: 'clipboard', text: key + '1' }, { type: 'clipboard', text: key + '2' }] } }));
+  const effects = [];
+  let firstSteps = 0, reachedGaps;
+  const gaps = new Promise(resolve => { reachedGaps = resolve; });
+  const { engine } = fixture({ config, execute: (action, context, options) => executeAction(action, context, { ...options, onStep: step => {
+    options.onStep(step);
+    if (step.index === 1 && ++firstSteps === 4) reachedGaps();
+  } }), desktopActions: { clipboard: text => effects.push(text) } });
+  engine.setEnabled(true);
+  const layer = engine.activeLayer;
+  const running = layer.bindings.slice(0, 4).map(binding => engine.runBinding(layer.id, binding.id));
+  await gaps;
+  engine.setEnabled(false);
+  assert.equal(engine.inFlight.size, 4);
+  assert.deepEqual(effects, ['A1', 'B1', 'C1', 'D1']);
+  await assert.rejects(engine.runBinding(layer.id, layer.bindings[0].id), /ainda está em execução/);
+  await assert.rejects(engine.runBinding(layer.id, layer.bindings[4].id), /quatro ações/);
+  await Promise.all(running);
+  assert.equal(engine.inFlight.size, 0);
+  assert.equal(engine.enabled, false);
+  assert.deepEqual(effects.slice(4), ['A2', 'B2', 'C2', 'D2']);
+  assert.ok(engine.events.filter(event => event.kind === 'action').every(event => event.stepDelayMs === 60));
+});
+
 test('camada é revalidada durante execução se configuração mudar entre etapas', async () => {
   const { executeAction } = require('../app/actions.cjs');
   const config = defaultConfig();
