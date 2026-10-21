@@ -15,8 +15,11 @@ module.exports = async context => {
     ['-std=c++17','-O2','-arch',arch==='arm64'?'arm64':'x86_64','-mmacosx-version-min=13.0',source,'-framework','IOKit','-framework','CoreFoundation','-o',output];
   const result=spawnSync(platform==='win32'?'cl.exe':'clang++',args,{encoding:'utf8',timeout:120000});
   if(result.error||result.status!==0)throw new Error('Falha ao compilar componente de entrada: '+(result.error?.message||result.stderr||result.stdout));
+  const before = Number(process.hrtime.bigint()) / 1e6;
   const proof=spawnSync(output,['--self-test'],{encoding:'utf8',timeout:5000});
-  if(proof.status!==0||!JSON.parse(proof.stdout).selfTest)throw new Error('Componente nativo não passou no self-test.');
+  const after = Number(process.hrtime.bigint()) / 1e6;
+  const diagnostic = proof.status === 0 ? JSON.parse(proof.stdout) : {};
+  if(proof.status!==0||!diagnostic.selfTest||!Number.isFinite(diagnostic.monotonicMs)||diagnostic.monotonicMs<before-2||diagnostic.monotonicMs>after+2)throw new Error('Componente nativo não passou no self-test de relógio monotônico.');
   if(platform==='darwin')await fs.chmod(output,0o755);
   else await fs.rm(path.join(directory,'dobra-input.obj'),{force:true});
 };

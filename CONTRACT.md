@@ -243,7 +243,10 @@ ativa ações automaticamente nem desfaz efeitos já executados.
   juntos. Segurar ativa a camada temporária; soltar restaura a anterior. Pausa,
   edição, troca manual/aplicativo, perda da entrada e saída cancelam a temporária.
 - `settings.panelShortcut`: opcional, padrão efetivo `CommandOrControl+Shift+Space`;
-  reservado quando configurado/padrão, controlado pelo observador passivo após
+  string vazia desabilita o controle. Ausente em v1 legado, o padrão só é habilitado
+  se não conflitar com controles/ações existentes; caso contrário, carrega a
+  configuração e informa o motivo sem perder o botão. `State.shortcuts.panelShortcut`
+  contém o valor resolvido. Reservado quando efetivamente habilitado, controlado após
   primeira ativação/Rastreio. Engine emite `quick-panel` ao acioná-lo. Painel também
   abre por botão, não toma o lugar da janela principal e não executa ações.
 - `settings.inputDeviceId`: string opcional, até 160 caracteres; ausente = todos.
@@ -283,3 +286,20 @@ e `configHistory`. Wizard e paleta Ctrl/Cmd+K são locais ao renderer; o assiste
 é retomável por Configurações, testa entrada com ações pausadas e usa a biblioteca
 para criar a primeira ação. O painel usa projeção sem headers/conteúdos/caminhos,
 com camada/status e nomes/atalhos. Não há novas dependências de serviço/nuvem.
+
+Auditoria de integração: a projeção do painel também inclui `revision` monotônica,
+`editing` e `stopping`, sem ampliar o acesso a conteúdos. Atualizações idênticas
+não geram novo IPC ou reconstrução de linhas. Formulários aguardam a confirmação
+da suspensão antes de aceitar digitação. Mudanças na seleção de importação
+invalidam a revisão pendente; fechar o assistente encerra um teste ainda em ativação.
+
+Orientação de instalação Linux solicitada pelo usuário: `openLinuxDownload()` abre
+no navegador a origem fixa do pacote de teste (Actions, enquanto não há release
+pública). `openLinuxInstaller()` abre seletor nativo de .deb, valida arquivo regular
+e cabeçalho ar e solicita a abertura no instalador do sistema. Pausa ações e
+desliga rastreio antes do seletor. Retorna `{opened:boolean}`; cancelar não instala
+nem retoma captura/ações. APIs apenas Linux e sem argumento,
+autorizadas pela mesma origem do main. Não executam sudo/shell, não elevam o
+Electron, não instalam serviço silenciosamente e não ativam captura/ações. O
+gerenciador de pacotes do SO pede sua própria autorização. UI apresenta o próximo
+passo em Settings/assistente para componente ausente/incompatível/dependências.

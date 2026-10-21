@@ -26,6 +26,8 @@ test('configuração opcional de produtividade preserva ausência e valida contr
   for (const platform of ['linux', 'win32', 'darwin']) {
     const legacy = defaultConfig();
     legacy.layers[0].bindings[0].key = platform === 'darwin' ? 'Command+Shift+Space' : 'Control+Shift+Space';
+    assert.equal(validateConfig(legacy, platform).layers[0].bindings[0].key, legacy.layers[0].bindings[0].key);
+    legacy.settings.panelShortcut = 'CommandOrControl+Shift+Space';
     assert.throws(() => validateConfig(legacy, platform), /reservado/);
   }
 });

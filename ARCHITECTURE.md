@@ -289,8 +289,37 @@ painel junto dos demais serviços. O tema acompanha a preferência da janela pri
 `renderer/productivity.js` implementa paleta, biblioteca e assistente em diálogos
 nativos, com retorno de foco, Escape e opções avançadas sob demanda.
 
+Na auditoria, assinaturas físicas/lógicas da importação passaram a um cache local
+ao plano, compartilhando as regras de posição com a configuração. O cache não
+atravessa revisões. Controles físicos são preservados na importação e painel
+explicitamente vazio continua vazio na exportação. `getPanelShortcut` resolve o
+padrão somente sem conflito em v1 legado; Engine guarda o resultado por configuração.
+
+A captura HTTP usa buffer fixo de 64 KiB, remove o listener de abort por leitura e
+cede o event loop periodicamente. Assim, milhares de chunks pequenos não acumulam
+reações de uma Promise de timeout compartilhada. O painel mantém projeção por
+camada/configuração, deduplica payload e usa revision para bootstrap ordenado;
+renderer preserva nós/foco. Abertura/ocultação antes de ready respeita a última intenção.
+
 A identificação física usa helpers sem privilégios Raw Input no Windows e IOHID
 no macOS, compilados no sistema de destino por `prepare-native-input.cjs`. Linux
 reutiliza o serviço evdev autorizado e filtra dispositivos dentro do seat. O
 backend informa sua capacidade; a seleção ausente cancela gestos e pausa ações.
 Não há interceptação exclusiva, reinjeção ou persistência de digitação.
+
+Helpers Windows/macOS usam o mesmo relógio monotônico do runtime (QPC e
+mach_continuous_time), validado pelo self-test de build sem abrir teclado. O ready
+não recalibra um backlog como se fosse recente. Baselines suprimem eventos até
+soltar e bloqueiam novas combinações enquanto a origem de um modificador inicial
+for desconhecida; Windows consulta estado global ao liberar o baseline. Espera ou
+ausência de dispositivo impede ativação e hotplug não retoma ações silenciosamente.
+O protocolo Linux limita datagramas a 64 KiB, detecta truncamento e dimensiona seu
+buffer limitado para o catálogo máximo. Nomes usam limite consistente de codepoints.
+
+`linux-install.cjs` mantém o fluxo assistido de obtenção/abertura do pacote: URL
+de download fixa, seletor nativo sem caminho fornecido pelo renderer, validação
+de arquivo regular/cabeçalho ar e `shell.openPath` para o instalador do sistema.
+Não executa comandos de instalação ou elevação. Main pausa ações e desliga rastreio antes do seletor;
+cancelamento não ativa captura. `renderer/linux-install.js` apresenta instruções
+e próximos passos para ausência/incompatibilidade/dependências. O instalador do
+SO continua responsável por validar/instalar o pacote e solicitar autorização.

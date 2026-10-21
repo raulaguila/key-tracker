@@ -162,6 +162,10 @@ O **Painel rápido** mostra a camada ativa e os atalhos em uma janela compacta.
 Também pode ser aberto por seu controle configurável; o padrão é
 `Ctrl+Shift+Espaço` / `⌘+Shift+Espaço`, observado após ativar a entrada.
 Escape oculta o painel. Abrir o painel não ativa o motor.
+Deixe o atalho do painel vazio para usar somente o botão. Em configurações antigas
+que já usam sua combinação padrão, o Dobra preserva os atalhos existentes e informa
+que o controle do painel está desabilitado por conflito. Escolha outra combinação
+em Configurações se quiser habilitá-lo. O painel distingue edição, pausa e parada.
 
 ## Camada temporária e teclado de entrada
 
@@ -177,6 +181,9 @@ cancela gestos e pausa ações; confira o estado antes de reativar. Teclados sem
 identidade disponível não são apresentados como se tivessem suporte por dispositivo.
 No Linux, a seleção exige o componente evdev e sua autorização, inclusive em X11.
 No macOS, a integração pode solicitar Monitoramento de Entrada.
+Solte teclas e modificadores mantidos antes de iniciar o teste. Quando a origem
+inicial de um modificador ainda é desconhecida, novas combinações são ignoradas
+até soltá-lo, evitando executar uma ação com modificadores incorretos.
 
 ## Biblioteca e importação por camada
 

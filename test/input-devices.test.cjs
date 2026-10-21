@@ -18,7 +18,7 @@ function fixture(t, platform='win32') {
     child.frame({type:'ready',monotonicMs:1000});return child;
   }};
 }
-const key=(child,device,code,down,extra={})=>child.frame({type:'key',device,code,down,monotonicMs:1000,...extra});
+const key=(child,device,code,down,extra={})=>child.frame({type:'key',device,code,down,monotonicMs:1000,...(!down?{globallyDown:false}:{}),...extra});
 
 test('physical HID and set-1 mapping preserves sides/international positions/numpad',()=>{
   assert.equal(hidCode(4),'KeyA');assert.equal(hidCode(224),'ControlLeft');assert.equal(hidCode(228),'ControlRight');
@@ -111,4 +111,39 @@ test('UTF-8 device identity/name survive a multibyte character split across nati
  child.stdout.write(frame.subarray(0,split));child.stdout.write(frame.subarray(split));
  assert.deepEqual(input.deviceState().devices,[{id:deviceId(rawId,'win32'),name}]);
  assert.equal(input.state().status,'global');
+});
+
+test('initial held modifier cannot turn a later combination into an unmodified action',t=>{
+ for(const platform of ['win32','darwin']){
+  const {events,connect}=fixture(t,platform);const child=connect();
+  child.frame({type:'baseline',...(platform==='darwin'?{device:'real-device-a'}:{}),keys:[{code:platform==='win32'?29:224}]});
+  key(child,'real-device-a',platform==='win32'?30:4,true);
+  assert.equal(events.length,0,'a key with an initially held modifier is suppressed conservatively');
+ }
+});
+
+test('Windows global initial state is not cleared by another keyboard releasing the same key',t=>{
+ const {input,events,connect}=fixture(t);const config=defaultConfig();config.settings.inputDeviceId=deviceId('real-device-a','win32');const child=connect(config);
+ child.frame({type:'baseline',keys:[{code:30}]});
+ key(child,'real-device-b',30,false,{globallyDown:true});
+ key(child,'real-device-a',30,true);
+ assert.equal(events.length,0);
+});
+
+test('queued startup readiness never recalibrates old native events as fresh',t=>{
+ const {input,children,events,advance}=fixture(t);
+ input.update({config:defaultConfig(),observe:true});const child=children[0];
+ child.frame({type:'devices',devices:[{id:'real-device-a',name:'Keyboard A'}]});advance(1500);
+ child.frame({type:'ready',monotonicMs:1000});key(child,'real-device-a',30,true);
+ assert.equal(input.state().status,'unavailable');assert.equal(events.length,0);
+});
+
+test('Tracker cannot arm actions while selected keyboard is absent or backend is waiting',async t=>{
+ const {Engine}=require('../app/engine.cjs');const {Tracker}=require('../app/tracking.cjs');const {input,children}=fixture(t);
+ const config=defaultConfig();config.settings.inputDeviceId=deviceId('real-device-a','win32');
+ const engine=new Engine({config,platform:'win32',session:'native',documents:'C:\\Documents',storage:{directory:'/data',logPath:'/data/log',appendLog:async()=>{}}});
+ const tracker=new Tracker({engine,nativeInput:input,fork:()=>{throw new Error('No legacy hook');}});t.after(async()=>{await tracker.dispose();engine.dispose();});
+ tracker.set(true);const child=children[0];child.frame({type:'devices',devices:[]});child.frame({type:'ready',monotonicMs:1000});
+ engine.setEnabled(true);assert.equal(engine.enabled,false);
+ child.frame({type:'devices',devices:[{id:'real-device-a',name:'Keyboard A'}]});assert.equal(engine.enabled,false,'plugging in does not resume actions');
 });

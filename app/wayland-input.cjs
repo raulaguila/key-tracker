@@ -4,19 +4,19 @@ const { StringDecoder } = require('node:string_decoder');
 const path = require('node:path');
 const { keyboardCode, linuxCode } = require('./linux-keycodes.cjs');
 const { referenceCode } = require('./passive-shortcuts.cjs');
-const { effectiveShortcut } = require('./config.cjs');
+const { effectiveShortcut, getPanelShortcut } = require('./config.cjs');
 
 const messages = {
-  disabled: 'Integração com Wayland desabilitada. Habilite nas configurações para observar teclas de outros aplicativos.',
+  disabled: 'Integração Linux desabilitada. Habilite nas Configurações para observar teclas de outros aplicativos.',
   authorizing: 'Aguardando autorização do sistema para observar os teclados nesta sessão…',
   idle: 'Integração autorizada. Ative as ações ou o Rastreio para observar o teclado.',
-  global: 'Observação global no Wayland ativa. As teclas continuam funcionando nos outros aplicativos.',
+  global: 'Integração Linux ativa. Observação global de teclas disponível. As teclas continuam funcionando nos outros aplicativos.',
   waiting: 'Integração autorizada, aguardando um teclado disponível nesta sessão.',
-  'not-installed': 'Componente Linux não instalado. Instale ou atualize o pacote .deb do Dobra. O AppImage também precisa desse componente no sistema.',
+  'not-installed': 'Componente Linux não instalado. Abra o guia de instalação em Configurações para obter o pacote compatível. O AppImage também precisa desse componente no sistema.',
   'runtime-missing': 'Instale as dependências do componente Linux: Python 3, PyGObject e bibliotecas GIO.',
   denied: 'Autorização cancelada ou negada. Habilite novamente quando desejar permitir a observação.',
   busy: 'Já existe uma conexão de teclado para este usuário. Feche a outra instância antes de habilitar.',
-  'version-mismatch': 'O componente Linux é incompatível. Atualize o pacote .deb do Dobra.',
+  'version-mismatch': 'O componente Linux é incompatível. Abra o guia em Configurações para obter a versão compatível e atualizar o pacote.',
   'session-suspended': 'Observação encerrada ao bloquear, suspender ou trocar de sessão. Habilite novamente para retomar.',
   delayed: 'A entrada ficou atrasada e foi interrompida para evitar ações antigas. Habilite novamente para retomar.',
   unavailable: 'Não foi possível observar os teclados. Verifique o componente Linux, as permissões e a sessão local ativa.'
@@ -42,7 +42,8 @@ class WaylandInput extends EventEmitter {
     if (observe) {
       const add = (key, code) => { const value = linuxCode(code || referenceCode(effectiveShortcut(key, 'linux').split('+').at(-1))); if (value) keys.add(value); };
       add(config.settings.pauseShortcut); add(config.settings.layerShortcut);
-      add(config.settings.panelShortcut || 'CommandOrControl+Shift+Space');
+      const panel = getPanelShortcut(config, 'linux');
+      if (panel) add(panel);
       if (config.settings.momentaryShortcut) add(config.settings.momentaryShortcut);
       for (const layer of config.layers) for (const binding of layer.bindings) if (binding.enabled) add(binding.key, binding.keyCode);
     }
@@ -98,7 +99,7 @@ class WaylandInput extends EventEmitter {
     } else if (event.type === 'devices' && this.connected && Array.isArray(event.devices) && event.devices.length <= 32) {
       const seen = new Set();
       for (const device of event.devices) {
-        if (typeof device.id !== 'string' || !/^linux:[a-f0-9]{40}$/.test(device.id) || seen.has(device.id) || typeof device.name !== 'string' || device.name.length > 120 || /[\x00-\x1f\x7f]/.test(device.name)) throw new Error('Invalid device');
+        if (typeof device.id !== 'string' || !/^linux:[a-f0-9]{40}$/.test(device.id) || seen.has(device.id) || typeof device.name !== 'string' || [...device.name].length > 120 || /[\x00-\x1f\x7f]/.test(device.name)) throw new Error('Invalid device');
         seen.add(device.id);
       }
       if (event.selectedId !== this.selectedId) return; // Configuration acknowledgment from an older selection.

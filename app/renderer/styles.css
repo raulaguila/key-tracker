@@ -695,3 +695,14 @@ body:has(.productivity-dialog[open]) { overflow: hidden; }
 .import-key-preview .shortcut { font-size: 10px; }
 .import-layer-row label > span, .command-result > span { min-width: 0; overflow-wrap: anywhere; }
 .import-key-preview { gap: 10px; }
+.import-layer-copy { min-width: 0; }
+.import-layer-copy > .import-key-preview, .import-layer-copy > .import-key-details { margin-left: 24px; }
+.import-key-details { margin-top: 6px; }
+.import-key-details > summary { font-size: 11px; color: var(--primary); padding-block: 4px; }
+.import-layer-copy > small { margin-left: 24px; overflow-wrap: anywhere; }
+@media (pointer: coarse) { .import-key-details > summary, .import-layer-row label { min-height: 44px; } }
+.productivity-readiness { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.shortcut-warning > div { min-width: 0; overflow-wrap: anywhere; }
+.linux-install-help { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.linux-install-help > p, .linux-install-help > .button-row { margin-top: 8px; }
+.linux-install-help .button { white-space: normal; text-align: left; }

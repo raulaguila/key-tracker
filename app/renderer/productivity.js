@@ -1,10 +1,11 @@
-import { el, icon, button, field, shortcut } from './ui.js';
+import { createLinuxInstallHelp } from './linux-install.js';
+import { el, button, field, shortcut } from './ui.js';
 
 // Native dialogs supply focus containment and Escape; data never becomes HTML.
 export function createProductivity({ api, getState, applyState, guard, editBinding, editLayer, selectLayer, onModalChange, notify }) {
   let active = null;
   const wizardKey = 'dobra.setup-progress';
-  const readProgress = () => { try { return Number(localStorage.getItem(wizardKey)) || 0; } catch { return 0; } };
+  const readProgress = () => { try { const step = Number(localStorage.getItem(wizardKey)); return Number.isInteger(step) && step >= 0 && step <= 3 ? step : 0; } catch { return 0; } };
   const remember = step => { try { localStorage.setItem(wizardKey, String(step)); } catch { /* Session flow still works. */ } };
   function dialog(title, description, className = '') {
     if (active) active.close();
@@ -15,7 +16,15 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
       el('div', { class: 'productivity-content' }));
     const content = node.lastElementChild;
     node.addEventListener('close', () => { if (active === node) active = null; node.remove(); onModalChange(); if (returnFocus?.isConnected) returnFocus.focus(); }, { once: true });
-    document.body.append(node); active = node; node.showModal(); onModalChange();
+    content.inert = true;
+    const readiness = el('p', { class: 'productivity-readiness hint', role: 'status' }, 'Pausando atalhos para configurar…');
+    node.insertBefore(readiness, content);
+    document.body.append(node); active = node; node.showModal();
+    void Promise.resolve().then(() => onModalChange()).then(() => {
+      if (!node.isConnected) return;
+      content.inert = false; readiness.remove();
+      if (className === 'command-palette') content.querySelector('input')?.focus();
+    }).catch(error => { if (node.isConnected) { readiness.textContent = error.message || 'Não foi possível suspender os atalhos. Feche este painel e tente novamente.'; readiness.setAttribute('role', 'alert'); } });
     return { node, content };
   }
   function errorBox() { return el('p', { class: 'form-errors', role: 'alert', hidden: true }); }
@@ -46,7 +55,11 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
           commands.push({ name: 'Usar ' + layer.name, detail: 'Trocar a camada em uso', action: () => selectLayer(layer.id) });
           for (const binding of layer.bindings) commands.push({ name: binding.name, key: binding.key, detail: layer.name + ' · Editar ação', action: () => editBinding(layer.id, binding.id) });
         }
-        const matches = commands.filter(item => (item.name + ' ' + item.detail + ' ' + (item.key || '')).toLocaleLowerCase().includes(query));
+        const matches = commands.filter(item => {
+          const key = item.key || '';
+          const labels = key.replaceAll('CommandOrControl', 'Ctrl Cmd ⌘').replaceAll('Control', 'Ctrl').replaceAll('Command', 'Cmd ⌘').replaceAll('Super', 'Win ⌘').replaceAll('Space', 'Espaço');
+          return (item.name + ' ' + item.detail + ' ' + key + ' ' + labels).toLocaleLowerCase().includes(query);
+        });
         results.replaceChildren(...matches.slice(0, 40).map(item => button(item.name, () => choose(item.action), 'quiet command-result', { title: item.detail })));
         [...results.children].forEach((row, index) => { const item = matches[index]; row.append(el('small', {}, item.detail), item.key ? shortcut(item.key, state.platform) : null); });
         count.textContent = !matches.length ? 'Nenhum resultado. Tente o nome de uma camada ou uma tecla.' : matches.length > 40 ? 'Mostrando 40 de ' + matches.length + '. Refine sua busca.' : matches.length + ' resultado(s)';
@@ -55,7 +68,7 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
       node.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           const rows = [...results.querySelectorAll('button')]; if (!rows.length) return;
-          event.preventDefault(); const index = rows.indexOf(document.activeElement); rows[(index + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length].focus();
+          event.preventDefault(); const index = rows.indexOf(document.activeElement); const next = index < 0 ? event.key === 'ArrowDown' ? 0 : rows.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length; rows[next].focus();
         } else if (event.key === 'Enter' && document.activeElement === search.input) { event.preventDefault(); results.querySelector('button')?.click(); }
       });
       content.append(search.wrapper, results, count); update(); search.input.focus();
@@ -80,60 +93,97 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
       const rows = preview.layers.map(layer => {
         const selected = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Importar ' + layer.name });
         const target = field('import-target-' + layer.id, 'Destino de ' + layer.name, '', { choices: [['', 'Criar nova camada'], ...getState().config.layers.map(item => [item.id, 'Mesclar em ' + item.name])] });
-        const row = el('div', { class: 'import-layer-row' }, el('label', {}, selected, el('span', {}, el('strong', {}, layer.name), el('small', {}, layer.count + (layer.count === 1 ? ' ação' : ' ações')), el('span', { class: 'import-key-preview' }, (layer.keys || []).map(key => shortcut(key, getState().platform))), layer.dependencies?.length ? el('small', {}, 'Também requer: ' + layer.dependencies.map(id => preview.layers.find(item => item.id === id)?.name || id).join(', ')) : null)), target.wrapper);
+        const keys = layer.keys || [];
+        const keyPreview = el('div', { class: 'import-key-preview' }, keys.slice(0, 4).map(key => shortcut(key, getState().platform)));
+        const more = keys.length > 4 ? el('details', { class: 'import-key-details' }, el('summary', {}, 'Ver mais ' + (keys.length - 4) + ' atalhos')) : null;
+        more?.addEventListener('toggle', () => { if (more.open && !more.dataset.loaded) { more.dataset.loaded = 'true'; more.append(el('div', { class: 'import-key-preview' }, keys.slice(4).map(key => shortcut(key, getState().platform)))); } });
+        const row = el('div', { class: 'import-layer-row' }, el('div', { class: 'import-layer-copy' }, el('label', {}, selected, el('span', {}, el('strong', {}, layer.name), el('small', {}, layer.count + (layer.count === 1 ? ' ação' : ' ações')))), keyPreview, more,
+          layer.dependencies?.length ? el('small', {}, 'Também requer: ' + layer.dependencies.map(id => preview.layers.find(item => item.id === id)?.name || id).join(', ')) : null), target.wrapper);
         selected.addEventListener('change', () => { target.input.disabled = !selected.checked; invalidate(); }); target.input.addEventListener('change', invalidate);
         return { layer, selected, target, row };
       });
       const resolution = field('import-resolution', 'Se a tecla e o momento já existirem', 'skip', { choices: [['skip', 'Manter a ação existente'], ['replace', 'Substituir pela ação importada']], hint: 'Substituir altera somente os conflitos identificados na revisão.' });
-      const review = el('div', { class: 'import-review', role: 'status', hidden: true }); let plan;
+      const review = el('div', { class: 'import-review', hidden: true }); let plan; let planVersion = 0;
       const apply = button('Adicionar camadas', () => void run(apply, errors, async () => {
         if (!plan) throw new Error('Revise as alterações antes de adicionar.');
         const oldIds = new Set(getState().config.layers.map(layer => layer.id));
-        const next = await api.applyLayerImport(plan.planId); const destinationId = next.config.layers.find(layer => !oldIds.has(layer.id))?.id || rows.find(row => row.selected.checked)?.target.input.value;
-        applyState(next, { layerId: destinationId }); node.close(); notify('Camadas adicionadas. As ações estão pausadas.');
-      }), 'primary', { disabled: true });
-      function invalidate() { plan = null; apply.disabled = true; review.hidden = true; }
+        setApplying(true);
+        try {
+          const next = await api.applyLayerImport(plan.planId); const destinationId = next.config.layers.find(layer => !oldIds.has(layer.id))?.id || rows.find(row => row.selected.checked)?.target.input.value;
+          applyState(next, { layerId: destinationId }); node.close(); notify('Camadas adicionadas. As ações estão pausadas.');
+        } catch (error) { invalidate(); throw error; }
+        finally { setApplying(false); }
+      }), 'primary', { disabled: true, 'data-locked': 'true' });
+      function invalidate() { ++planVersion; plan = null; apply.disabled = true; apply.dataset.locked = 'true'; review.hidden = true; }
       resolution.input.addEventListener('change', invalidate);
       const prepare = button('Revisar alterações', () => void run(prepare, errors, async () => {
+        invalidate(); const version = planVersion;
         const layers = rows.filter(row => row.selected.checked).map(({ layer, target }) => ({ id: layer.id, ...(target.input.value ? { targetId: target.input.value } : {}) }));
         if (!layers.length) throw new Error('Selecione pelo menos uma camada.');
-        plan = await api.planLayerImport(preview.token, { layers, resolution: resolution.input.value });
-        if (!node.isConnected) return;
+        const result = await api.planLayerImport(preview.token, { layers, resolution: resolution.input.value });
+        if (!node.isConnected || version !== planVersion) return;
+        plan = result;
         const entries = typeof plan.summary === 'string' ? [plan.summary] : Object.entries(plan.summary || {}).map(([key, value]) => ({ layersAdded: 'Novas camadas', layersMerged: 'Camadas mescladas', bindingsAdded: 'Ações adicionadas', bindingsReplaced: 'Ações substituídas', bindingsSkipped: 'Ações mantidas', layers: 'Camadas', bindings: 'Ações' }[key] || key) + ': ' + value);
-        review.replaceChildren(el('h3', {}, 'Revisão'), ...entries.map(line => el('p', {}, line)), el('p', {}, (plan.conflicts?.length || 0) + ' conflito(s) de tecla e momento.'));
+        review.replaceChildren(el('h3', {}, 'Revisão'), ...entries.map(line => el('p', {}, line)), el('p', { role: 'status' }, (plan.conflicts?.length || 0) + ' conflito(s) de tecla e momento.'));
         if (plan.conflicts?.length) review.append(el('ul', {}, plan.conflicts.map(conflict => el('li', {}, typeof conflict === 'string' ? conflict : [conflict.layerName || conflict.layer, conflict.key, conflict.name || conflict.bindingName, conflict.trigger, conflict.reason].filter(Boolean).join(' · ')))));
-        review.hidden = false; apply.disabled = false;
+        review.hidden = false; apply.dataset.locked = 'false'; apply.disabled = false;
       }));
+      const restart = button(templateId ? 'Recomeçar revisão' : 'Escolher outro arquivo', () => { node.close(); void openImport(templateId); }, 'quiet');
+      function setApplying(busy) {
+        content.setAttribute('aria-busy', String(busy)); prepare.disabled = busy; restart.disabled = busy; resolution.input.disabled = busy;
+        for (const row of rows) { row.selected.disabled = busy; row.target.input.disabled = busy || !row.selected.checked; }
+        apply.querySelector('span').textContent = busy ? 'Adicionando camadas…' : 'Adicionar camadas';
+      }
       content.prepend(el('div', { class: 'import-layer-list' }, rows.map(row => row.row)), resolution.wrapper,
         el('p', { class: 'context-note' }, 'A cópia portátil remove headers HTTP e associações com aplicativos. Reconfigure credenciais e associações depois de importar.' + (preview.removedHeaders ? ' Headers removidos: ' + preview.removedHeaders + '.' : '') + (preview.removedApplications ? ' Associações removidas: ' + preview.removedApplications + '.' : '')),
-        review, el('div', { class: 'dialog-actions' }, prepare, apply));
+        review, el('div', { class: 'dialog-actions' }, restart, prepare, apply));
     } catch (error) { loading.remove(); errors.textContent = error.message || String(error); errors.hidden = false; }
   }
   async function openWizard() {
     guard(async () => {
       const { node, content } = dialog('Primeiros passos', 'Prepare o teclado com as ações pausadas.', 'setup-dialog');
       const initialTracking = getState().tracking.enabled;
-      let step = Math.min(readProgress(), 2); let trackingStarted = false; let lastKey = ''; let unsubscribe; let unsubscribeState;
+      let step = Math.min(readProgress(), 2); let trackingStarted = false; let trackingRequest; let lastKey = ''; let unsubscribe; let unsubscribeState;
       const errors = errorBox();
-      node.addEventListener('close', () => { unsubscribe?.(); unsubscribeState?.(); if (trackingStarted && !initialTracking) void api.setTracking(false).catch(() => {}); });
+      node.addEventListener('close', () => { unsubscribe?.(); unsubscribeState?.(); if (!initialTracking && (trackingStarted || trackingRequest)) void api.setTracking(false).catch(() => {}); });
       try { if (getState().enabled) applyState(await api.setEnabled(false)); }
       catch (error) { errors.textContent = error.message; errors.hidden = false; }
+      if (!node.isConnected) return;
+      async function moveTo(next) {
+        if (step === 1 && next !== 1 && !initialTracking && trackingStarted) { await api.setTracking(false); trackingStarted = false; }
+        if (!node.isConnected) return; step = next; remember(step); draw();
+      }
       function draw() {
         content.replaceChildren(el('ol', { class: 'setup-progress', 'aria-label': 'Etapas' }, ['Permissões', 'Testar teclado', 'Primeira ação'].map((label, index) => el('li', { 'aria-current': index === step ? 'step' : undefined, class: index === step ? 'current' : '' }, (index + 1) + '. ' + label))));
         const state = getState();
         if (step === 0) {
           content.append(el('h3', {}, 'Permitir a observação das teclas'), el('p', {}, state.session === 'wayland' ? 'No Wayland, habilite o componente Linux e autorize pelo sistema. A integração não ativa ações.' : state.platform === 'darwin' ? 'Autorize o Dobra em Privacidade e Segurança → Monitoramento de Entrada. Reinicie o aplicativo após conceder a permissão. Acessibilidade pode ser necessária para a detecção opcional de aplicativos.' : 'O Dobra observa o teclado sem bloquear a digitação nos outros aplicativos.'), el('p', { class: 'context-note' }, state.linuxInput?.supported ? state.linuxInput.message : state.input?.message || 'O teste da próxima etapa confirma a disponibilidade da entrada.'));
-          if (state.linuxInput?.supported) { const enable = button(state.linuxInput.enabled ? 'Integração habilitada' : 'Habilitar integração Linux', () => void run(enable, errors, async () => { applyState(await api.setLinuxInputEnabled(true)); draw(); }), '', { disabled: state.linuxInput.enabled }); content.append(enable); }
+          if (state.linuxInput?.supported) {
+            const enable = button(state.linuxInput.enabled ? 'Integração habilitada' : 'Habilitar integração Linux', () => void run(enable, errors, async () => {
+              try { const next = await api.setLinuxInputEnabled(true); if (node.isConnected) { applyState(next); draw(); } }
+              catch {
+                let next = getState(); try { next = await api.getState(); } catch { /* Retain the last contextual status. */ }
+                if (node.isConnected) { applyState(next); draw(); }
+                throw new Error(next.linuxInput?.message || 'Não foi possível habilitar a integração Linux. Confira a instalação do componente.');
+              }
+            }), '', { disabled: state.linuxInput.enabled });
+            const installation = createLinuxInstallHelp({ api, onError: message => { errors.textContent = message; errors.hidden = false; } });
+            installation.update(state.linuxInput); content.append(enable, installation.node);
+          }
         } else if (step === 1) {
           const status = el('p', { id: 'setup-key-status', class: 'setup-key-status', role: 'status' }, lastKey || 'O teste ainda não começou.');
           const test = button(trackingStarted ? 'Teste em andamento' : 'Iniciar teste de uma tecla', () => void run(test, errors, async () => {
             if (getState().enabled) applyState(await api.setEnabled(false));
-            applyState(await api.setTracking(true)); trackingStarted = true; status.textContent = getState().tracking.mode === 'global' ? 'Pressione uma tecla, inclusive fora desta janela.' : getState().tracking.mode === 'starting' ? 'Preparando a observação global…' : 'Entrada global indisponível. Uma tecla nesta janela confirma apenas a detecção local.'; test.dataset.locked = 'true'; test.querySelector('span').textContent = 'Teste em andamento';
+            if (!node.isConnected) return; lastKey = '';
+            trackingRequest = api.setTracking(true);
+            const next = await trackingRequest;
+            if (!node.isConnected) { if (!initialTracking) await api.setTracking(false); return; }
+            applyState(next); trackingStarted = true; status.textContent = getState().tracking.mode === 'global' ? 'Pressione uma tecla, inclusive fora desta janela.' : getState().tracking.mode === 'starting' ? 'Preparando a observação global…' : 'Entrada global indisponível. Uma tecla nesta janela confirma apenas a detecção local.'; test.dataset.locked = 'true'; test.querySelector('span').textContent = 'Teste em andamento';
           }), '', { disabled: trackingStarted });
           content.append(el('h3', {}, 'Confirmar a detecção'), el('p', {}, 'O teste não dispara ações. A tecla detectada aparece só aqui e não é salva.'), test, status);
         } else content.append(el('h3', {}, 'Criar sua primeira ação'), el('p', {}, 'Escolha um modelo, revise as camadas e personalize a tecla e o destino antes de ativar.'), button('Escolher um modelo', () => { node.close(); void openLibrary(); }, 'primary', { symbol: 'layers' }));
-        content.append(errors, el('div', { class: 'dialog-actions' }, step ? button('Voltar', () => { step--; remember(step); draw(); }) : null,
-          button(step === 2 ? 'Concluir assistente' : 'Continuar', () => { if (step === 2) { remember(3); node.close(); } else { step++; remember(step); draw(); } }, step === 2 ? '' : 'primary')));
+        content.append(errors, el('div', { class: 'dialog-actions' }, step ? button('Voltar', event => void run(event.currentTarget, errors, () => moveTo(step - 1))) : null,
+          button(step === 2 ? 'Concluir assistente' : 'Continuar', event => void run(event.currentTarget, errors, async () => { if (step === 2) { remember(3); node.close(); } else await moveTo(step + 1); }), step === 2 ? '' : 'primary')));
       }
       const detected = event => { if (step !== 1 || !trackingStarted || event.reset || event.direction !== 'down') return; lastKey = 'Tecla detectada: ' + (event.key || event.code); const status = node.querySelector('#setup-key-status'); if (status) status.textContent = lastKey; };
       unsubscribe = api.onKey(detected);

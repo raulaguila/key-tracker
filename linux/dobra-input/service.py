@@ -12,6 +12,8 @@ from gi.repository import Gio, GLib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evdev import Devices, MODIFIERS
 
+MAX_FRAME_BYTES = 65536
+
 NAME, PATH, INTERFACE = "io.dobra.Input1", "/io/dobra/Input1", "io.dobra.Input1"
 XML = '''<node><interface name="io.dobra.Input1">
 <method name="Version"><arg type="u" direction="out"/></method>
@@ -108,7 +110,10 @@ class Session:
         try:
             # Bounded kernel queue; a slow/disconnected client loses the session,
             # never a silently dropped keyup or an unbounded event buffer.
-            self.stream.send(json.dumps(event, separators=(",", ":")).encode("ascii"))
+            payload = json.dumps(event, separators=(",", ":")).encode("ascii")
+            if len(payload) > MAX_FRAME_BYTES:
+                raise OSError("Input frame exceeds limit")
+            self.stream.send(payload)
         except OSError:
             self.service.end(self.owner, "connection-lost")
 
@@ -217,7 +222,7 @@ class Service:
                     raise ValueError("Session changed during authorization")
                 server, client = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET | socket.SOCK_CLOEXEC)
                 server.setblocking(False)
-                server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 16384)
+                server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, MAX_FRAME_BYTES)
                 session = Session(self, owner, identity, server, keys, visual, observe, selected_id)
                 self.sessions[owner] = session
                 try:

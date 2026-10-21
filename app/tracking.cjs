@@ -114,6 +114,9 @@ class Tracker {
     const deviceState = this.integration()?.deviceState?.() || { supported: false, devices: [], selectedId: this.engine.config.settings.inputDeviceId || '', status: 'unsupported', message: 'O backend X11 padrão observa todos os teclados. Habilite a integração Linux para selecionar um dispositivo.' };
     const devicesChanged = JSON.stringify(this.engine.inputDevices) !== JSON.stringify(deviceState);
     this.engine.inputDevices = deviceState;
+    // A request made while the selected source is absent must not spring to
+    // life when it reconnects; activation is explicit after availability.
+    if (this.engine.enabled && ['missing', 'waiting'].includes(deviceState.status)) this.engine.setEnabled(false);
     const nativeMode = integration ? integration.status === 'global' ? 'global' : integration.status === 'authorizing' ? 'starting' : 'local' : this.worker ? this.workerMode : 'local';
     const visualMode = !this.visualEnabled ? 'off' : nativeMode;
     const tracking = {

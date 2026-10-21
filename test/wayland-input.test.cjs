@@ -118,3 +118,23 @@ test('catálogo Linux preserva nomes Unicode divididos entre buffers UTF-8',asyn
  child.stdout.write(frame.subarray(0,split));child.stdout.write(frame.subarray(split));
  assert.deepEqual(input.deviceState().devices,[{id,name}]);assert.equal(input.state().status,'global');
 });
+
+test('catálogo aceita o limite do serviço Linux em caracteres Unicode, inclusive fora do BMP',async t=>{
+ const {input,connect}=fixture(t);const child=await connect('global');const id='linux:'+'1'.repeat(40),name='😀'.repeat(120);
+ child.frame({type:'devices',selectedId:'',devices:[{id,name}]});
+ assert.equal(input.state().status,'global');assert.deepEqual(input.deviceState().devices,[{id,name}]);
+});
+
+test('filtro Linux respeita painel explicitamente desligado e padrão legado com colisão',async t=>{
+ for(const legacyCollision of [false,true]){
+  const {input,connect}=fixture(t);const config=defaultConfig();
+  if(legacyCollision){
+   delete config.settings.panelShortcut;
+   config.layers[0].bindings[0].key='CommandOrControl+Shift+Space';
+   config.layers[0].bindings[0].enabled=false;
+  }else config.settings.panelShortcut='';
+  input.update({config,observe:true,visual:false});const child=await connect();
+  const sent=JSON.parse(child.stdin.read().toString().trim());
+  assert.equal(sent.keys.includes(linuxCode('Space')),false,'painel indisponível não acrescenta Space ao filtro');
+ }
+});

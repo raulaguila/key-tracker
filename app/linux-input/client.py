@@ -6,6 +6,8 @@ import re
 import socket
 import sys
 
+MAX_FRAME_BYTES = 65536
+
 
 def emit(event):
     sys.stdout.write(json.dumps(event, separators=(",", ":")) + "\n")
@@ -83,7 +85,9 @@ def main():
         try:
             for _ in range(128):
                 try:
-                    raw = stream.recv(4096)
+                    raw, _ancillary, flags, _address = stream.recvmsg(MAX_FRAME_BYTES)
+                    if flags & (socket.MSG_TRUNC | socket.MSG_CTRUNC):
+                        raise ValueError("Input frame exceeds limit")
                 except BlockingIOError:
                     break
                 if not raw:

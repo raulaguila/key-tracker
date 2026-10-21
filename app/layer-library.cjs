@@ -1,7 +1,6 @@
 const { randomUUID } = require('node:crypto');
-const { validateConfig, defaultConfig, effectiveShortcut } = require('./config.cjs');
+const { validateConfig, defaultConfig, effectiveShortcut, getPanelShortcut, shortcutPosition } = require('./config.cjs');
 const { exportConfigSafe } = require('./storage.cjs');
-const { referenceCode } = require('./passive-shortcuts.cjs');
 
 const templates = [
   { id: 'notes', name: 'Notas rápidas', description: 'Criar uma nota em Documentos/Dobra com data e hora.', layer: {
@@ -39,17 +38,17 @@ function importDescription(source) {
   return source.layers.map(layer => ({ id: layer.id, name: layer.name, count: layer.bindings.length,
     keys: layer.bindings.map(binding => binding.key), dependencies: dependencies(layer) }));
 }
-function physical(binding, platform) {
-  const effective = effectiveShortcut(binding.key, platform).split('+');
-  const key = effective.pop();
-  const code = binding.keyCode || referenceCode(key);
-  const modifiers = new Set(effective.map(value => ['Command', 'Super'].includes(value) ? 'Meta' : value));
-  return { code, modifiers: ['Control', 'Alt', 'Shift', 'Meta'].filter(value => modifiers.has(value)).join('+') };
+function signature(binding, platform, cache) {
+  if (cache.has(binding)) return cache.get(binding);
+  const position = shortcutPosition(binding.key, binding.keyCode, platform);
+  const result = { effective: effectiveShortcut(binding.key, platform), position, code: position.split(':').at(-1) };
+  cache.set(binding, result);
+  return result;
 }
-function collides(a, b, platform) {
-  const sameKey = effectiveShortcut(a.key, platform) === effectiveShortcut(b.key, platform);
-  const pa = physical(a, platform), pb = physical(b, platform);
-  const samePosition = pa.code && pa.code === pb.code && pa.modifiers === pb.modifiers;
+function collides(a, b, platform, cache) {
+  const pa = signature(a, platform, cache), pb = signature(b, platform, cache);
+  const sameKey = pa.effective === pb.effective;
+  const samePosition = pa.position === pb.position;
   if (sameKey && pa.code !== pb.code) return true;
   if (samePosition && !sameKey) return true;
   return (sameKey || samePosition) && (a.trigger || 'press') === (b.trigger || 'press');
@@ -74,16 +73,19 @@ function planLayerImport(current, source, options, platform = process.platform) 
     config.layers.push({ ...structuredClone(layer), id: idMap.get(layer.id), applications: [], bindings: [] });
     summary.layersAdded++;
   } else summary.layersMerged++;
-  const reserved = [config.settings.layerShortcut, config.settings.pauseShortcut, config.settings.panelShortcut || 'CommandOrControl+Shift+Space', config.settings.momentaryShortcut].filter(Boolean).map(key => effectiveShortcut(key, platform));
-  const conflicts = [];
+  const controls = [config.settings.layerShortcut, config.settings.pauseShortcut, getPanelShortcut(config, platform), config.settings.momentaryShortcut].filter(Boolean);
+  const reserved = controls.map(key => effectiveShortcut(key, platform));
+  const positions = new Set(controls.map(key => shortcutPosition(key, undefined, platform)));
+  const conflicts = [], signatures = new WeakMap();
   for (const selection of options.layers) {
     const original = source.layers.find(layer => layer.id === selection.id);
     const target = config.layers.find(layer => layer.id === idMap.get(original.id));
     for (const item of original.bindings) {
       const binding = { ...structuredClone(item), id: randomUUID() };
       for (const action of actionsOf(binding)) if (action.type === 'layer') action.layerId = idMap.get(action.layerId);
-      const existing = target.bindings.filter(other => collides(binding, other, platform));
-      const control = reserved.includes(effectiveShortcut(binding.key, platform));
+      const existing = target.bindings.filter(other => collides(binding, other, platform, signatures));
+      const incoming = signature(binding, platform, signatures);
+      const control = reserved.includes(incoming.effective) || positions.has(incoming.position);
       if (control || existing.length) {
         conflicts.push({ layerId: original.id, layerName: original.name, bindingId: item.id, key: item.key, trigger: item.trigger || 'press', reason: control ? 'Atalho reservado por um controle do Dobra.' : 'A combinação ou posição física já possui ação neste momento.' });
         if (control || options.resolution === 'skip') { summary.bindingsSkipped++; continue; }
@@ -103,7 +105,7 @@ function exportLayerConfig(config, layerId, platform = process.platform) {
   function visit(id) { if (selected.has(id)) return; selected.add(id); dependencies(config.layers.find(layer => layer.id === id)).forEach(visit); }
   visit(layerId);
   const settings = { layerShortcut: config.settings.layerShortcut, pauseShortcut: config.settings.pauseShortcut, cooldownMs: config.settings.cooldownMs, autoSwitchLayers: false, closeToTray: false,
-    ...(config.settings.panelShortcut ? { panelShortcut: config.settings.panelShortcut } : {}) };
+    ...(config.settings.panelShortcut !== undefined ? { panelShortcut: config.settings.panelShortcut } : {}) };
   return portableLayers({ version: 1, settings, layers: config.layers.filter(layer => selected.has(layer.id)) }, platform).config;
 }
 module.exports = { listTemplates, templateConfig, portableLayers, importDescription, planLayerImport, exportLayerConfig };

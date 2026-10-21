@@ -54,6 +54,11 @@ class NativeInput extends EventEmitter {
   retry() { this.failure = false; if (this.observe && !this.child && !this.disposed) this.start(); }
   mode() { return this.selectedId && !this.devices.some(device => device.id === this.selectedId) ? 'missing' : this.devices.length ? 'global' : 'waiting'; }
   reset() { this.held.clear(); this.emit('reset', []); }
+  blockedModifier() {
+    const modifier = code => /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(code);
+    return [...this.initialBlocked].some(modifier) || [...this.blocked].some(([id, codes]) =>
+      (!this.selectedId || this.selectedId === id) && [...codes].some(modifier));
+  }
   blockObserved() {
     for (const [id, codes] of this.observed) if (!this.selectedId || this.selectedId === id) {
       const blocked = this.blocked.get(id) || new Set();
@@ -86,7 +91,10 @@ class NativeInput extends EventEmitter {
   }
   receive(event) {
     if (event.type === 'ready' && Number.isFinite(event.monotonicMs)) {
-      this.offset = this.now() - event.monotonicMs; clearTimeout(this.timer); this.publish(this.mode()); return;
+      // Helpers use the same OS counter as libuv hrtime; never recalibrate
+      // an already queued ready/key stream into apparently fresh input.
+      if (Math.abs(this.now() - event.monotonicMs) > 1000) { this.fail(); return; }
+      this.offset = 0; clearTimeout(this.timer); this.publish(this.mode()); return;
     }
     if (event.type === 'devices' && Array.isArray(event.devices) && event.devices.length <= 32) {
       const raw = new Map();
@@ -132,11 +140,19 @@ class NativeInput extends EventEmitter {
     observed[event.down ? 'add' : 'delete'](code); this.observed.set(device.id, observed);
     const blocked = this.blocked.get(device.id);
     if (this.initialBlocked.has(code) || blocked?.has(code)) {
-      if (!event.down) { this.initialBlocked.delete(code); blocked?.delete(code); }
+      if (!event.down) {
+        if (event.globallyDown === false) this.initialBlocked.delete(code);
+        blocked?.delete(code);
+      }
       return;
     }
     if (this.selectedId && device.id !== this.selectedId) return;
     if (this.status !== 'global') return;
+    if (event.down && this.blockedModifier()) {
+      const suppressed = this.blocked.get(device.id) || new Set();
+      suppressed.add(code); this.blocked.set(device.id, suppressed);
+      return;
+    }
     const keys = this.held.get(device.id) || new Set(); this.held.set(device.id, keys);
     if (keys.has(code) === event.down) return;
     keys[event.down ? 'add' : 'delete'](code);

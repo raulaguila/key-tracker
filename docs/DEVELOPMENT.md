@@ -147,3 +147,10 @@ Provas de catálogo/importação ficam em `test/layer-library.test.cjs` e
 `test/product-services.test.cjs`. Testes de sequência, undo e controles cobrem
 invariantes no motor; o smoke de produtividade verifica a integração real no
 Electron. Nenhuma prova sintética certifica teclados físicos ou permissões do SO.
+
+A auditoria acrescenta regressões `*-productivity-audit`, `layer-library-audit` e
+`scripts/productivity-audit-ui.cjs`, executado pela suíte UI. Para iterar somente
+essa superfície, use `DOBRA_UI_PRODUCTIVITY_ONLY=1 DOBRA_UI_AUDIT_ONLY=1 npm run test:ui`
+em sessão gráfica isolada. `node scripts/productivity-performance.cjs` mede cinco
+amostras de mescla/replace de 1.960 ações válidas; não define um SLA nem compara SOs.
+O self-test dos helpers também verifica a origem do relógio sem capturar entrada.

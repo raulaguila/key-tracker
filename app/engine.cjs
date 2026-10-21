@@ -1,7 +1,7 @@
 const { EventEmitter } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
-const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity, DEFAULT_PANEL_SHORTCUT } = require('./config.cjs');
+const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity, DEFAULT_PANEL_SHORTCUT, getPanelShortcut, shortcutPosition } = require('./config.cjs');
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, validateFileTargets } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const { PassiveShortcuts } = require('./passive-shortcuts.cjs');
@@ -26,6 +26,7 @@ class Engine extends EventEmitter {
     this.storage = storage;
     this.documents = documents;
     this.platform = platform;
+    this.panelShortcut = getPanelShortcut(this.config, platform);
     this.session = session;
     this.execute = execute;
     this.desktopActions = desktopActions;
@@ -68,7 +69,7 @@ class Engine extends EventEmitter {
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state({ sharedConfig = false } = {}) {
-    const snapshot = structuredClone({ stopping: this.stopping, configHistory: { canUndo: this.undoStack.length > 0, canRedo: this.redoStack.length > 0 }, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, inputDevices: this.inputDevices, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
+    const snapshot = structuredClone({ stopping: this.stopping, configHistory: { canUndo: this.undoStack.length > 0, canRedo: this.redoStack.length > 0 }, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { panelShortcut: this.panelShortcut, registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, inputDevices: this.inputDevices, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
     if (sharedConfig && this.snapshotConfig?.revision !== this.configRevision) this.snapshotConfig = { revision: this.configRevision, value: freezeTree(structuredClone(this.config)) };
     snapshot.config = sharedConfig ? this.snapshotConfig.value : structuredClone(this.config);
     return snapshot;
@@ -187,6 +188,7 @@ class Engine extends EventEmitter {
     const contextRules = value => JSON.stringify([value.settings.autoSwitchLayers, value.layers.map(layer => [layer.id, layer.applications])]);
     const contextChanged = contextRules(this.config) !== contextRules(valid);
     this.config = valid;
+    this.panelShortcut = getPanelShortcut(valid, this.platform);
     this.inputGroupCache.clear();
     if (serialized !== this.serializedConfig) this.configRevision++;
     this.serializedConfig = serialized;
@@ -219,9 +221,11 @@ class Engine extends EventEmitter {
   syncShortcuts() {
     const desired = new Map();
     const unavailable = new Map();
+    const controls = [this.config.settings.pauseShortcut, this.config.settings.layerShortcut, this.config.settings.momentaryShortcut, this.panelShortcut].filter(Boolean);
+    const controlPositions = new Set(controls.map(key => shortcutPosition(key, undefined, this.platform)));
     if (this.armed || this.panelArmed) {
-      const panel = this.config.settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT;
-      desired.set(effectiveShortcut(panel, this.platform), panel);
+      if (this.panelShortcut) desired.set(effectiveShortcut(this.panelShortcut, this.platform), this.panelShortcut);
+      else if (this.config.settings.panelShortcut === undefined) unavailable.set('control:panel', { key: DEFAULT_PANEL_SHORTCUT, message: 'O atalho padrão do painel foi desativado por conflito. O botão do painel continua disponível.' });
     }
     if (this.armed) {
       const pause = this.config.settings.pauseShortcut;
@@ -234,7 +238,9 @@ class Engine extends EventEmitter {
         const inputGroups = new Set(this.inputGroups().map(group => group.effective));
         for (const binding of this.activeLayer.bindings) if (binding.enabled) {
           const effective = effectiveShortcut(binding.key, this.platform);
-          if (inputGroups.has(effective) && this.input.mode !== 'global') {
+          if (binding.keyCode && controlPositions.has(shortcutPosition(binding.key, binding.keyCode, this.platform))) {
+            unavailable.set(effective, { key: binding.key, message: 'A posição física desta ação coincide com a posição de um controle. Capture outra combinação.' });
+          } else if (inputGroups.has(effective) && this.input.mode !== 'global') {
             unavailable.set(effective, { key: binding.key, message: this.input.mode === 'unavailable' ? 'Observação global indisponível neste ambiente.' : 'Aguardando observação global desta combinação.' });
           } else desired.set(effective, binding.key);
         }
@@ -259,7 +265,7 @@ class Engine extends EventEmitter {
 
   handleShortcut(effective) {
     const settings = this.config.settings;
-    if (effective === effectiveShortcut(settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, this.platform)) {
+    if (this.panelShortcut && effective === effectiveShortcut(this.panelShortcut, this.platform)) {
       if (!this.disposed && !this.stopping && this.input.mode === 'global' && (this.armed || this.panelArmed)) this.emit('quick-panel');
       return;
     }
@@ -297,7 +303,7 @@ class Engine extends EventEmitter {
   needsInput() {
     // Keep observing releases and the pause/resume control after activation,
     // including press-only configurations. Visual tracking is independent.
-    return (this.armed || this.panelArmed) && !this.disposed;
+    return (this.armed || this.panelArmed && Boolean(this.panelShortcut)) && !this.disposed;
   }
 
   inputGroups() {
@@ -337,7 +343,7 @@ class Engine extends EventEmitter {
     const shortcut = !this.disposed && this.input.mode === 'global' ? this.shortcutsAPI.observe?.(event) : null;
     const settings = this.config.settings;
     const momentary = shortcut && settings.momentaryShortcut && effectiveShortcut(settings.momentaryShortcut, this.platform) === shortcut.effective;
-    const control = shortcut && [settings.pauseShortcut, settings.layerShortcut, settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, ...(settings.momentaryShortcut ? [settings.momentaryShortcut] : [])].some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
+    const control = shortcut && [settings.pauseShortcut, settings.layerShortcut, this.panelShortcut, settings.momentaryShortcut].filter(Boolean).some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
     // Controls take priority even over a conflicting imported physical position.
     // Resolve the shortcut before a gesture can change layers on this same event.
     if (momentary) {

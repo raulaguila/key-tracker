@@ -41,6 +41,8 @@ sem escrever scripts ou editar JSON. A interface é em português.
 - Escolha de teclado por identidade real em backends compatíveis, sem misturar o dispositivo não selecionado.
 - Sequências com condições, resultados HTTP efêmeros e espera individual por etapa.
 - Desfazer/refazer até dez alterações de configuração na sessão, sem reverter efeitos externos.
+- Aguardar a suspensão antes de aceitar edição, preservar o foco em atualizações
+  e impedir retomada silenciosa quando um teclado ausente reaparece.
 
 ## Distribuição e qualidade
 

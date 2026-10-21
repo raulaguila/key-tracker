@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs/promises');
 module.exports = async ({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate }) => {
+  if (process.env.DOBRA_UI_LINUX_INSTALL_ONLY === '1') return require('./linux-install-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
+  if (process.env.DOBRA_UI_AUDIT_ONLY === '1') return require('./productivity-audit-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
   const before = await nativeState();
   const config = structuredClone(before.config);
   delete config.settings.momentaryShortcut; delete config.settings.momentaryLayerId; delete config.settings.inputDeviceId;
@@ -126,6 +128,8 @@ module.exports = async ({ cdp, evaluate, click, fill, select, until, nativeState
     await click('#confirm-dialog .danger-solid');
     await until('!(await window.dobra.getState()).config.settings.momentaryLayerId', 'Removing target clears momentary pair');
     assert.equal((await nativeState()).config.settings.momentaryShortcut, undefined);
+    await require('./linux-install-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
+    await require('./productivity-audit-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
     console.log('Productivity expansion UI passed: palette edit/navigation, models/import/new-layer selection, merge/conflict skip, undo/redo, momentary/panel preferences, device capability, resumable paused setup, dynamic preview without I/O, HTTP result/condition/delays, skipped step, privacy, quick panel and themes.');
   } finally {
     await evaluate('document.querySelector(".productivity-dialog")?.close();document.querySelector("#editor-drawer")?.close();await window.dobra.setTracking(false);await window.dobra.saveConfig(' + JSON.stringify(before.config) + ');window.dobraAppearance.set("light");localStorage.removeItem("dobra.setup-progress");');

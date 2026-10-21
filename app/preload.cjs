@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('dobra', {
   chooseApplication: () => ipcRenderer.invoke('dobra:choose-application'),
   chooseActionTarget: kind => ipcRenderer.invoke('dobra:choose-action-target', kind),
   getTemplates: () => ipcRenderer.invoke('dobra:get-templates'),
+  openLinuxDownload: () => ipcRenderer.invoke('dobra:open-linux-download'),
+  openLinuxInstaller: () => ipcRenderer.invoke('dobra:open-linux-installer'),
   previewLayerImport: templateId => ipcRenderer.invoke('dobra:preview-layer-import', templateId),
   planLayerImport: (token, options) => ipcRenderer.invoke('dobra:plan-layer-import', token, options),
   applyLayerImport: planId => invokeState('apply-layer-import', planId),

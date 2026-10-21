@@ -11,6 +11,7 @@ const { StateDelivery } = require('./state-delivery.cjs');
 const { Tracker } = require('./tracking.cjs');
 const { QuickPanel } = require('./quick-panel.cjs');
 const { registerProductServices } = require('./product-services.cjs');
+const { createLinuxInstall } = require('./linux-install.cjs');
 const { WaylandInput } = require('./wayland-input.cjs');
 const { NativeInput } = require('./input-devices.cjs');
 const { encodeConfig } = require('./config.cjs');
@@ -194,6 +195,9 @@ else {
     handle('cancel-execution', stateResult(bindingId => engine.cancelExecution(bindingId)));
     handle('cancel-all-executions', stateResult(() => engine.requestStop()));
     productServices = registerProductServices({ engine, storage, handle, stateResult, serialConfig, dialog, getWindow: () => window });
+    const linuxInstall = createLinuxInstall({ shell, dialog, getWindow: () => window, beforeInstaller: async () => { await engine.setEnabled(false); tracker.set(false); } });
+    handle('open-linux-download', () => linuxInstall.openDownload());
+    handle('open-linux-installer', () => linuxInstall.openInstaller());
     quickPanel = new QuickPanel({ BrowserWindow, ipcMain, nativeTheme, engine, showMain: showWindow });
     handle('show-quick-panel', () => quickPanel.show());
     handle('hide-quick-panel', () => quickPanel.hide());

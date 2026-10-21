@@ -32,6 +32,16 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 
 ### Ajustes recentes
 
+- Componente Linux ausente/incompatível mostra guia para obter o .deb ou abrir um pacote baixado no instalador do sistema, com ações pausadas e autorização pelo SO.
+
+- Compatibilidade v1 com o novo painel, desativação explícita e conflitos físicos claros.
+- Revisão de importação grande sem normalizar cada combinação repetidamente; revisão pendente invalida ao mudar a seleção.
+- Painel preserva foco, evita atualizações idênticas e indica edição/parada; ocultação durante carga é respeitada.
+- Assistente e formulários aguardam suspensão; fechar durante ativação não deixa rastreio ligado.
+- Captura HTTP em chunks pequenos usa memória limitada e cede o event loop.
+- Baselines de teclado respeitam modificadores/solturas por origem e dispositivo ausente impede ativação.
+- Relógio nativo verificado no build e protocolo Linux recebe catálogos grandes/Unicode sem truncar.
+
 - Janela inicial visível durante a preparação, com ações protegidas e backup diferido.
 - Parada coordenada das ações e gravações, estado “Parando…” e aviso ao exceder a espera de saída.
 - Configuração imutável reutilizada por revisão, progresso visual agrupado e atualizações suspensas quando oculto.

@@ -1,3 +1,4 @@
+import { createLinuxInstallHelp } from './linux-install.js';
 import { createProductivity } from './productivity.js';
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
@@ -34,12 +35,13 @@ let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
 let linuxInputPending = false;
+let linuxInstallHelp;
 const productivity = createProductivity({ api, getState: () => state, applyState: (next, options) => { state = next; editor = null; if (options?.layerId) activateLayerView(options.layerId); render(); },
   guard: callback => void guardNavigation(() => { editor = null; render(); callback(); }),
   editBinding: (layerId, bindingId) => { activateLayerView(layerId); startEditor({ kind: 'binding', value: layerById(layerId).bindings.find(item => item.id === bindingId) }); },
   editLayer: layerId => { activateLayerView(layerId); startEditor({ kind: 'layer', value: layerById(layerId) }); },
   selectLayer: layerId => void perform(async () => { state = await api.setLayer(layerId); render(); }),
-  onModalChange: () => syncEditing(), notify: toast });
+  onModalChange: async () => { syncEditing(); await editingQueue; if (productivity.active && !state.editing) throw new Error('Não foi possível suspender os atalhos. Feche este painel e tente novamente.'); }, notify: toast });
 
 // Visual preferences stay on this computer, separate from exported actions.
 const sidebarPreference = 'dobra.sidebar-collapsed';
@@ -212,6 +214,7 @@ function updateStatus() {
   }
   for (const control of document.querySelectorAll('[data-history]')) control.disabled = !state.configHistory?.[control.dataset.history === 'undo' ? 'canUndo' : 'canRedo'];
   updateDeviceControls();
+  if (linuxInstallHelp?.node.isConnected) linuxInstallHelp.update(state.linuxInput);
   editor?.triggerControls?.setInputState(state.input, state.enabled);
   updateInputStatus();
   if (runningPanel?.node.isConnected) runningPanel.update(state.running);
@@ -226,9 +229,15 @@ function updateStatus() {
   const warning = document.querySelector('#shortcut-warning');
   const failures = state.shortcuts.failed;
   warning.hidden = !failures.length;
-  if (failures.length) warning.replaceChildren(icon('alert'), el('div', {}, el('strong', {}, 'Alguns atalhos estão indisponíveis'),
-    el('p', {}, failures.map(item => item.key).join(', ') + ' · Verifique a entrada global e combinações com a mesma posição de tecla.')),
-    button('Revisar atalhos', () => navigate('settings'), 'small'));
+  if (failures.length) {
+    const messages = [...new Set(failures.slice(0, 100).map(item => typeof item.message === 'string' ? item.message.replace(/\s+/g, ' ').trim().slice(0, 240) : '').filter(Boolean))];
+    const keys = failures.slice(0, 5).map(item => String(item.key).slice(0, 80)).join(', ');
+    warning.replaceChildren(icon('alert'), el('div', {}, el('strong', {}, 'Alguns atalhos estão indisponíveis'),
+      el('p', {}, keys + (failures.length > 5 ? ' · e mais ' + (failures.length - 5) : '')),
+      ...(messages.length ? messages.slice(0, 3).map(message => el('p', {}, message)) : [el('p', {}, 'Verifique a entrada global e combinações com a mesma posição de tecla.')]),
+      messages.length > 3 ? el('p', {}, 'Há mais ' + (messages.length - 3) + ' motivo(s). Revise os atalhos em Configurações.') : null),
+      button('Revisar atalhos', () => navigate('settings'), 'small'));
+  }
 }
 
 function restoreFocus(key) {
@@ -255,8 +264,16 @@ function render(focusKey) {
   for (const form of main.querySelectorAll('form[data-draft]')) form.dataset.baseline = serializeForm(form);
   const drawer = main.querySelector('#editor-drawer');
   if (drawer) {
+    const content = drawer.firstElementChild;
+    const editingRegions = [...drawer.querySelectorAll('.form-fields, .form-footer')];
+    for (const region of editingRegions) region.inert = true; content.setAttribute('aria-busy', 'true');
     drawer.showModal();
-    (drawer.querySelector('form input') || drawer.querySelector('[data-initial-focus]') || drawer.querySelector('button'))?.focus({ preventScroll: true });
+    void editingQueue.then(() => {
+      if (!drawer.isConnected || !drawer.open) return;
+      if (!state.editing) { toast('Não foi possível suspender os atalhos. Feche o editor e tente novamente.', 'error'); return; }
+      for (const region of editingRegions) region.inert = false; content.removeAttribute('aria-busy');
+      (drawer.querySelector('form input') || drawer.querySelector('[data-initial-focus]') || drawer.querySelector('button'))?.focus({ preventScroll: true });
+    });
     if (editor.kind === 'test') { updateTestPreview(); if (!editor.preview && !editor.loading && !editor.result && !editor.error) void loadTestPreview(); }
   }
   restoreFocus(previousFocus);
@@ -383,7 +400,7 @@ function renderBindingKeyboard(container, layer, matches) {
     const binding = key && layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers && triggerFor(binding) === visualTrigger);
     if (!key) { node.disabled = true; node.title = 'Use “Nova ação” para capturar combinações compatíveis.'; node.setAttribute('aria-label', (node.textContent || code) + ': sem atalho simples compatível'); continue; }
     const value = [visualModifiers, key].filter(Boolean).join('+');
-    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut, state.config.settings.momentaryShortcut, state.config.settings.panelShortcut ?? 'CommandOrControl+Shift+Space'].filter(Boolean).some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
+    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut, state.config.settings.momentaryShortcut, state.shortcuts.panelShortcut ?? (state.config.settings.panelShortcut ?? 'CommandOrControl+Shift+Space')].filter(Boolean).some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
     if (reserved) { node.disabled = true; node.title = 'Reservada para controlar as camadas ou pausar as ações.'; node.setAttribute('aria-label', value + ': reservada para controle'); continue; }
     node.classList.toggle('mapped', Boolean(binding));
     node.classList.toggle('mapped-disabled', binding?.enabled === false);
@@ -1008,7 +1025,7 @@ function renderSettings() {
       el('p', { class: 'hint' }, 'Segure uma combinação para usar outra camada; solte para voltar à anterior.'),
       shortcutField('momentaryShortcut', 'Enquanto segurar', settings.momentaryShortcut || '', 'Opcional. Use uma combinação que não conflite com suas ações.', { required: false }),
       field('momentaryLayerId', 'Camada temporária', settings.momentaryLayerId || '', { choices: [['', 'Desabilitada'], ...state.config.layers.map(layer => [layer.id, layer.name])] }).wrapper,
-      shortcutField('panelShortcut', 'Abrir painel rápido', settings.panelShortcut ?? 'CommandOrControl+Shift+Space', 'Deixe vazio para abrir apenas pelo botão.', { required: false })),
+      shortcutField('panelShortcut', 'Abrir painel rápido', settings.panelShortcut ?? (state.shortcuts.panelShortcut ?? 'CommandOrControl+Shift+Space'), 'Deixe vazio para abrir apenas pelo botão. Em configurações antigas, conflitos desabilitam o atalho padrão; escolha outra combinação.', { required: false })),
     inputDeviceSettings(),
     el('section', { class: 'behavior-settings' }, el('h3', {}, 'Comportamento'),
       checkboxField('autoSwitchLayers', 'Trocar camadas conforme o aplicativo em foco', settings.autoSwitchLayers, 'Associe aplicativos no editor de cada camada. Ao sair, a última camada manual é retomada.'),
@@ -1041,9 +1058,11 @@ function renderSettings() {
   main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
   if (state.linuxInput?.supported) {
     support.open = true;
+    linuxInstallHelp = createLinuxInstallHelp({ api, onError: message => toast(message, 'error') });
+    linuxInstallHelp.update(state.linuxInput);
     support.append(el('p', { class: 'hint' }, 'O sistema solicitará autorização para um componente separado. Ele observa os teclados da sessão local ativa e interrompe a leitura ao bloquear ou trocar de sessão. O Dobra não registra a digitação.'),
       el('p', { id: 'linux-input-status', role: 'status', class: 'application-status' }),
-      button('Habilitar integração Linux', () => void toggleLinuxInput(), '', { id: 'linux-input-toggle' }));
+      button('Habilitar integração Linux', () => void toggleLinuxInput(), '', { id: 'linux-input-toggle' }), linuxInstallHelp.node);
   }
 }
 

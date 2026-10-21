@@ -15,6 +15,19 @@ não bloqueia e não reinjeta eventos.
 3. Confira e autorize a solicitação do Polkit. As ações continuam pausadas.
 4. Ative as ações ou o Rastreio. O status mostra quando a entrada está global.
 
+Se aparecer **Componente Linux não instalado** ou incompatível, Configurações e
+o assistente mostram um guia com **Obter pacote .deb** e **Abrir .deb baixado**.
+Enquanto não há release pública, o primeiro abre Actions → Desktop: escolha uma
+execução bem-sucedida da main, entre no GitHub e baixe `dobra-Linux-X64`. Extraia
+o artifact para obter o `.deb`. O segundo botão permite selecionar esse arquivo
+e abri-lo no instalador associado do sistema; as ações e rastreio são pausados antes do seletor.
+
+O Linux solicita a autorização de instalação. Conclua, reabra o Dobra e tente
+habilitar a integração novamente. Cancelar o seletor não instala nem ativa nada.
+Se não houver um instalador gráfico associado a `.deb`, use o gerenciador de
+pacotes da distribuição. Esse fluxo é para Debian/Ubuntu e compatíveis; não
+instala pacotes silenciosamente e não executa o aplicativo como root.
+
 O Electron continua executando como usuário comum. O serviço é ativado pelo
 D-Bus quando solicitado e não é habilitado no boot. Somente abre os dispositivos
 quando ações ou Rastreio precisam de entrada. Não execute o Dobra com `sudo`.

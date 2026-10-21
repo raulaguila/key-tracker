@@ -17,3 +17,8 @@ html { scrollbar-gutter: auto; }
 .quick-empty { margin: 24px 0; color: var(--muted); }
 .quick-footer { border-top: 1px solid var(--line); padding-top: 12px; flex-wrap: wrap; }
 @media (max-width: 360px) { .quick-bindings li { flex-wrap: wrap; gap: 6px; } .quick-bindings .shortcut { flex-basis: 100%; } }
+.quick-status .status-dot[data-state="suspended"], .quick-status .status-dot[data-state="starting"] { background: var(--status-suspended); }
+.quick-status .status-dot[data-state="unavailable"] { background: var(--warning); }
+.quick-bindings li > span { flex: 0 1 55%; min-width: 0; }
+.quick-bindings li > span > .shortcut { max-width: 100%; }
+@media (max-width: 360px) { .quick-bindings li > span { flex-basis: 100%; } }

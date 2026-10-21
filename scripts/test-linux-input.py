@@ -238,6 +238,14 @@ class BusTests(unittest.TestCase):
             while b'"type":"key"' not in data and time.monotonic()<deadline:
                 if selector.select(.1): data += os.read(child.stdout.fileno(),8192)
             self.assertIn(b'"code":30',data)
+            self.control_call('Broker','LargeCatalog')
+            deadline=time.monotonic()+3
+            while b'large-keyboard-31' not in data and time.monotonic()<deadline:
+                if selector.select(.1):
+                    chunk=os.read(child.stdout.fileno(),65536)
+                    if not chunk: break
+                    data+=chunk
+            self.assertIn(b'large-keyboard-31',data,'catalog above 4 KiB must cross the private datagram intact')
             child.stdin.close(); child.stdin=None
             self.assertEqual(child.wait(timeout=3),0)
         finally:

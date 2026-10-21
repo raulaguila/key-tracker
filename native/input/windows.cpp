@@ -5,11 +5,10 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <chrono>
 #include <thread>
 static HWND receiver;
 static std::map<HANDLE,std::string> identities;
-static long long tick(){return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
+static long long tick(){LARGE_INTEGER counter,frequency;QueryPerformanceCounter(&counter);QueryPerformanceFrequency(&frequency);return (long long)((double)counter.QuadPart*1000.0/(double)frequency.QuadPart);}
 static std::string utf8(const std::wstring& s){int n=WideCharToMultiByte(CP_UTF8,0,s.data(),(int)s.size(),nullptr,0,nullptr,nullptr);std::string r(n,' ');if(n)WideCharToMultiByte(CP_UTF8,0,s.data(),(int)s.size(),r.data(),n,nullptr,nullptr);return r;}
 static std::string quote(const std::string& s){std::string r="\"";for(unsigned char c:s){if(c=='"'||c=='\\'){r+='\\';r+=c;}else if(c>=32)r+=c;}return r+'"';}
 static void emit(const std::string& s){std::cout<<s<<std::endl;if(!std::cout)PostQuitMessage(1);}
@@ -42,7 +41,7 @@ static LRESULT CALLBACK procedure(HWND window,UINT message,WPARAM w,LPARAM l){
   if(input->header.dwType==RIM_TYPEKEYBOARD && identities.count(input->header.hDevice)){
    const auto& key=input->data.keyboard;
    if(key.MakeCode && key.MakeCode!=0xff && key.VKey!=255){
-    emit("{\"type\":\"key\",\"device\":"+quote(identities[input->header.hDevice])+",\"code\":"+std::to_string(key.MakeCode)+",\"virtualKey\":"+std::to_string(key.VKey)+",\"down\":"+((key.Flags&RI_KEY_BREAK)?"false":"true")+",\"extended\":"+((key.Flags&RI_KEY_E0)?"true":"false")+",\"e1\":"+((key.Flags&RI_KEY_E1)?"true":"false")+",\"monotonicMs\":"+std::to_string(tick())+"}");
+    emit("{\"type\":\"key\",\"device\":"+quote(identities[input->header.hDevice])+",\"code\":"+std::to_string(key.MakeCode)+",\"virtualKey\":"+std::to_string(key.VKey)+",\"down\":"+((key.Flags&RI_KEY_BREAK)?"false":"true")+",\"globallyDown\":"+((GetAsyncKeyState(key.VKey)&0x8000)?"true":"false")+",\"extended\":"+((key.Flags&RI_KEY_E0)?"true":"false")+",\"e1\":"+((key.Flags&RI_KEY_E1)?"true":"false")+",\"monotonicMs\":"+std::to_string(tick())+"}");
    }
   }
   return DefWindowProcW(window,message,w,l); // Required foreground Raw Input cleanup.
@@ -52,7 +51,7 @@ static LRESULT CALLBACK procedure(HWND window,UINT message,WPARAM w,LPARAM l){
  return DefWindowProcW(window,message,w,l);
 }
 int main(int argc,char** argv){
- if(argc==2&&std::string(argv[1])=="--self-test"){std::cout<<"{\"backend\":\"RawInput\",\"passive\":true,\"selfTest\":true}"<<std::endl;return 0;}
+ if(argc==2&&std::string(argv[1])=="--self-test"){std::cout<<"{\"backend\":\"RawInput\",\"passive\":true,\"selfTest\":true,\"monotonicMs\":"<<tick()<<"}"<<std::endl;return 0;}
  if(argc!=1)return 2;
  HINSTANCE instance=GetModuleHandleW(nullptr);WNDCLASSW cls={};cls.lpfnWndProc=procedure;cls.hInstance=instance;cls.lpszClassName=L"DobraPassiveInput";
  if(!RegisterClassW(&cls))return 1;

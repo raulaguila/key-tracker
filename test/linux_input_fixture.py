@@ -89,8 +89,11 @@ else:
             event = device.state.event(keyboard, code, down)
             if event: device.emit(event)
         elif method == 'ResetInput' and device: device.snapshot()
+        elif method == 'LargeCatalog':
+            for session in broker.sessions.values():
+                session.send({'type':'devices','selectedId':'','devices':[{'id':'linux:'+format(i,'040x'),'name':'large-keyboard-'+str(i)+'😀'*100} for i in range(32)]})
         if method == 'Stats': invocation.return_value(GLib.Variant('(u)', (int(device is not None),)))
         else: invocation.return_value(None)
-    register('/test', '<node><interface name="io.dobra.Test"><method name="Emit"><arg type="s" direction="in"/><arg type="q" direction="in"/><arg type="b" direction="in"/></method><method name="Stats"><arg type="u" direction="out"/></method><method name="ResetInput"/></interface></node>', control)
+    register('/test', '<node><interface name="io.dobra.Test"><method name="Emit"><arg type="s" direction="in"/><arg type="q" direction="in"/><arg type="b" direction="in"/></method><method name="Stats"><arg type="u" direction="out"/></method><method name="ResetInput"/><method name="LargeCatalog"/></interface></node>', control)
 print('ready', flush=True)
 loop.run()

@@ -16,3 +16,12 @@ serviço na máquina do usuário é executada por testes.
 
 Gates locais passaram; envio e acompanhamento do CI dos quatro destinos fazem parte
 da conclusão desta entrega. Evidência: docs/audits/2026-10-21-productivity.md.
+
+## Auditoria da expansão — 21/10/2026
+
+- [x] Revisão adversarial dos oito recursos e reprodução de falhas antes dos patches.
+- [x] Correções do motor, dispositivos, protocolo, importação e performance com provas focadas.
+- [x] Integração de contratos e documentação das limitações reais.
+- [x] UI final e pacote aprovados; commit/main e acompanhamento dos gates definidos para os quatro destinos.
+
+Evidência: docs/audits/2026-10-21-productivity-review.md.

@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { setTimeout: delay } = require('node:timers/promises');
+const { setTimeout: delay, setImmediate: yieldLoop } = require('node:timers/promises');
 const { validateOpenTarget, validateAction } = require('./config.cjs');
 const { assertSafeDestination } = require('./safe-export.cjs');
 const { resultReferences, resolveResultTemplates, conditionMatches } = require('./sequence-data.cjs');
@@ -252,27 +252,35 @@ async function executeAction(action, context, options = {}) {
 async function captureResponse(response, signal) {
   if (!response.body) return { body: '', json: null };
   const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0, aborted;
-  const interrupted = new Promise((_, reject) => { aborted = () => reject(new Error('A requisição excedeu o limite de 10 segundos.')); signal.addEventListener('abort', aborted, { once: true }); });
+  const bytes = Buffer.allocUnsafe(64 * 1024);
+  let total = 0, chunksRead = 0;
   try {
     if (signal.aborted) throw new Error('A requisição excedeu o limite de 10 segundos.');
     while (true) {
-      const { done, value } = await Promise.race([reader.read(), interrupted]);
+      const { done, value } = await readChunk(reader, signal);
       if (done) break;
       total += value.byteLength;
       if (total > 64 * 1024) throw Object.assign(new Error('A resposta HTTP excedeu o limite de 64 KiB.'), { code: 'HTTP_RESULT_TOO_LARGE' });
-      chunks.push(Buffer.from(value));
+      bytes.set(value, total - value.byteLength);
+      if (++chunksRead % 256 === 0) await yieldLoop();
     }
-    const body = Buffer.concat(chunks, total).toString('utf8');
+    const body = bytes.subarray(0, total).toString('utf8');
     let json = null;
     try { json = JSON.parse(body); } catch { /* A body may be plain text. */ }
     return { body, json };
   } finally {
-    signal.removeEventListener('abort', aborted);
     await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
+}
+
+function readChunk(reader, signal) {
+  if (signal.aborted) return Promise.reject(new Error('A requisição excedeu o limite de 10 segundos.'));
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new Error('A requisição excedeu o limite de 10 segundos.'));
+    signal.addEventListener('abort', abort, { once: true });
+    reader.read().then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
 }
 
 module.exports = { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, interpolate, validateFileTargets };

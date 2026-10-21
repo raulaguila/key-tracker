@@ -8,12 +8,12 @@
 #include <map>
 #include <set>
 #include <vector>
-#include <chrono>
+#include <mach/mach_time.h>
 #include <thread>
 static IOHIDManagerRef manager;
 static CFRunLoopRef runloop;
 static std::map<IOHIDDeviceRef,std::string> identities;
-static long long tick(){return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
+static long long tick(){static mach_timebase_info_data_t timebase={0,0};if(!timebase.denom)mach_timebase_info(&timebase);return (long long)((double)mach_continuous_time()*(double)timebase.numer/(double)timebase.denom/1000000.0);}
 static std::string quote(const std::string& s){std::string r="\"";for(unsigned char c:s){if(c=='"'||c=='\\'){r+='\\';r+=c;}else if(c>=32)r+=c;}return r+'"';}
 static void emit(const std::string& s){std::cout<<s<<std::endl;if(!std::cout)CFRunLoopStop(runloop);}
 static std::string property(IOHIDDeviceRef d,CFStringRef key){
@@ -60,7 +60,7 @@ static void input(void*,IOReturn result,void*,IOHIDValueRef value){
  emit("{\"type\":\"key\",\"device\":"+quote(identities[device])+",\"code\":"+std::to_string(usage)+",\"down\":"+(IOHIDValueGetIntegerValue(value)?"true":"false")+",\"monotonicMs\":"+std::to_string(tick())+"}");
 }
 int main(int argc,char** argv){
- if(argc==2&&std::string(argv[1])=="--self-test"){std::cout<<"{\"backend\":\"IOHID\",\"passive\":true,\"selfTest\":true}"<<std::endl;return 0;}
+ if(argc==2&&std::string(argv[1])=="--self-test"){std::cout<<"{\"backend\":\"IOHID\",\"passive\":true,\"selfTest\":true,\"monotonicMs\":"<<tick()<<"}"<<std::endl;return 0;}
  if(argc==2&&std::string(argv[1])=="--check-permission"){std::cout<<"{\"granted\":"<<(IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)==kIOHIDAccessTypeGranted?"true":"false")<<"}"<<std::endl;return 0;}
  if(argc!=1)return 2;
  if(IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)!=kIOHIDAccessTypeGranted && !IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)){emit("{\"type\":\"error\"}");return 1;}

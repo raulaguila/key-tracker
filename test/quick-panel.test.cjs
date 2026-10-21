@@ -31,3 +31,25 @@ test('theme follows OS or explicit override and disposing removes every handler/
  panel.setTheme('system');nativeTheme.shouldUseDarkColors=true;nativeTheme.emit('updated');assert.equal(panel.state().theme,'dark');
  assert.throws(()=>panel.setTheme('invalid'),/Tema/);panel.dispose();assert.equal(handlers.size,0);assert.equal(engine.listenerCount('quick-panel'),0);assert.equal(nativeTheme.listenerCount('updated'),0);
 });
+
+test('hide requested before panel readiness remains hidden after its document loads',t=>{
+ const {panel}=fixture(t);panel.show();const window=panel.window;panel.hide();window.emit('ready-to-show');assert.equal(window.visible,false);
+ panel.show();assert.equal(window.visible,true);
+});
+
+test('unchanged high-volume execution states do not reproject bindings or resend panel DOM data',t=>{
+ const {panel,engine}=fixture(t);const bindings=engine.activeLayer.bindings;let projections=0;
+ Object.defineProperty(engine.activeLayer,'bindings',{get:()=>{projections++;return bindings;}});
+ panel.show();panel.window.emit('ready-to-show');const before=projections;const sent=panel.window.sent.length;
+ for(let i=0;i<1000;i++)engine.emit('state');
+ assert.equal(panel.window.sent.length,sent);assert.equal(projections,before);
+ engine.editing=true;engine.emit('state');assert.equal(panel.window.sent.at(-1)[1].editing,true);assert.equal(panel.window.sent.length,sent+1);
+});
+
+test('panel snapshots/events have monotonic projection revisions for out-of-order bootstrap',t=>{
+ const {panel,engine}=fixture(t);const initial=panel.state();const repeated=panel.state();assert.equal(initial.revision,repeated.revision);
+ panel.setTheme('dark');const updated=panel.state();assert.equal(updated.revision,initial.revision+1);
+ engine.stopping=true;const stopping=panel.state();assert.equal(stopping.revision,updated.revision+1);
+ assert.equal(stopping.stopping,true);engine.configRevision=99;
+ assert.equal(panel.state().revision,stopping.revision,'private config changes without projection changes do not advance revision');
+});

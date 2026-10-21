@@ -40,6 +40,25 @@ function electronShortcut(input) {
   return normalizeShortcut(input).split('+').map(p => ELECTRON_KEYS[p] || p).join('+');
 }
 
+function shortcutPosition(shortcut, keyCode, platform = process.platform) {
+  const parts = effectiveShortcut(shortcut, platform).split('+');
+  const key = parts.pop();
+  const modifiers = new Set(parts.map(value => value === 'Command' || value === 'Super' ? 'Meta' : value));
+  if (key === 'Plus') modifiers.add('Shift');
+  const code = keyCode || (/^[A-Z]$/.test(key) ? 'Key' + key : /^\d$/.test(key) ? 'Digit' + key : ['Up', 'Down', 'Left', 'Right'].includes(key) ? 'Arrow' + key : key === 'Plus' ? 'Equal' : key);
+  return ['Control', 'Alt', 'Shift', 'Meta'].filter(value => modifiers.has(value)).join('+') + ':' + code;
+}
+
+function getPanelShortcut(config, platform = process.platform) {
+  if (config.settings.panelShortcut !== undefined) return config.settings.panelShortcut;
+  const effective = effectiveShortcut(DEFAULT_PANEL_SHORTCUT, platform);
+  const position = shortcutPosition(DEFAULT_PANEL_SHORTCUT, undefined, platform);
+  const controls = [config.settings.layerShortcut, config.settings.pauseShortcut, config.settings.momentaryShortcut].filter(Boolean);
+  if (controls.some(key => shortcutPosition(key, undefined, platform) === position)) return '';
+  if (config.layers.some(layer => layer.bindings.some(binding => effectiveShortcut(binding.key, platform) === effective || shortcutPosition(binding.key, binding.keyCode, platform) === position))) return '';
+  return DEFAULT_PANEL_SHORTCUT;
+}
+
 function stringMap(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 50) throw new Error(`${label} deve ser um objeto com até 50 pares de texto.`);
   const result = {};
@@ -162,14 +181,14 @@ function validateConfig(value, platform = process.platform) {
     layers: []
   };
   if (hasMomentary) Object.assign(result.settings, { momentaryShortcut: normalizeShortcut(settings.momentaryShortcut), momentaryLayerId: text(settings.momentaryLayerId, 'Camada temporária', 100) });
-  if (settings.panelShortcut !== undefined) result.settings.panelShortcut = normalizeShortcut(settings.panelShortcut);
+  if (settings.panelShortcut !== undefined) result.settings.panelShortcut = settings.panelShortcut === '' ? '' : normalizeShortcut(settings.panelShortcut);
   if (settings.inputDeviceId !== undefined) {
     const deviceId = text(settings.inputDeviceId, 'Teclado', 160);
     if (/[\x00-\x1f\x7f]/.test(deviceId)) throw new Error('Identificador de teclado inválido.');
     result.settings.inputDeviceId = deviceId;
   }
   if (!Number.isInteger(settings.cooldownMs) || settings.cooldownMs < 100 || settings.cooldownMs > 10000) throw new Error('Intervalo entre ações deve ser de 100 a 10000 ms.');
-  const reserved = [result.settings.layerShortcut, result.settings.pauseShortcut, result.settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, ...(hasMomentary ? [result.settings.momentaryShortcut] : [])].map(k => effectiveShortcut(k, platform));
+  const reserved = [result.settings.layerShortcut, result.settings.pauseShortcut, result.settings.panelShortcut, ...(hasMomentary ? [result.settings.momentaryShortcut] : [])].filter(Boolean).map(k => effectiveShortcut(k, platform));
   if (new Set(reserved).size !== reserved.length) throw new Error('Os atalhos de camada, pausa, painel e temporária devem ser diferentes.');
   const ids = new Set();
   const associations = new Set();
@@ -253,4 +272,4 @@ function defaultConfig() {
   };
 }
 
-module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES, DEFAULT_PANEL_SHORTCUT };
+module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES, DEFAULT_PANEL_SHORTCUT, getPanelShortcut, shortcutPosition };
