@@ -72,8 +72,8 @@ else:
             self.devices = self.state.devices
             FakeDevices.active = self
         def snapshot(self):
-            self.emit({'type':'reset', 'held': sorted(self.state.held())})
             self.emit({'type':'status', 'mode':'global', 'keyboards': len(self.devices)})
+            self.emit({'type':'reset', 'held': sorted(self.state.held())})
         def close(self): FakeDevices.active = None
     broker = service.Service(bus, devices_factory=FakeDevices)
     own(service.NAME); own('io.dobra.TestBroker')

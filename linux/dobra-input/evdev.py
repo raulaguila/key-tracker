@@ -200,8 +200,10 @@ class Devices:
         return False
 
     def snapshot(self):
-        self.emit({"type": "reset", "held": sorted(self.state.held())})
+        # Publish the source mode before its held keys so the renderer can apply
+        # the first snapshot even when tracking was enabled before authorization.
         self.emit({"type": "status", "mode": "global" if self.devices else "waiting", "keyboards": len(self.devices)})
+        self.emit({"type": "reset", "held": sorted(self.state.held())})
 
     def remove(self, path):
         drain = self.drains.pop(path, None)

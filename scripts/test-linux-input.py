@@ -92,7 +92,7 @@ class NativeStateTests(unittest.TestCase):
             udev_device_get_property_value=lambda _, key: b'1' if key == b'ID_INPUT_KEYBOARD' else b'seat1')
         self.assertTrue(devices.hotplug(None, GLib.IO_IN))
         self.assertEqual(closed, [True]); self.assertEqual(devices.devices, {})
-        self.assertEqual(events, [{'type':'reset','held':[]},{'type':'status','mode':'waiting','keyboards':0}])
+        self.assertEqual(events, [{'type':'status','mode':'waiting','keyboards':0},{'type':'reset','held':[]}])
 
 
 class BusTests(unittest.TestCase):
@@ -153,7 +153,9 @@ class BusTests(unittest.TestCase):
         self.control_call('Broker','Emit',params=GLib.Variant('(sqb)',(keyboard,code,down)))
 
     def test_private_stream_filter_and_normal_key_events(self):
-        stream = self.start(); self.assertEqual(self.receive(stream,'status')['mode'],'global')
+        stream = self.start()
+        first = json.loads(stream.recv(4096)); self.assertEqual(first['type'],'status'); self.assertEqual(first['mode'],'global')
+        self.assertEqual(json.loads(stream.recv(4096)), {'type':'reset','held':[]})
         self.emit(31,True); self.emit(30,True)
         event = self.receive(stream,'key'); self.assertGreaterEqual(event.pop('monotonicMs'),0)
         self.assertEqual(event, {'type':'key','code':30,'down':True,'modifiers':0})
@@ -200,8 +202,8 @@ class BusTests(unittest.TestCase):
     def test_reset_preserves_held_state_without_synthetic_release(self):
         stream = self.start(); self.receive(stream,'status'); self.emit(30,True); self.receive(stream,'key')
         self.control_call('Broker','ResetInput')
-        self.assertEqual(self.receive(stream,'reset')['held'],[30])
         self.assertEqual(self.receive(stream,'status')['mode'],'global')
+        self.assertEqual(self.receive(stream,'reset')['held'],[30])
         self.emit(30,False); self.assertEqual(self.receive(stream,'key')['down'],False)
 
     def test_disconnecting_client_revokes_private_stream(self):
@@ -245,9 +247,9 @@ class BusTests(unittest.TestCase):
         self.assertEqual(self.control_call('Broker','Stats','(u)').unpack()[0],0)
 
     def test_visual_tracking_is_explicit_and_reversible(self):
-        stream = self.start(); self.receive(stream,'status'); self.emit(31,True)
+        stream = self.start(); self.receive(stream,'status'); self.receive(stream,'reset'); self.emit(31,True)
         service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([30],True,True)))
-        self.assertIn(31,self.receive(stream,'reset')['held']); self.receive(stream,'status')
+        self.receive(stream,'status'); self.assertIn(31,self.receive(stream,'reset')['held'])
         self.emit(32,True); self.assertEqual(self.receive(stream,'key')['code'],32)
         service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([30],False,True)))
         self.assertEqual(self.receive(stream,'reset')['held'],[])
