@@ -73,12 +73,13 @@ persistência, clipboard, sequências e cancelamento. Platform audit verifica o
 source em perfis isolados e compara o ASAR. Nenhum desses testes instala pela
 interface, aceita permissões de usuário ou comprova todo hardware/compositor.
 
-Dependency security roda no lockfile, bloqueando vulnerabilidades altas/críticas;
+Dependency security roda no lockfile, bloqueando vulnerabilidades moderadas/altas/críticas;
 Dependabot propõe atualizações semanalmente, sem auto-merge. Resultados anteriores
 estão nos [relatórios datados](audits/README.md); contagens de advisories variam.
 Consulte a execução atual, reavalie compatibilidade antes de cada release e não
 force downgrades apenas para eliminar um alerta. Um gate aprovado não significa
-ausência de vulnerabilidades moderadas ou ainda desconhecidas.
+ausência de vulnerabilidades ainda desconhecidas ou não catalogadas, nem a
+segurança integral dos binários distribuídos.
 
 ## Candidato assinado e distribuição
 

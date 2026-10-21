@@ -22,6 +22,14 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 
 ### Ajustes recentes
 
+- Ações de arquivo recusam destinos no perfil interno e aliases de configuração,
+  backup e logs, com validação na prévia e novamente na execução.
+- Consultas e operações do cofre têm prazo de cinco segundos; falhas preservam
+  arquivos, liberam a fila e não aceitam conclusões tardias.
+- Semântica ARIA da marca corrigida e axe adicionado ao gate de UI nos dois temas.
+- Electron atualizado para 44.9.3 e cadeia vulnerável de build removida via
+  global-agent 4.1.3; gate de dependências passa a bloquear a partir de moderado.
+
 - O indicador de teclas pressionadas usa somente chips com contorno; mantém
   o anúncio acessível sem duplicar visualmente a combinação.
 - Registro em Log removido das opções de criar/editar ações e etapas.

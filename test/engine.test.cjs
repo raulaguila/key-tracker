@@ -144,7 +144,7 @@ test('prévia não executa I/O; token congela variáveis e só pode executar a a
   engine.storage.appendLog = async () => { writes++; };
   const layer = engine.activeLayer;
   const binding = layer.bindings[0];
-  const preview = engine.previewBinding(layer.id, binding.id);
+  const preview = await engine.previewBinding(layer.id, binding.id);
   assert.equal(preparedValues.length, 0);
   assert.equal(writes, 0);
   assert.equal(preview.expiresAt, '2026-10-20T12:05:00.000Z');
@@ -165,10 +165,10 @@ test('prévia expira, é limitada a dez e invalida após salvar com sucesso', as
   const { engine, calls } = fixture({ now: () => now });
   const layer = engine.activeLayer;
   const binding = layer.bindings[0];
-  const expired = engine.previewBinding(layer.id, binding.id);
+  const expired = await engine.previewBinding(layer.id, binding.id);
   now += 5 * 60 * 1000;
   await assert.rejects(engine.runBinding(layer.id, binding.id, expired.previewId), /expirada/);
-  const previews = Array.from({ length: 11 }, () => engine.previewBinding(layer.id, binding.id));
+  const previews = await Promise.all(Array.from({ length: 11 }, () => engine.previewBinding(layer.id, binding.id)));
   assert.equal(engine.previews.size, 10);
   await assert.rejects(engine.runBinding(layer.id, binding.id, previews[0].previewId), /inválida/);
   engine.storage.save = async () => { throw new Error('disco'); };
@@ -193,7 +193,7 @@ test('resultados HTTP expõem duração e status sem persistir headers, corpo ou
   } });
   engine.storage.appendLog = async event => writes.push(event);
   const layer = engine.activeLayer;
-  const preview = engine.previewBinding(layer.id, layer.bindings[0].id);
+  const preview = await engine.previewBinding(layer.id, layer.bindings[0].id);
   assert.equal(preview.action.headers.Authorization, '••••••');
   const state = await engine.runBinding(layer.id, layer.bindings[0].id, preview.previewId);
   assert.equal(state.events[0].httpStatus, 503);
@@ -298,7 +298,7 @@ test('serviços nativos simples recebem valores resolvidos; eventos não guardam
   engine.storage.appendLog = async event => writes.push(event);
   const source = engine.activeLayer;
   for (const binding of source.bindings) {
-    const preview = engine.previewBinding(source.id, binding.id);
+    const preview = await engine.previewBinding(source.id, binding.id);
     assert.equal(native.length, source.bindings.indexOf(binding), 'preparar não executa serviço nativo');
     await engine.runBinding(source.id, binding.id, preview.previewId);
   }
@@ -357,7 +357,7 @@ test('sequência com HTTP real conserva prévia e origem após trocar camada; ex
   } });
   engine.storage.appendLog = async event => writes.push(event);
   const binding = engine.activeLayer.bindings[0];
-  const preview = engine.previewBinding(sourceId, binding.id);
+  const preview = await engine.previewBinding(sourceId, binding.id);
   assert.equal(native.length, 0);
   assert.equal(preview.action.steps[2].headers.Authorization, '••••••');
   now += 60000;
@@ -415,7 +415,7 @@ test('token congela intervalo e histórico inclui gap somente na duração total
   engine.storage.appendLog = async event => logs.push(event);
   const layer = engine.activeLayer;
   const binding = layer.bindings[0];
-  const preview = engine.previewBinding(layer.id, binding.id);
+  const preview = await engine.previewBinding(layer.id, binding.id);
   assert.equal(calledAt.length, 0);
   assert.equal(preview.action.stepDelayMs, 60);
   assert.equal(Object.isFrozen(engine.previews.get(preview.previewId).prepared), true);
@@ -633,7 +633,7 @@ test('save idêntico persiste e publica sem avançar revisão de conteúdo ou pr
   engine.storage.save = async config => { writes.push(structuredClone(config)); };
   const initial = engine.state();
   const layer = initial.config.layers[0];
-  const preview = engine.previewBinding(layer.id, layer.bindings[0].id);
+  const preview = await engine.previewBinding(layer.id, layer.bindings[0].id);
   const identical = { ...initial.config, discardedLegacyField: 'ignorado pela normalização' };
   const saved = await engine.saveConfig(identical);
   assert.equal(writes.length, 1);

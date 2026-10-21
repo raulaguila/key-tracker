@@ -2,9 +2,11 @@
 // and DOM identity/mutation checks. No wall-clock pass/fail threshold.
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const path = require('node:path');
 
 module.exports = async function rendererPerformanceUI({ evaluate, click, fill, until, nativeState, data }) {
   const before = await nativeState();
+  const effectsDirectory = path.join(data, 'renderer-performance');
   const server = http.createServer((_req, res) => { res.writeHead(503); res.end('fixture unavailable'); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const endpoint = 'http://127.0.0.1:' + server.address().port + '/fixture';
@@ -14,7 +16,7 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     id: layerId, name: 'Renderer QA', description: '', applications: [], bindings: Array.from({ length: 100 }, (_, index) => ({
       id: 'renderer-performance-' + index, name: 'Ação ' + String(index).padStart(3, '0'), key: keys[index], enabled: true,
       action: index === 1 ? { type: 'http', method: 'GET', url: endpoint, headers: {}, query: {}, body: '' }
-        : { type: 'file', directory: data, filename: 'renderer-performance.txt', mode: 'append', content: 'Renderer QA' }
+        : { type: 'file', directory: effectsDirectory, filename: 'renderer-performance.txt', mode: 'append', content: 'Renderer QA' }
     }))
   }] };
   try {

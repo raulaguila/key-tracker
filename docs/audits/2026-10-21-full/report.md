@@ -2,6 +2,7 @@
 
 > **Registro histórico.** Avaliação do commit `92dbe82`, em 21/10/2026.
 > Consulte a [documentação atual](../../README.md) para uso e desenvolvimento.
+> As [correções posteriores F01–F05](../2026-10-21-remediation/report.md) estão em registro separado.
 
 **Conclusão:** os fluxos cobertos funcionam e o desempenho local é bom, mas há
 **duas falhas P1** que devem ser corrigidas antes de produção: ações de arquivo

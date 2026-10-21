@@ -27,7 +27,8 @@ sem escrever scripts ou editar JSON. A interface é em português.
 - Mostrar resultados/erros, progresso e cancelamento no Histórico, sem ocultar falhas.
 - Iniciar pausado, suspender ações durante edição e manter um controle de pausa disponível.
 - Persistir configuração, preservar backup e permitir importação/exportação explícitas.
-- Proteger headers com o cofre do sistema e recusar gravação desprotegida quando indisponível.
+- Proteger headers com o cofre do sistema, limitar suas operações e recusar gravação desprotegida quando indisponível.
+- Impedir que ações de arquivo alterem o perfil interno, configuração ou backup.
 - Oferecer rastreio opt-in sem registrar a digitação e informar o modo global/local.
 - Suportar temas claro/escuro/sistema, sidebar recolhível e formulários sobrepostos.
 - Informar conflitos, falta de permissões e limitações de plataforma no contexto de uso.

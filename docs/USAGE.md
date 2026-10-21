@@ -44,6 +44,8 @@ segundos, sem redirecionamentos nem repetição automática. GET/HEAD não aceit
 Para arquivos, a pasta vazia usa `Documentos/Dobra` do usuário. **Criar** recusa
 sobrescrever um arquivo existente; **Acrescentar** adiciona conteúdo. O nome não
 aceita separadores de caminho e deve ser compatível com os sistemas suportados.
+A pasta de dados do Dobra e aliases de seus arquivos internos são protegidos:
+a prévia e a execução recusam esses destinos.
 
 ### Variáveis
 

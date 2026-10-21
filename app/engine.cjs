@@ -2,7 +2,7 @@ const { EventEmitter } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
-const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage } = require('./actions.cjs');
+const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, validateFileTargets } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const PAUSE_RESUME_DEBOUNCE_MS = 400;
 const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400, holdDelayMs: binding.holdDelayMs ?? binding.repeatMs ?? 400 } : {}) });
@@ -309,11 +309,14 @@ class Engine extends EventEmitter {
     return { layer, binding };
   }
 
-  previewBinding(layerId, bindingId) {
+  async previewBinding(layerId, bindingId) {
     const { layer, binding } = this.findBinding(layerId, bindingId);
     const now = this.now();
     for (const [id, entry] of this.previews) if (entry.expires <= now) this.previews.delete(id);
     const prepared = freezePreparedAction(prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(now)));
+    const revision = this.configRevision;
+    await validateFileTargets(prepared, this.storage);
+    if (this.disposed || revision !== this.configRevision) throw new Error('A configuração mudou. Abra uma nova prévia.');
     const previewId = randomUUID();
     const expires = now + 5 * 60 * 1000;
     while (this.previews.size >= 10) this.previews.delete(this.previews.keys().next().value);

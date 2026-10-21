@@ -97,7 +97,8 @@ Não há redirecionamentos ou retry, e o timeout é dez segundos.
 `open` não executa shell nem aceita argumentos para aplicações. Arquivos/pastas e
 aplicativos usam caminhos absolutos. Arquivo com `directory: ""` usa
 `Documentos/Dobra`; `filename` não pode conter caminhos. `create` é exclusivo e
-não sobrescreve; `append` recusa symlink observado antes da escrita, sem prometer
+não sobrescreve; a pasta de dados do app e aliases de arquivos internos são recusados
+na prévia e na execução. `append` recusa symlink observado antes da escrita, sem prometer
 isolamento contra outro processo alterando a pasta concorrentemente.
 
 `{{key}}`, `{{layer}}`, `{{date}}` e `{{timestamp}}` são resolvidas em campos de
@@ -198,7 +199,9 @@ e é ignorado no executável empacotado. Não há aliases de identidade anterior
 
 Gravações são atômicas e serializadas; backup preserva a configuração válida
 anterior. Havendo headers HTTP, config e backup usam cofre seguro assíncrono,
-sem fallback desprotegido. Exportação portátil remove todos os headers; recuperação
+sem fallback desprotegido. Disponibilidade, encrypt e decrypt têm timeout de 5 s
+por operação; resultados tardios não escrevem e o arquivo anterior é preservado.
+Exportação portátil remove todos os headers; recuperação
 preserva o arquivo inválido. O diagnóstico usa uma allowlist independente de State.
 [Privacidade](docs/PRIVACY.md) e [produção](docs/PRODUCTION.md) detalham as limitações.
 

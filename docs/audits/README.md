@@ -9,6 +9,7 @@ real, assinatura ou todos os teclados/sistemas.
 
 | Registro | Assunto |
 | --- | --- |
+| [2026-10-21 — Correções F01–F05](2026-10-21-remediation/report.md) | Integridade, prazo do cofre, acessibilidade, dependências e patch do Electron |
 | [2026-10-21 — Auditoria completa](2026-10-21-full/report.md) | Performance, segurança, funcionamento, UI/UX e duas falhas prioritárias reproduzidas |
 | [2026-10-21 — Dobra](2026-10-21-dobra/report.md) | Identidade, integração e CI após a renomeação |
 | [2026-10-20 — Produção](2026-10-20-production/report.md) | Recuperação, cofre, cancelamento, estabilidade e distribuição |

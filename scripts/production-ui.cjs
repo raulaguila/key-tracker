@@ -1,5 +1,5 @@
 // Production UI against real Electron IPC/storage/actions. Only native dialog
-// choices are supplied at the UI boundary; every file stays in ui-smoke's profile.
+// choices are supplied at the UI boundary; files stay in ui-smoke's separate temporary effects directory.
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');

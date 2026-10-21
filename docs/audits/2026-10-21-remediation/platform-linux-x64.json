@@ -1,0 +1,266 @@
+{
+  "version": 1,
+  "date": "2026-10-21T14:49:33.187Z",
+  "commit": "01f63d8fab52610d7709b49361dfe925da82071b",
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "release": "7.0.0-38-generic",
+    "cpu": "12th Gen Intel(R) Core(TM) i9-12900K",
+    "logicalCpus": 24,
+    "ramGiB": 61.56621551513672,
+    "node": "v24.15.0",
+    "electron": "44.9.3",
+    "ci": false,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "storage": {
+      "encryptionAvailable": true,
+      "protection": "plain",
+      "backupAvailable": false,
+      "message": "Configuração sem headers HTTP.",
+      "present": true
+    },
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "sequenceDelay": {
+      "schemaPersisted": true,
+      "previewed": true,
+      "status": "success",
+      "stepDelayMs": 80,
+      "durationMs": 84,
+      "steps": [
+        {
+          "index": 1,
+          "status": "success"
+        },
+        {
+          "index": 2,
+          "status": "success"
+        }
+      ],
+      "finalClipboard": true,
+      "passed": true
+    },
+    "cancellation": {
+      "waiting": true,
+      "status": "cancelled",
+      "remaining": 0,
+      "noLaterEffect": true,
+      "passed": true
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "error",
+      "message": "Notificação de auditoria: O sistema não confirmou a exibição da notificação.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "D",
+        "E",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": null,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas não são salvas."
+    },
+    "applicationMonitor": {
+      "status": "unavailable",
+      "message": "Nenhum aplicativo em foco foi identificado. O controle manual continua disponível.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": false
+    },
+    "keyMoments": {
+      "attempted": true,
+      "mode": "global",
+      "registered": true,
+      "schemaPersisted": true,
+      "shared": true,
+      "visualOff": true,
+      "pausedObserves": true,
+      "note": "Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.",
+      "passed": true
+    },
+    "canonicalPersistence": {
+      "bytes": 254920,
+      "legacyBytes": 548895,
+      "canonicalMatches": true,
+      "legacyReadable": true,
+      "rendererReloaded": true
+    },
+    "stateTransport": {
+      "complete": true,
+      "sameConfigRevision": true,
+      "ordered": true
+    }
+  },
+  "startupsMs": [
+    206.86235900000003,
+    189.57192600000002,
+    187.13600700000006
+  ],
+  "shutdowns": [
+    {
+      "graceful": true,
+      "elapsedMs": 67.07737399999996,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 44.637662999999975,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 61.05860699999903,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "package": {
+    "archive": "dist/linux-unpacked/resources/app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/preload.cjs": true,
+      "app/config.cjs": true,
+      "app/storage.cjs": true,
+      "app/config-protection.cjs": true,
+      "app/recovery.cjs": true,
+      "app/diagnostics.cjs": true,
+      "app/engine.cjs": true,
+      "app/key-gestures.cjs": true,
+      "app/tracking.cjs": true,
+      "app/tracker-worker.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/safe-export.cjs": true,
+      "app/application-monitor.cjs": true,
+      "app/application-reader.cjs": true,
+      "app/native-process-scope.cjs": true,
+      "app/desktop-tray.cjs": true,
+      "app/window-lifecycle.cjs": true,
+      "app/renderer/app.js": true,
+      "app/renderer/production.js": true,
+      "app/renderer/action-editor.js": true,
+      "app/renderer/key-moments.js": true,
+      "app/renderer/binding-table.js": true,
+      "app/renderer/styles.css": true
+    },
+    "nativeFiles": [
+      "/node_modules/get-windows/build-tmp-napi-v9/Release/node-get-windows.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-arm64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-x64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-9-darwin-unknown-arm64/node-get-windows.node",
+      "/node_modules/get-windows/lib/binding/napi-9-linux-glibc-x64/node-get-windows.node",
+      "/node_modules/get-windows/main",
+      "/node_modules/uiohook-napi/prebuilds/darwin-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/darwin-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-loong64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-x64/uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 189.57192600000002,
+    "p95": 206.86235900000003,
+    "max": 206.86235900000003,
+    "mean": 194.5234306666667
+  },
+  "runtime": {
+    "packaged": false,
+    "isPackaged": false,
+    "arch": "x64",
+    "name": "Dobra"
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.04143043035279503,
+      "p95": 0.04159458325388768,
+      "max": 0.04159458325388768,
+      "mean": 0.0249055654330839
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 596.15625,
+      "p95": 597.86328125,
+      "max": 597.86328125,
+      "mean": 595.7546875
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 0.3999999985098839,
+        "p95": 0.5,
+        "max": 0.6000000014901161,
+        "mean": 0.4100000001490116
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 2.2999999970197678,
+        "p95": 7,
+        "max": 7,
+        "mean": 4.25
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 8,
+        "p95": 9.599999994039536,
+        "max": 11.300000004470348,
+        "mean": 8.275
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 48.400000005960464,
+        "p95": 57.70000000298023,
+        "max": 57.70000000298023,
+        "mean": 51.07500000111759
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

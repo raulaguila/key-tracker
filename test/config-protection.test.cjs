@@ -39,3 +39,69 @@ test('backend downgrade and native errors never fall back to plaintext or disclo
   service.encryptStringAsync = async () => { throw new Error('private key path'); };
   await assert.rejects(protection.encrypt('private'), error => !error.message.includes('private'));
 });
+
+test('cofre sem resposta termina a descoberta e informa a indisponibilidade no estado', async t => {
+  const protection = await createConfigProtection({ platform: 'linux', timeoutMs: 15,
+    safeStorage: { ...native(), isAsyncEncryptionAvailable: () => new Promise(() => {}) } });
+  assert.equal(protection.available, false);
+  assert.match(protection.message, /não respondeu a tempo/);
+  const fs = require('node:fs/promises');
+  const path = require('node:path');
+  const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dobra-cofre-unavailable-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const { Storage } = require('../app/storage.cjs');
+  const storage = new Storage(directory, { protection });
+  await storage.load();
+  assert.equal(storage.status().encryptionAvailable, false);
+  assert.match(storage.status().message, /não respondeu a tempo/);
+
+});
+
+test('encrypt/decrypt com timeout rejeitam, ignoram resposta tardia e permitem nova tentativa', async () => {
+  const service = native();
+  const protection = await createConfigProtection({ safeStorage: service, platform: 'linux', timeoutMs: 15 });
+  let resolveLate;
+  service.encryptStringAsync = () => new Promise(resolve => { resolveLate = resolve; });
+  await assert.rejects(protection.encrypt('secret'), /criptografar/);
+  resolveLate(Buffer.from('native:late'));
+  service.encryptStringAsync = native().encryptStringAsync;
+  assert.equal((await protection.encrypt('retry')).toString(), 'native:retry');
+  service.decryptStringAsync = () => new Promise(() => {});
+  await assert.rejects(protection.decrypt(Buffer.from('native:secret')), /Arquivo preservado/);
+  service.decryptStringAsync = native().decryptStringAsync;
+  assert.equal(await protection.decrypt(Buffer.from('native:retry')), 'retry');
+});
+
+test('resposta nativa após downgrade do backend não é aceita', async () => {
+  let backend = 'gnome_libsecret';
+  const service = { ...native(), getSelectedStorageBackend: () => backend,
+    encryptStringAsync: async () => { backend = 'basic_text'; return Buffer.from('unprotected'); } };
+  const protection = await createConfigProtection({ safeStorage: service, platform: 'linux' });
+  await assert.rejects(protection.encrypt('secret'), /Nenhum header/);
+});
+
+test('timeout ao salvar preserva bytes e libera a fila; conclusão tardia não grava', async t => {
+  const fs = require('node:fs/promises');
+  const path = require('node:path');
+  const directory = await fs.mkdtemp(path.join(require('node:os').tmpdir(), 'dobra-cofre-deadline-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const { Storage } = require('../app/storage.cjs');
+  const { defaultConfig } = require('../app/config.cjs');
+  const service = native();
+  const protection = await createConfigProtection({ safeStorage: service, platform: 'linux', timeoutMs: 15 });
+  const storage = new Storage(directory, { protection });
+  const config = defaultConfig();
+  await storage.save(config);
+  const before = await fs.readFile(storage.configPath);
+  config.layers[0].bindings[0].action = { type: 'http', method: 'GET', url: 'https://example.invalid', headers: { 'x-fixture': 'private' }, query: {}, body: '' };
+  let release, text;
+  service.encryptStringAsync = value => { text = value; return new Promise(resolve => { release = resolve; }); };
+  await assert.rejects(storage.save(config), /Nenhum header/);
+  release(Buffer.from('native:' + text));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(await fs.readFile(storage.configPath), before);
+  service.encryptStringAsync = native().encryptStringAsync;
+  await storage.save(config);
+  assert.deepEqual(await storage.load(), config);
+  assert.equal(JSON.parse(await fs.readFile(storage.configPath, 'utf8')).format, 'dobra.safeStorage');
+});

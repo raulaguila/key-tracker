@@ -1,15 +1,28 @@
 // Electron is injected so configuration persistence stays usable outside Electron.
 // Never opt into Electron's basic_text fallback: it provides no OS key protection.
-async function createConfigProtection({ safeStorage, platform = process.platform } = {}) {
+const PROTECTION_TIMEOUT_MS = 5000;
+
+function boundedNative(operation, timeoutMs) {
+  let timer;
+  return Promise.race([
+    Promise.resolve().then(operation),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(Object.assign(new Error('O cofre não respondeu a tempo.'), { code: 'CONFIG_PROTECTION_TIMEOUT' })), timeoutMs);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+async function createConfigProtection({ safeStorage, platform = process.platform, timeoutMs = PROTECTION_TIMEOUT_MS } = {}) {
   const secureBackend = () => platform !== 'linux' || ['gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6'].includes(safeStorage?.getSelectedStorageBackend?.());
   const unavailable = message => Object.freeze({ available: false, message });
   try {
     if (!safeStorage || typeof safeStorage.isAsyncEncryptionAvailable !== 'function' ||
         typeof safeStorage.encryptStringAsync !== 'function' || typeof safeStorage.decryptStringAsync !== 'function' ||
-        !await safeStorage.isAsyncEncryptionAvailable() || !secureBackend()) {
+        !await boundedNative(() => safeStorage.isAsyncEncryptionAvailable(), timeoutMs) || !secureBackend()) {
       return unavailable('Criptografia segura indisponível. Configure o cofre de senhas do sistema para salvar headers HTTP.');
     }
-  } catch {
+  } catch (error) {
+    if (error?.code === 'CONFIG_PROTECTION_TIMEOUT') return unavailable('O cofre não respondeu a tempo. Desbloqueie o cofre do sistema e reabra o aplicativo. Headers HTTP não serão gravados.');
     return unavailable('Não foi possível acessar o cofre de senhas do sistema. Headers HTTP não serão gravados.');
   }
   return Object.freeze({
@@ -18,16 +31,16 @@ async function createConfigProtection({ safeStorage, platform = process.platform
     async encrypt(text) {
       try {
         if (!secureBackend()) throw new Error();
-        const encrypted = await safeStorage.encryptStringAsync(text);
-        if (!Buffer.isBuffer(encrypted) || !encrypted.length) throw new Error();
+        const encrypted = await boundedNative(() => safeStorage.encryptStringAsync(text), timeoutMs);
+        if (!secureBackend() || !Buffer.isBuffer(encrypted) || !encrypted.length) throw new Error();
         return encrypted;
       } catch { throw new Error('Não foi possível criptografar a configuração. Nenhum header foi gravado em texto aberto.'); }
     },
     async decrypt(buffer) {
       try {
         if (!secureBackend()) throw new Error();
-        const result = await safeStorage.decryptStringAsync(buffer);
-        if (typeof result?.result !== 'string') throw new Error();
+        const result = await boundedNative(() => safeStorage.decryptStringAsync(buffer), timeoutMs);
+        if (!secureBackend() || typeof result?.result !== 'string') throw new Error();
         return result.result;
       } catch { throw new Error('Não foi possível descriptografar a configuração com o cofre deste sistema. Arquivo preservado.'); }
     }

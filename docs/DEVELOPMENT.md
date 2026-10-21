@@ -40,7 +40,7 @@ isolados e não devem ser apontados para um perfil pessoal.
 | `npm run check` | Sintaxe e verificações estáticas do projeto |
 | `npm test` | Configuração, motor, ações, armazenamento e integrações controladas |
 | `npm run test:soak` | Carga limitada com arquivos temporários e HTTP em loopback |
-| `npm run test:ui` | Smoke da interface Electron com Playwright e axe |
+| `npm run test:ui` | Smoke da interface Electron com CDP e axe |
 | `npm run test:input` | Teclas sintéticas XTest no Electron/Linux X11 |
 | `npm run pack` | Empacota para o sistema atual sem gerar instalador |
 | `node scripts/platform-audit.cjs` | Sonda de integração nativa no source |
@@ -59,6 +59,10 @@ npm run test:soak -- --duration-seconds 1800
 
 O limite é 3.600 segundos. Tempos/heap observados não comprovam ausência de
 vazamento, desempenho de hardware ou entrega de teclas físicas por horas.
+
+O smoke de UI executa axe-core em 14 estados, aguardando transições de tema
+antes de avaliar WCAG A/AA. O axe é dependência de desenvolvimento e não integra
+o renderer distribuído. As sondas separam a pasta de efeitos da pasta de perfil.
 
 ## Gerar instaladores de desenvolvimento
 
@@ -87,7 +91,7 @@ os quatro destinos, inclusive o executável empacotado.
 | --- | --- |
 | [Desktop](../.github/workflows/desktop.yml) | Push/PR/manual; testes em Windows x64, Linux x64, macOS ARM64 e Intel x64; pacotes em execuções que não são PR |
 | [Platform audit](../.github/workflows/platform-audit.yml) | Push em arquivos relevantes/manual; sonda source e comparação do ASAR nos quatro destinos |
-| [Dependency security](../.github/workflows/security.yml) | Mudanças relevantes, agenda e manual; auditoria npm com bloqueio em alto/crítico |
+| [Dependency security](../.github/workflows/security.yml) | Mudanças relevantes, agenda e manual; auditoria npm com bloqueio em moderado/alto/crítico |
 | [Signed release candidate](../.github/workflows/release.yml) | Manual, com QA e credenciais; rascunho após validação dos quatro destinos |
 
 Dependabot propõe atualizações semanais de npm e GitHub Actions. Não há merge
@@ -100,3 +104,8 @@ O [mapa de arquitetura](../ARCHITECTURE.md) identifica os módulos. O
 [contrato interno](../CONTRACT.md) define a configuração v1 e o preload. Preserve
 a validação no processo principal, a suspensão durante edição e a política de
 pausa/cancelamento ao alterar fluxos da interface.
+
+O override de `global-agent` 4.1.3 mantém o `bootstrap` CommonJS usado pelo
+downloader do Electron e remove a cadeia de logger com `sprintf-js`. O teste
+`test/build-proxy.test.cjs` valida o encaminhamento por proxy HTTP em loopback;
+instalação e empacotamento são conferidos na matriz nativa.

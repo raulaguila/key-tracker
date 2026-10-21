@@ -1,0 +1,350 @@
+{
+  "renderer": {
+    "nodeRequire": "undefined",
+    "nodeProcess": "undefined",
+    "apiKeys": [
+      "getState",
+      "saveConfig",
+      "setEnabled",
+      "setLayer",
+      "setEditing",
+      "previewBinding",
+      "runBinding",
+      "cancelExecution",
+      "cancelAllExecutions",
+      "setTracking",
+      "chooseDirectory",
+      "chooseApplication",
+      "chooseActionTarget",
+      "showWindow",
+      "confirmClose",
+      "cancelClose",
+      "openDataDirectory",
+      "exportConfig",
+      "exportHistory",
+      "exportDiagnostics",
+      "restoreBackup",
+      "importConfig",
+      "onState",
+      "onCloseRequested",
+      "onKey"
+    ]
+  },
+  "preferences": {
+    "sandbox": true,
+    "nodeIntegration": false,
+    "contextIsolation": true,
+    "webSecurity": true
+  },
+  "cspFetchBlocked": {
+    "blocked": true,
+    "violations": [
+      {
+        "directive": "connect-src",
+        "blocked": "https://dobra-audit.invalid/"
+      }
+    ]
+  },
+  "invalidUrl": {
+    "denied": true,
+    "configUnchanged": true,
+    "revisionUnchanged": true
+  },
+  "foreignWindowIpc": {
+    "denied": true,
+    "message": "Error invoking remote method 'dobra:get-state': Error: Origem não autorizada."
+  },
+  "trackingContrastReview": [
+    {
+      "theme": "light",
+      "result": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".u-2"
+              ],
+              "html": "<span class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace\" style=\"--key-span: 8;\">⌫</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowUp\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"ArrowUp\" style=\"--key-span: 4;\">↑</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowLeft\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"ArrowLeft\" style=\"--key-span: 4;\">←</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowDown\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"ArrowDown\" style=\"--key-span: 4;\">↓</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowRight\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"ArrowRight\" style=\"--key-span: 4;\">→</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"NumpadSubtract\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"NumpadSubtract\" title=\"NumpadSubtract\" style=\"--key-span: 4;\">−</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"NumpadEnter\"]"
+              ],
+              "html": "<span class=\"keycap u-1 tall\" data-code=\"NumpadEnter\" title=\"NumpadEnter\" style=\"--key-span: 4;\">↵</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "result": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".u-2"
+              ],
+              "html": "<span class=\"keycap u-2 \" data-code=\"Backspace\" title=\"Backspace\" style=\"--key-span: 8;\">⌫</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowUp\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowUp\" title=\"ArrowUp\" style=\"--key-span: 4;\">↑</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowLeft\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowLeft\" title=\"ArrowLeft\" style=\"--key-span: 4;\">←</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowDown\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowDown\" title=\"ArrowDown\" style=\"--key-span: 4;\">↓</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"ArrowRight\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"ArrowRight\" title=\"ArrowRight\" style=\"--key-span: 4;\">→</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"NumpadSubtract\"]"
+              ],
+              "html": "<span class=\"keycap u-1 \" data-code=\"NumpadSubtract\" title=\"NumpadSubtract\" style=\"--key-span: 4;\">−</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            },
+            {
+              "target": [
+                "span[data-code=\"NumpadEnter\"]"
+              ],
+              "html": "<span class=\"keycap u-1 tall\" data-code=\"NumpadEnter\" title=\"NumpadEnter\" style=\"--key-span: 4;\">↵</span>",
+              "checks": [
+                {
+                  "message": "Element content contains only non-text characters",
+                  "data": {
+                    "messageKey": "nonBmp"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "nativeCrypto": {
+    "available": true,
+    "backend": "gnome_libsecret",
+    "encryptedBytes": 35,
+    "ciphertextDiffers": true,
+    "roundTrip": true
+  },
+  "symbolContrast": [
+    {
+      "theme": "light",
+      "ratios": [
+        {
+          "code": "Backspace",
+          "ratio": 14.14
+        },
+        {
+          "code": "ArrowUp",
+          "ratio": 14.14
+        },
+        {
+          "code": "ArrowLeft",
+          "ratio": 14.14
+        },
+        {
+          "code": "ArrowDown",
+          "ratio": 14.14
+        },
+        {
+          "code": "ArrowRight",
+          "ratio": 14.14
+        },
+        {
+          "code": "NumpadSubtract",
+          "ratio": 14.14
+        },
+        {
+          "code": "NumpadEnter",
+          "ratio": 14.14
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "ratios": [
+        {
+          "code": "Backspace",
+          "ratio": 14.66
+        },
+        {
+          "code": "ArrowUp",
+          "ratio": 14.66
+        },
+        {
+          "code": "ArrowLeft",
+          "ratio": 14.66
+        },
+        {
+          "code": "ArrowDown",
+          "ratio": 14.66
+        },
+        {
+          "code": "ArrowRight",
+          "ratio": 14.66
+        },
+        {
+          "code": "NumpadSubtract",
+          "ratio": 14.66
+        },
+        {
+          "code": "NumpadEnter",
+          "ratio": 14.66
+        }
+      ]
+    }
+  ]
+}

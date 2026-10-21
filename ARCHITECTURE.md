@@ -22,6 +22,8 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
   notificações; injetada pelo main, sem exposição arbitrária no preload.
 - `app/storage.cjs`: configuração atômica, backup, cofre e log serializado com rotação.
+- `app/safe-export.cjs`: identidade de arquivos por caminho canônico/inode, compartilhada
+  por exportações e pela proteção de destinos das ações de arquivo.
 - `app/key-gestures.cjs`: pressionar/manter/soltar, delays e cancelamento de gestos.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
@@ -87,8 +89,14 @@ são registrados. Query/corpo/mensagem/conteúdo aceitam variáveis documentadas
 Arquivos usam `wx` para criar sem sobrescrever; acrescentar recusa symlink
 observado antes da escrita. Não é uma sandbox contra alterações concorrentes
 por outros processos no diretório escolhido. Nomes são compatíveis com os três
-SOs e não aceitam caminhos. Configurações com headers HTTP são criptografadas por
-safeStorage assíncrono, inclusive backups. Provider seguro ausente recusa novas
+SOs e não aceitam caminhos. A pasta de dados do app e aliases de arquivos internos
+são recusados na prévia e na execução, incluindo sequências; a identidade considera
+symlinks/junctions e hardlinks. Isso não transforma o diretório externo escolhido
+em uma sandbox contra mudanças concorrentes por outros processos. Configurações com headers HTTP são criptografadas por
+safeStorage assíncrono, inclusive backups. Consulta de disponibilidade, criptografia
+e descriptografia têm limite de 5 s por operação. Respostas tardias não persistem
+dados; falha libera a fila e preserva os arquivos. O estado informa indisponibilidade
+ou timeout do cofre. Provider seguro ausente recusa novas
 gravações sensíveis; legado preservado sinaliza migração. Exportação portátil
 redige headers. Campos comuns de corpo/query/URL não substituem o cofre quando
 não há headers. Arquivos usam permissões restritas onde o SO as aplica.
@@ -154,7 +162,9 @@ estado não recriam a tecla entre pointerdown e pointerup.
 
 `prepareAction` é a resolução pura compartilhada entre execução e prévia.
 O Engine guarda até dez prévias, por cinco minutos, com valores congelados,
-vinculadas à ação e consumidas uma vez. Salvar configuração invalida os tokens;
+vinculadas à ação e consumidas uma vez. A prévia consulta metadados dos destinos
+sem escrever neles; mudança da configuração durante essa consulta recusa o token.
+Salvar configuração invalida os tokens;
 erro de persistência preserva configuração e tokens anteriores. O renderer recebe
 uma cópia com todos os valores de headers mascarados. Não há I/O de ação na
 prévia. Os resultados incluem bindingId, duração e status HTTP, sem corpo/header.

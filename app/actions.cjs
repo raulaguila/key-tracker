@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 const { validateOpenTarget } = require('./config.cjs');
+const { assertSafeDestination } = require('./safe-export.cjs');
 
 function variables(context, now = new Date()) {
   return { key: context.key, layer: context.layer, date: now.toISOString().slice(0, 10), timestamp: now.toISOString().replace(/[:.]/g, '-') };
@@ -69,6 +70,7 @@ function actionErrorMessage(type, error, httpStatus) {
   if (type === 'open') return 'Não foi possível abrir o destino.';
   if (type === 'layer') return 'A camada de destino não está mais disponível.';
   if (['EACCES', 'EPERM'].includes(error.code)) return 'Sem permissão para acessar o arquivo.';
+  if (error.message === 'Escolha um destino diferente dos arquivos internos do aplicativo.') return error.message;
   // Native I/O errors can include paths or user content; only known messages survive.
   if (/^(Arquivo já existe\.(?: Use \{\{timestamp\}\} no nome ou o modo acrescentar\.)?|O destino não pode ser um link simbólico\.|Escolha uma pasta absoluta para salvar o arquivo\.|Nome de arquivo expandido muito longo\.)$/.test(error.message)) return error.message;
   return type === 'log' ? 'Não foi possível salvar a mensagem no log.' : 'Não foi possível gravar o arquivo.';
@@ -76,6 +78,13 @@ function actionErrorMessage(type, error, httpStatus) {
 
 function checkCancellation(signal) {
   if (signal?.aborted) throw Object.assign(new Error('Execução cancelada.'), { code: 'EXECUTION_CANCELLED' });
+}
+
+async function validateFileTargets(prepared, storage) {
+  const files = (prepared.type === 'sequence' ? prepared.steps : [prepared]).filter(step => step.type === 'file');
+  if (!files.length || !storage?.protectedPaths) return;
+  const protectedPaths = await storage.protectedPaths();
+  for (const file of files) await assertSafeDestination(file.target, protectedPaths, storage.directory);
 }
 
 async function executeAction(action, context, options = {}) {
@@ -139,6 +148,8 @@ async function executeAction(action, context, options = {}) {
     }
     case 'file': {
       const { directory, target } = prepared;
+      await validateFileTargets(prepared, storage);
+      checkCancellation(signal);
       await fs.mkdir(directory, { recursive: true });
       checkCancellation(signal);
       try {
@@ -178,4 +189,4 @@ async function executeAction(action, context, options = {}) {
   }
 }
 
-module.exports = { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, interpolate };
+module.exports = { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, interpolate, validateFileTargets };

@@ -37,7 +37,7 @@ test('cancelar em espera preserva arquivo concluído, publica progresso sem tick
   let copied = false;
   const { engine, bindingId, run } = fixture(t, { type: 'sequence', stepDelayMs: 60000, steps: [
     { type: 'file', directory: root, filename: 'feito.txt', content: 'privado', mode: 'create' }, { type: 'clipboard', text: 'não executar' }
-  ] }, { storage: new Storage(root), desktopActions: { clipboard: () => { copied = true; } } });
+  ] }, { storage: new Storage(path.join(root, 'profile')), desktopActions: { clipboard: () => { copied = true; } } });
   const running = run();
   const waiting = await waitForState(engine, state => state.running[0]?.phase === 'waiting');
   assert.equal(waiting.running[0].stepIndex, 1);

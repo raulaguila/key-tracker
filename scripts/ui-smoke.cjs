@@ -12,6 +12,7 @@ async function main() {
   if (process.platform !== 'linux' || !process.env.DISPLAY) throw new Error('Este teste de UI usa Linux/X11. Execute: xvfb-run -a npm run test:ui');
   const root = path.resolve(__dirname, '..');
   const data = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-ui-'));
+  const effects = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-ui-effects-'));
   const screenshots = path.join(root, 'artifacts', 'ui-audit');
   await fs.mkdir(screenshots, { recursive: true });
   let responseStatus = 201;
@@ -775,10 +776,11 @@ async function main() {
     if ((await nativeState()).storage.protection === 'encrypted') assert.equal(diskConfig.layers, undefined, 'Protected disk envelope does not expose configuration fields');
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
-    await require('./productivity-ui.cjs')({ cdp, evaluate, click, pointerClick, fill, select, until, nativeState, save, shot, nativeEvaluate, data });
-    await require('./renderer-performance-ui.cjs')({ evaluate, click, fill, until, nativeState, data });
+    await require('./productivity-ui.cjs')({ cdp, evaluate, click, pointerClick, fill, select, until, nativeState, save, shot, nativeEvaluate, data: effects });
+    await require('./renderer-performance-ui.cjs')({ evaluate, click, fill, until, nativeState, data: effects });
     await require('./key-moments-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
-    await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data });
+    await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data: effects });
+    await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until });
     console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
@@ -787,6 +789,7 @@ async function main() {
     await new Promise(resolve => { if (electron.exitCode !== null) resolve(); else { electron.once('exit', resolve); setTimeout(() => { electron.kill('SIGKILL'); resolve(); }, 3000).unref(); } });
     await new Promise(resolve => server.close(resolve));
     await fs.rm(data, { recursive: true, force: true });
+    await fs.rm(effects, { recursive: true, force: true });
   }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

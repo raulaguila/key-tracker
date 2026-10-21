@@ -36,7 +36,7 @@ async function main() {
       { type: 'http', method: 'GET', url: `http://127.0.0.1:${server.address().port}/`, headers: {}, query: {}, body: '' },
       ...Array.from({ length: 8 }, () => ({ type: 'log', message: 'bounded probe' }))
     ] } }));
-    const storage = new Storage(directory);
+    const storage = new Storage(path.join(directory, 'profile'));
     await storage.save(config);
     engine = new Engine({ config, storage, documents: directory, shortcuts: {
       register: () => { throw new Error('Native registration is outside this probe.'); }, unregister: () => {}, unregisterAll: () => {}

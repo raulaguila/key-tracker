@@ -81,7 +81,8 @@ class Storage {
     this.storageStatus.protection = mode;
     this.storageStatus.message = message || (mode === 'encrypted' ? 'Configuração protegida pelo cofre do sistema.' :
       mode === 'legacy' ? 'Configuração legada com headers em texto aberto preservada. Ative o cofre do sistema para migrar antes de salvar.' :
-      mode === 'unavailable' ? 'Proteção da configuração indisponível. Arquivo preservado.' : 'Configuração sem headers HTTP.');
+      mode === 'unavailable' ? 'Proteção da configuração indisponível. Arquivo preservado.' :
+      this.protection?.available === false ? this.protection.message : 'Configuração sem headers HTTP.');
   }
 
   async _read(file) {

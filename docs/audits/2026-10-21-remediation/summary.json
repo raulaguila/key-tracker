@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-21T14:54:43.326277+00:00",
+  "baseCommit": "01f63d8fab52610d7709b49361dfe925da82071b",
+  "workingTreeAtMeasurement": true,
+  "scope": "Correções F01–F05, antes do commit; resultados CI serão associados ao SHA publicado.",
+  "electron": "44.9.3",
+  "tests": {
+    "passed": 179,
+    "failed": 0,
+    "skipped": 0
+  },
+  "ui": {
+    "passed": true,
+    "axeVersion": "4.12.1",
+    "axeStates": 14,
+    "violations": 0,
+    "responsiveCases": 112,
+    "keyboardCases": 90
+  },
+  "npmVulnerabilities": 0,
+  "package": {
+    "sourceFilesMatched": 25,
+    "indexHtmlMatched": true,
+    "axeBundled": false
+  },
+  "findings": {
+    "F01": "corrected; local evidence passed",
+    "F02": "corrected; local evidence passed",
+    "F03": "corrected; local evidence passed",
+    "F04": "corrected; local evidence passed",
+    "F05": "corrected; local evidence passed"
+  }
+}

@@ -33,6 +33,7 @@ correções já divulgadas de forma coordenada.
 
 Veja [privacidade](docs/PRIVACY.md), [arquitetura](ARCHITECTURE.md) e
 [produção](docs/PRODUCTION.md) para o modelo de dados e as limitações conhecidas.
-O gate de dependências bloqueia alertas altos/críticos, não garante ausência
-de vulnerabilidades moderadas ou ainda desconhecidas. Assinatura/notarização
+O gate de dependências bloqueia alertas moderados, altos e críticos. Isso não
+garante ausência de vulnerabilidades desconhecidas nem audita integralmente os
+binários Electron/Chromium/Node distribuídos com o aplicativo. Assinatura/notarização
 pública e QA físico continuam pendências de distribuição.
