@@ -4,6 +4,7 @@ const path = require('node:path');
 const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, validateFileTargets } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
+const { PassiveShortcuts } = require('./passive-shortcuts.cjs');
 const PAUSE_RESUME_DEBOUNCE_MS = 400;
 function freezeTree(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -21,7 +22,7 @@ class Engine extends EventEmitter {
     this.serializedConfig = JSON.stringify(this.config);
     this.configRevision = 0;
     this.stateRevision = 0;
-    this.shortcutsAPI = shortcuts;
+    this.shortcutsAPI = shortcuts ?? new PassiveShortcuts(platform);
     this.storage = storage;
     this.documents = documents;
     this.platform = platform;
@@ -209,7 +210,7 @@ class Engine extends EventEmitter {
         for (const binding of this.activeLayer.bindings) if (binding.enabled) {
           const effective = effectiveShortcut(binding.key, this.platform);
           if (inputGroups.has(effective) && this.input.mode !== 'global') {
-            unavailable.set(effective, { key: binding.key, message: this.input.mode === 'unavailable' ? 'Gatilhos de tecla indisponíveis neste ambiente. A combinação não foi reservada.' : 'Aguardando entrada global para reservar esta combinação.' });
+            unavailable.set(effective, { key: binding.key, message: this.input.mode === 'unavailable' ? 'Observação global indisponível neste ambiente.' : 'Aguardando observação global desta combinação.' });
           } else desired.set(effective, binding.key);
         }
       }
@@ -225,9 +226,9 @@ class Engine extends EventEmitter {
       if (this.registrations.has(effective)) continue;
       let registered = false;
       try { registered = this.shortcutsAPI.register(electronShortcut(key), () => this.handleShortcut(effective)); }
-      catch { /* Invalid/unsupported native accelerators are reported below. */ }
+      catch { /* Invalid/unsupported combinations are reported below. */ }
       if (registered) this.registrations.set(effective, key);
-      else this.failed.push({ key, message: 'Atalho indisponível: conflito, permissão ou restrição do sistema.' });
+      else this.failed.push({ key, message: 'Observação indisponível: combinação repetida ou não suportada.' });
     }
   }
 
@@ -265,7 +266,9 @@ class Engine extends EventEmitter {
   }
 
   needsInput() {
-    return this.armed && this.config.layers.some(layer => layer.bindings.some(binding => binding.enabled && ['hold', 'release'].includes(binding.trigger)));
+    // Keep observing releases and the pause/resume control after activation,
+    // including press-only configurations. Visual tracking is independent.
+    return this.armed && !this.disposed;
   }
 
   inputGroups() {
@@ -278,9 +281,9 @@ class Engine extends EventEmitter {
       const group = grouped.get(effective);
       const trigger = binding.trigger || 'press';
       group.bindings[trigger] = binding;
-      if (trigger !== 'press') group.keyCode = binding.keyCode;
+      if (binding.keyCode) group.keyCode = binding.keyCode;
     }
-    const groups = [...grouped.values()].filter(group => group.bindings.hold || group.bindings.release);
+    const groups = [...grouped.values()].filter(group => group.keyCode);
     this.inputGroupCache.set(this.activeLayerId, groups);
     return groups;
   }
@@ -295,7 +298,15 @@ class Engine extends EventEmitter {
     return this.publish();
   }
 
-  handleInput(event) { this.gestures.handle(event); }
+  handleInput(event) {
+    const shortcut = !this.disposed && this.input.mode === 'global' ? this.shortcutsAPI.observe?.(event) : null;
+    const control = shortcut && [this.config.settings.pauseShortcut, this.config.settings.layerShortcut].some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
+    // Controls take priority even over a conflicting imported physical position.
+    // Resolve the shortcut before a gesture can change layers on this same event.
+    if (control) shortcut.callback();
+    const captured = this.gestures.handle(event, { dispatch: !control });
+    if (!control && !captured) shortcut?.callback();
+  }
 
   resetInput() { this.gestures.reset(); }
 

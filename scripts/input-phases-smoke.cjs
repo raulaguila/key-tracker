@@ -40,7 +40,7 @@ async function run() {
 const { app, BrowserWindow, globalShortcut, utilityProcess } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const assert = require('node:assert/strict');
 const root = ROOT;
@@ -52,7 +52,43 @@ const { Storage } = require(path.join(root, 'app/storage.cjs'));
 const { defaultConfig } = require(path.join(root, 'app/config.cjs'));
 app.setPath('userData', profile);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-let engine, tracker, window;
+let engine, tracker, window, receiver;
+let receiverRequest = 0;
+const receiverReplies = new Map();
+async function receiverSnapshot() {
+  const id = ++receiverRequest;
+  const reply = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { receiverReplies.delete(id); reject(new Error('External receiver did not respond')); }, 3000);
+    receiverReplies.set(id, value => { clearTimeout(timer); resolve(value); });
+  });
+  receiver.send({ id });
+  return reply;
+}
+async function startReceiver() {
+  const entry = path.join(profile, 'receiver.cjs');
+  // A different application process owns focus throughout the input proof.
+  const source = [
+    "const {app,BrowserWindow}=require('electron');",
+    "app.setPath('userData'," + JSON.stringify(path.join(profile, 'receiver-profile')) + ");",
+    'let window; const events=[];',
+    'app.whenReady().then(async()=>{',
+    'window=new BrowserWindow({width:420,height:240,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});',
+    "window.webContents.on('before-input-event',(_,input)=>{if(['keyDown','keyUp'].includes(input.type))events.push({type:input.type,code:input.code,control:input.control,shift:input.shift});});",
+    "await window.loadURL('data:text/html,<title>Independent input receiver</title><textarea id=receiver autofocus></textarea>');",
+    "window.show();window.focus();await window.webContents.executeJavaScript('document.querySelector(\"textarea\").focus()');process.send({ready:true});",
+    '});',
+    "process.on('message',async message=>{if(message.stop){app.exit(0);return;}const text=await window.webContents.executeJavaScript('document.querySelector(\"textarea\").value');process.send({id:message.id,characters:text.length,onlyAs:/^a*$/.test(text),events});});"
+  ].join('\n');
+  await fs.writeFile(entry, source);
+  receiver = spawn(process.execPath, [entry, '--ozone-platform=x11', '--disable-gpu', ...(process.env.DOBRA_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+  receiver.on('message', message => { if (message.id) { receiverReplies.get(message.id)?.(message); receiverReplies.delete(message.id); } });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('External receiver did not open')), 5000);
+    receiver.once('error', reject);
+    receiver.on('message', message => { if (message.ready) { clearTimeout(timer); resolve(); } });
+    receiver.once('exit', code => { if (code) reject(new Error('External receiver exited: ' + code)); });
+  });
+}
 let forks = 0;
 const observed = [];
 const evidence = { platform: process.platform, electron: process.versions.electron, nativeHook: true, isolatedXvfb: true, scope: 'Synthetic XTest events in an owned display; no physical keyboard or Windows/macOS certification.' };
@@ -100,16 +136,24 @@ async function main() {
     { id: 'combo-release', name: 'Combo release', key: 'Control+B', keyCode: 'KeyB', trigger: 'release', action: action('combo release fixture') }
   ] }];
   const storage = new Storage(path.join(profile, 'data'));
-  engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: profile, session: 'x11' });
+  const initialConfig = defaultConfig();
+  initialConfig.layers.forEach(layer => layer.bindings.forEach(binding => { binding.action = action('cold press-only fixture'); }));
+  engine = new Engine({ config: initialConfig, storage, documents: profile, session: 'x11' });
   tracker = new Tracker({ engine, fork: (...args) => { forks++; return utilityProcess.fork(...args); } });
   engine.on('key', event => observed.push(event));
   assert.equal(forks, 0, 'o hook não deve iniciar antes de ativação explícita');
   engine.setEnabled(true);
   await until(() => engine.input.mode === 'global', 'hook global precisa ficar pronto');
   assert.equal(engine.tracking.enabled, false);
-  assert.equal(globalShortcut.isRegistered('A'), true, 'A deve estar registrado ao mesmo tempo que o hook');
-  assert.equal(globalShortcut.isRegistered('Control+B'), true);
-  evidence.concurrentGlobalShortcut = { A: true, ControlB: true };
+  for (const key of ['A', 'Control+B', 'F8', 'CommandOrControl+Shift+F12']) assert.equal(globalShortcut.isRegistered(key), false, key + ' não deve ser reservado no sistema');
+  await startReceiver();
+  evidence.passiveObservation = { noExclusiveRegistrations: true, externalReceiverProcess: receiver.pid !== process.pid };
+  await tap();
+  await until(() => engine.events.some(event => event.kind === 'action' && event.status === 'success'), 'press-only deve iniciar o hook e disparar fora do Dobra');
+  assert.equal(engine.events.filter(event => event.kind === 'action').length, 1);
+  assert.equal((await receiverSnapshot()).characters, 1, 'uma tecla produz um único caractere no outro aplicativo');
+  evidence.passiveObservation.coldPressOnly = true;
+  await engine.saveConfig(config);
   await keys([{ key: 'a', down: true }, { wait: 1100 }, { key: 'a', down: false }]);
   await until(() => counts().release === 1 && engine.inFlight.size === 0, 'keyup real deve executar release');
   const first = counts();
@@ -120,6 +164,12 @@ async function main() {
   await delay(250);
   assert.deepEqual(counts(), first, 'keyup encerra repetição');
   evidence.firstGesture = first;
+  const received = await receiverSnapshot();
+  assert.ok(received.characters >= 1 && received.onlyAs, 'o campo de texto de outro aplicativo deve receber A normalmente');
+  assert.ok(received.events.some(event => event.code === 'KeyA' && event.type === 'keyDown'));
+  assert.ok(received.events.some(event => event.code === 'KeyA' && event.type === 'keyUp'));
+  evidence.passiveObservation.externalTextReceived = true;
+  evidence.passiveObservation.externalKeyupReceived = true;
   tracker.set(true);
   assert.equal(forks, 1, 'rastreio deve reutilizar o mesmo worker');
   await delay(120); await tap();
@@ -160,6 +210,9 @@ async function main() {
   assert.equal(combo['combo-release'], 0, 'soltar modificador cancela o gesto antes do keyup da tecla');
   assert.equal(observed.find(event => event.code === 'KeyB' && event.direction === 'down')?.ctrlKey, true);
   evidence.modifierCancellation = { press: combo['combo-press'], hold: combo['combo-hold'], release: combo['combo-release'], nativeCtrlFlag: true };
+  const comboReceiver = await receiverSnapshot();
+  assert.ok(comboReceiver.events.some(event => event.code === 'KeyB' && event.type === 'keyDown' && event.control));
+  evidence.passiveObservation.externalModifiedKeyReceived = true;
   tracker.set(false);
   await delay(120); await keys([{ key: 'a', down: true }, { wait: 150 }]);
   tracker.worker.kill();
@@ -179,6 +232,34 @@ async function main() {
   await delay(200); await keys([{ key: 'a', down: false }]); await delay(100);
   assert.deepEqual(counts(), stopped, 'parar todas com tecla mantida não deixa hold nem release tardio');
   evidence.stopAllCancelledHeldGesture = true;
+  // Legacy press-only configurations also use the observer, including controls.
+  const pressOnly = defaultConfig();
+  pressOnly.settings.cooldownMs = 100;
+  pressOnly.layers.forEach(layer => layer.bindings.forEach(binding => { binding.action = action('legacy press fixture'); }));
+  await engine.saveConfig(pressOnly);
+  engine.setEnabled(true);
+  const prior = engine.events.filter(event => event.kind === 'action').length;
+  const beforeText = (await receiverSnapshot()).characters;
+  await tap();
+  await until(() => engine.events.filter(event => event.kind === 'action').length === prior + 1, 'press legado deve disparar fora do Dobra');
+  assert.ok((await receiverSnapshot()).characters > beforeText);
+  await keys([{ key: 'F8', down: true }, { key: 'F8', down: false }]);
+  assert.equal(engine.activeLayerId, pressOnly.layers[1].id);
+  const pause = () => keys([{ key: 'Control_L', down: true }, { key: 'Shift_L', down: true }, { key: 'F12', down: true }, { key: 'F12', down: false }, { key: 'Shift_L', down: false }, { key: 'Control_L', down: false }]);
+  await pause();
+  assert.equal(engine.enabled, false);
+  const pausedCount = engine.events.filter(event => event.kind === 'action').length;
+  await tap();
+  assert.equal(engine.events.filter(event => event.kind === 'action').length, pausedCount);
+  await delay(450); await pause();
+  assert.equal(engine.enabled, true);
+  const controlReceiver = await receiverSnapshot();
+  assert.ok(controlReceiver.events.some(event => event.code === 'F8' && event.type === 'keyDown'));
+  assert.ok(controlReceiver.events.some(event => event.code === 'F12' && event.type === 'keyDown' && event.control && event.shift));
+  evidence.passiveObservation.pressOnlyOutsideApp = true;
+  evidence.passiveObservation.layerAndPauseControlsPassedThrough = true;
+  await engine.saveConfig(config);
+  engine.setLayer('proof');
   engine.setEnabled(true);
   await keys([{ key: 'a', down: true }, { wait: 150 }]);
   const workerExit = new Promise(resolve => tracker.worker.once('exit', resolve));
@@ -194,13 +275,14 @@ async function main() {
   evidence.passed = true;
 }
 app.whenReady().then(main).catch(error => { evidence.passed = false; evidence.error = error.stack; process.exitCode = 1; }).finally(async () => {
+  receiver?.kill();
   tracker?.dispose(); engine?.dispose();
   await fs.mkdir(path.dirname(output), { recursive: true });
   await fs.writeFile(output, JSON.stringify(evidence, null, 2) + '\n');
   console.log(JSON.stringify(evidence));
   app.exit(evidence.passed ? 0 : 1);
 });
-setTimeout(() => { tracker?.dispose(); engine?.dispose(); app.exit(2); }, 20000).unref();
+setTimeout(() => { receiver?.kill(); tracker?.dispose(); engine?.dispose(); app.exit(2); }, 30000).unref();
 `;
     const source = script.replace('const root = ROOT;', 'const root = ' + JSON.stringify(root) + ';')
       .replace('const profile = PROFILE;', 'const profile = ' + JSON.stringify(profile) + ';')
@@ -209,7 +291,7 @@ setTimeout(() => { tracker?.dispose(); engine?.dispose(); app.exit(2); }, 20000)
     const flags = [entry, '--ozone-platform=x11', '--disable-gpu'];
     if (process.env.DOBRA_UI_NO_SANDBOX === '1') flags.push('--no-sandbox');
     child = spawn(require('electron'), flags, { cwd: root, env: { ...process.env, XDG_SESSION_TYPE: 'x11', WAYLAND_DISPLAY: '', DBUS_SESSION_BUS_ADDRESS: 'unix:path=' + path.join(directory, 'no-bus') }, stdio: 'inherit' });
-    const timer = setTimeout(() => child.kill('SIGKILL'), 25000);
+    const timer = setTimeout(() => child.kill('SIGKILL'), 35000);
     const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', value => resolve(value ?? 1)); });
     clearTimeout(timer);
     process.exitCode = code;

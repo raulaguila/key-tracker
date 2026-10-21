@@ -21,10 +21,15 @@ pressionar e repetem a cada 300 ms depois de cada execução concluída. Delay z
 agenda a primeira execução imediatamente. Configurações antigas sem delay usam
 o intervalo de repetição também na primeira execução, preservando o comportamento.
 
-Use **Capturar tecla** para os momentos de manter/soltar: o aplicativo guarda a
+As teclas continuam chegando ao aplicativo em foco. O Dobra observa os eventos
+sem reservar, bloquear ou reenviar teclas; isso também vale para trocar camada
+e pausar/retomar.
+
+Use **Capturar tecla**, principalmente em layouts diferentes de US: o aplicativo guarda a
 posição da tecla junto do nome e dos modificadores da combinação. Isso evita
 confundir a posição física com a legenda de outro layout. Alterar o atalho
-manualmente exige uma nova captura. Configurações antigas continuam funcionando:
+manualmente remove a posição capturada; atalhos sem `keyCode` usam posições de
+referência US. Manter/soltar exigem captura. Configurações antigas continuam legíveis:
 o momento ausente equivale a Ao pressionar, sem aumentar seu tamanho ao migrar.
 Ao mudar a fonte de entrada/layout do sistema, capture novamente essas combinações
 para manter a posição e o atalho global coerentes. IMEs e alternância dinâmica de
@@ -32,21 +37,22 @@ layouts exigem validação no ambiente de uso.
 
 ## Ativação e disponibilidade
 
-Os momentos de manter/soltar usam entrada global nativa em Windows, macOS e
+Todos os momentos usam observação global nativa em Windows, macOS e
 Linux/X11, com as permissões do sistema. O drawer mostra a disponibilidade.
-No Wayland, esses momentos ficam indisponíveis; use X11 para eles. Falha ou falta
+No Wayland, ações por tecla ficam indisponíveis; use X11 para elas. Falha ou falta
 de permissão não é tratada como soltura, e não inicia uma repetição fictícia.
-Grupos que precisam dessa entrada não ocupam o atalho enquanto ela está indisponível.
+Nenhuma combinação é reservada no sistema, mesmo quando a entrada está disponível.
 
 A visualização em Rastreio é independente. Ativar as ações inicia a entrada quando
-ela é necessária, mesmo com Rastreio desligado. Depois da primeira ativação, a
-entrada continua observando solturas durante a pausa/edição enquanto existirem
-momentos habilitados desse tipo; ela não executa ações enquanto o motor está
+ela é necessária, mesmo com Rastreio desligado e somente ações de pressionar.
+Depois da primeira ativação, a entrada continua observando solturas e o controle
+de pausa/retomada até encerrar o aplicativo; ela não executa ações de teclas enquanto o motor está
 pausado ou durante edição. Desligar Rastreio desliga somente a visualização.
 
-Nos grupos com momentos de manter/soltar, pressionar executa uma vez por gesto,
-sem repetir os callbacks de autorepeat do sistema. Atalhos legados só de pressionar
-mantêm o comportamento anterior e o intervalo mínimo global.
+Pressionar executa uma vez por gesto, inclusive em atalhos legados sem `keyCode`.
+O autorepeat do sistema continua chegando ao outro aplicativo, mas não dispara
+novamente a ação de pressionar. Para repetir, configure Enquanto pressionada.
+O intervalo mínimo global continua limitando novos gestos de pressionar/soltar.
 
 ## Interrupções
 

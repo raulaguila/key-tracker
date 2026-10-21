@@ -140,13 +140,13 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/shutdown.cjs', 'app/state-delivery.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/index.html', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/shutdown.cjs', 'app/state-delivery.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/passive-shortcuts.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/index.html', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
   return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: packaged ? 'Runtime uses the packaged executable in a disposable CI account.' : 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-platform-audit-'));
-  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Key registration is tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [], interfaceMs: [], shutdowns: [] };
+  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Passive subscriptions and hook availability are tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [], interfaceMs: [], shutdowns: [] };
   let instance, originalClipboard;
   try {
     result.package = await inspectPackage();
@@ -211,15 +211,21 @@ async function main() {
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(fixture) + ');');
     const opened = await run('audit-app'); result.probes.applicationLaunch = { status: opened.status, message: opened.message };
     const notified = await run('audit-notification'); result.probes.notification = { status: notified.status, message: notified.message, note: 'A show event confirms native API acknowledgement, not that a person saw it.' };
-    const activated = await page.evaluate('return await window.dobra.setEnabled(true);');
-    result.probes.globalShortcuts = { enabled: activated.enabled, registered: activated.shortcuts.registered, failed: activated.shortcuts.failed };
-    await page.evaluate('await window.dobra.setEnabled(false);');
     result.probes.accessibilityTrusted = process.platform === 'darwin' ? await native.evaluate('return process.mainModule.require("electron").systemPreferences.isTrustedAccessibilityClient(false);') : null;
     if (process.platform !== 'darwin' || result.probes.accessibilityTrusted) {
+      await page.evaluate('await window.dobra.setEnabled(true);');
+      let activated;
+      for (let i = 0; i < 120; i++) { activated = await page.evaluate('return await window.dobra.getState();'); if (activated.input.mode !== 'starting') break; await delay(50); }
+      const noExclusiveRegistrations = await native.evaluate('return ["A","B","C","F8","CommandOrControl+Shift+F12"].every(key=>!process.mainModule.require("electron").globalShortcut.isRegistered(key));');
+      result.probes.passiveObservation = { attempted: true, mode: activated.input.mode, enabled: activated.enabled, subscriptions: activated.shortcuts.registered, failed: activated.shortcuts.failed, noExclusiveRegistrations, passed: activated.enabled && activated.input.mode === 'global' && noExclusiveRegistrations };
+      await page.evaluate('await window.dobra.setEnabled(false);');
       await page.evaluate('await window.dobra.setTracking(true);');
       for (let i = 0; i < 120; i++) { const tracking = await page.evaluate('return (await window.dobra.getState()).tracking;'); if (tracking.mode !== 'starting') { result.probes.tracking = tracking; break; } await delay(50); }
       await page.evaluate('await window.dobra.setTracking(false);');
-    } else result.probes.tracking = { mode: 'not_attempted', message: 'macOS Accessibility not authorized; avoid triggering an OS permission prompt.' };
+    } else {
+      result.probes.passiveObservation = { attempted: false, reason: 'macOS Accessibility not authorized; no OS permission prompt triggered by the audit.' };
+      result.probes.tracking = { mode: 'not_attempted', message: 'macOS Accessibility not authorized; avoid triggering an OS permission prompt.' };
+    }
     fixture.settings.autoSwitchLayers = true;
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(fixture) + ');'); await delay(3200);
     result.probes.applicationMonitor = await page.evaluate('const app=(await window.dobra.getState()).application;return {status:app.status,message:app.message,identified:Boolean(app.current)};');
@@ -245,7 +251,7 @@ async function main() {
       const persisted = await readConfigFile(path.join(state.paths.data, 'config.json'));
       result.probes.keyMoments = { attempted: true, mode: phaseState.input.mode, registered: phaseState.shortcuts.registered.includes('A'),
         schemaPersisted: persisted.layers[0].bindings.length === 3 && persisted.layers[0].bindings[1].trigger === 'hold' && persisted.layers[0].bindings[1].repeatMs === 125 && persisted.layers[0].bindings[1].holdDelayMs === 500 && persisted.layers[0].bindings[2].keyCode === 'KeyA', ...shared,
-        note: 'Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.' };
+        note: 'Real worker availability, passive subscriptions and shared lifecycle; native event delivery and pass-through are a separate Linux XTest probe.' };
       result.probes.keyMoments.passed = result.probes.keyMoments.mode === 'global' && result.probes.keyMoments.registered && result.probes.keyMoments.schemaPersisted && Object.values(shared).every(Boolean);
       await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(original) + ');');
     }
@@ -279,7 +285,7 @@ async function main() {
     result.probes.stateTransport = await page.evaluate('const api=window.dobra;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.storage.present && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.cancellation.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.storage.present && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.cancellation.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.passiveObservation.attempted || result.probes.passiveObservation.passed) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;

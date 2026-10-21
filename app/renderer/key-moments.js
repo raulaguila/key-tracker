@@ -23,7 +23,7 @@ export function createBindingTrigger({ initial, platform, shortcutField, onDirty
     onManualInput() { keyCode.value = ''; refresh(); }
   });
   const input = key.querySelector('input');
-  const physicalHelp = el('p', { class: 'hint physical-key-help' }, 'Enquanto pressionada e Ao soltar exigem captura da tecla e entrada global. Alterar o atalho exige nova captura.');
+  const physicalHelp = el('p', { class: 'hint physical-key-help' }, 'A tecla continua funcionando nos outros aplicativos. Capture para usar a posição neste teclado; atalhos digitados usam posições US. Manter e soltar exigem captura.');
   const body = el('div', { class: 'trigger-fields' }, key, keyCode,
     el('div', { class: 'trigger-options' }, moment.wrapper, delay.wrapper, repeat.wrapper),
     el('label', { class: 'trigger-enabled' }, enabled, 'Ação ativada'),
@@ -34,11 +34,10 @@ export function createBindingTrigger({ initial, platform, shortcutField, onDirty
     const hold = moment.input.value === 'hold';
     repeat.wrapper.hidden = !hold; repeat.input.disabled = !hold;
     delay.wrapper.hidden = !hold; delay.input.disabled = !hold;
-    physicalHelp.hidden = moment.input.value === 'press';
     const details = getInputState(input.value.trim());
     setInputState(details.input, details.enabled);
     physical.hidden = !keyCode.value;
-    physical.textContent = keyCode.value ? 'Tecla capturada neste teclado' : '';
+    physical.textContent = keyCode.value ? 'Posição física da tecla definida' : '';
     summary.replaceChildren(...[el('span', { class: 'trigger-summary-moment' }, triggerLabels[moment.input.value]),
       input.value.trim() ? shortcut(input.value.trim(), platform) : el('span', { class: 'trigger-unset' }, 'Defina a tecla'),
       hold ? el('span', { class: 'trigger-summary-interval' }, holdTiming({ holdDelayMs: delay.input.value || '0', repeatMs: repeat.input.value || '400' })) : null,
@@ -46,7 +45,7 @@ export function createBindingTrigger({ initial, platform, shortcutField, onDirty
       button('Editar gatilho', () => { node.open = true; input.focus(); }, 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar gatilho', 'data-edit-trigger': '' })].filter(Boolean));
   }
   function setInputState(state, actionsEnabled) {
-    availability.hidden = moment.input.value === 'press' && !getInputState(input.value.trim()).groupRequiresInput;
+    availability.hidden = false;
     const mode = state?.mode || 'off';
     availability.dataset.mode = mode;
     availability.textContent = mode === 'unavailable' ? state.message || 'Entrada global indisponível. Este momento não executará ações.'

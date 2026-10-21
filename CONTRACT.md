@@ -150,6 +150,10 @@ a UI deve consultar o evento de resultado correspondente.
   `startedAt`, `stepIndex`, `stepCount`, `phase`;
 - `events`: últimos 100 eventos da sessão, mais recentes primeiro.
 
+`shortcuts.registered` mantém o nome do campo por compatibilidade, mas representa
+assinaturas passivas em memória. Não comprova reserva no SO nem disponibilidade
+do hook: esta vem de `input.mode` (`off`, `starting`, `global`, `unavailable`).
+
 `storage.protection` é `encrypted`, `plain`, `legacy` ou `unavailable`.
 `running.phase` é `running`, `waiting` ou `cancelling`. Capacidade nativa deve ser
 lida do estado, não presumida pelo SO. O estado inclui a configuração em memória;
@@ -179,8 +183,10 @@ Mensagens explícitas de ações `log` legadas seguem sua compatibilidade própr
 ## Execução, contexto e encerramento
 
 O motor inicia pausado na primeira camada. Após a primeira ativação explícita,
-o atalho de pausa permanece disponível para retomar; falhar em registrar a pausa
-impede ativar. A edição suspende ações e alternância, mantendo a pausa.
+o observador permanece para reconhecer solturas e o controle de pausa/retomada.
+Todas as ações por tecla e controles exigem `input.mode === 'global'`. Teclas
+continuam chegando ao aplicativo em foco, sem registros exclusivos ou reinjeção.
+A edição suspende ações e alternância, mantendo a pausa quando há entrada global.
 Há no máximo quatro bindings em execução e uma execução por binding, sem fila
 ilimitada. Ticks ocupados são descartados.
 

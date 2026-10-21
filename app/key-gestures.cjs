@@ -8,6 +8,7 @@ const FLAGS = ['ctrlKey', 'altKey', 'shiftKey', 'metaKey'];
 
 function shortcutModifiers(effective) {
   const names = effective.split('+').slice(0, -1);
+  if (effective.split('+').at(-1) === 'Plus') names.push('Shift');
   return new Set(names.map(name => ({ Control: 'ctrlKey', Alt: 'altKey', Shift: 'shiftKey', Command: 'metaKey', Super: 'metaKey' })[name]).filter(Boolean));
 }
 
@@ -42,7 +43,7 @@ class KeyGestures {
     gesture.timer.unref?.();
   }
 
-  handle(event) {
+  handle(event, { dispatch = true } = {}) {
     if (!event || typeof event.code !== 'string' || !['down', 'up'].includes(event.direction)) return;
     for (const gesture of this.active.values()) {
       const releasedModifier = event.direction === 'up' && gesture.group.modifiers.has(MODIFIER_CODES[event.code]) &&
@@ -60,12 +61,14 @@ class KeyGestures {
     }
     if (this.down.has(event.code)) return;
     this.down.add(event.code);
+    if (!dispatch) return;
     const group = this.findGroup(event);
     if (!group || !this.isActive(group)) return;
     const gesture = { code: event.code, group, timer: null };
     this.active.set(event.code, gesture);
     if (group.bindings.press) void this.run(group, group.bindings.press);
     if (group.bindings.hold && this.active.get(event.code) === gesture) this.schedule(gesture, group.bindings.hold.holdDelayMs ?? group.bindings.hold.repeatMs ?? 400);
+    return true;
   }
 }
 

@@ -30,14 +30,14 @@ function fixture(t, { bindings = ['press', 'hold', 'release'].map(trigger => bin
   return { engine, registrations, calls, input, activate };
 }
 
-test('press/hold/release compartilham registro único, usam hook físico e não duplicam keydown', async t => {
+test('press/hold/release compartilham assinatura única, usam hook físico e não duplicam keydown', async t => {
   const { engine, registrations, calls, input, activate } = fixture(t);
   assert.equal(engine.needsInput(), false);
   activate();
   assert.equal(engine.needsInput(), true);
   assert.deepEqual([...registrations.keys()].filter(key => key === 'A'), ['A']);
   registrations.get('A')();
-  assert.equal(calls.length, 0, 'callback nativo não duplica grupo alimentado pelo hook');
+  assert.equal(calls.length, 0, 'callback da assinatura não duplica grupo alimentado pelo hook');
   input('down'); input('down'); input('down');
   await tick();
   assert.equal(calls.length, 1);
@@ -168,7 +168,7 @@ test('teste manual de hold executa uma vez sem agendar timer; demanda considera 
   const config = engine.state().config;
   config.layers[0].bindings[0].enabled = false;
   await engine.saveConfig(config);
-  assert.equal(engine.needsInput(), false);
+  assert.equal(engine.needsInput(), true, 'o controle passivo de pausa/retomada continua observando após a ativação');
 });
 
 test('soltar/cancelar enquanto hold está em voo permite terminar efeito sem reagendar', async t => {

@@ -82,18 +82,20 @@ Veja o [guia de desenvolvimento](docs/DEVELOPMENT.md).
    (`⌘+Shift+F12` no macOS). Configure outras combinações em **Configurações**.
 4. Ative **Rastreio** separadamente para visualizar o teclado.
 
-As ações começam pausadas e o rastreio, desligado. Atalhos globais podem interferir
-na digitação em outros programas: escolha combinações adequadas ao seu uso.
+As ações começam pausadas e o rastreio, desligado. As teclas são observadas
+passivamente e continuam funcionando nos outros programas, inclusive quando
+têm uma ação configurada no Dobra. Digitar uma combinação ativa também executa
+sua ação: escolha combinações adequadas ao seu uso.
 Pausar impede novos disparos; **Parar todas** também cancela execuções em andamento.
 
 ## Compatibilidade
 
 | Ambiente | Atalhos ao pressionar | Manter/soltar e rastreio global |
 | --- | --- | --- |
-| Windows x64 | Integração nativa, sujeita a conflitos | Dependem da sessão e permissões |
-| macOS ARM64/x64 | Integração nativa, sujeita a conflitos | Exigem as permissões de entrada do sistema |
+| Windows x64 | Observação nativa passiva | Dependem da sessão e permissões |
+| macOS ARM64/x64 | Exigem permissões de entrada | Exigem as permissões de entrada do sistema |
 | Linux x64/X11 | Integração nativa | Exigem bibliotecas X11 disponíveis |
-| Linux/Wayland | Dependem do portal e compositor | Indisponíveis; rastreio local com a janela em foco |
+| Linux/Wayland | Indisponíveis | Indisponíveis; rastreio local com a janela em foco |
 
 Os quatro destinos têm CI nativo. Isso não substitui testar instalação,
 permissões e teclados físicos no ambiente de uso. ARM64 para Linux/Windows não

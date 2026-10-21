@@ -11,8 +11,9 @@ Mudar de camada não ativa ações que estavam pausadas.
 
 O aplicativo inicia pausado. A ativação é explícita; o atalho padrão de pausa
 é `Ctrl+Shift+F12` no Windows/Linux e `⌘+Shift+F12` no macOS. Se esse controle
-não puder ser registrado, a ativação é recusada. Outros conflitos aparecem
-individualmente. Durante a edição de formulários, as ações ficam suspensas.
+não puder ser observado, a interface informa a indisponibilidade. A observação
+é passiva: as teclas continuam funcionando no programa em foco. Durante a
+edição de formulários, as ações ficam suspensas.
 
 Você pode usar a tabela ou o teclado visual para cadastrar uma ação. Criar e
 editar abre um drawer sobre o conteúdo. Salvar aplica a configuração; Cancelar

@@ -41,7 +41,7 @@
     "deb": { "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0", "libxt6 | libxt6t64"] },
     "win": { "target": ["nsis"] },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false },
-    "mac": { "target": ["dmg", "zip"], "hardenedRuntime": false, "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }
+    "mac": { "target": ["dmg", "zip"], "hardenedRuntime": false, "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Observar teclas para executar as ações configuradas e mostrar o rastreador visual, após ativação explícita." } }
   },
   "overrides": { "tar": "7.5.22", "global-agent": "4.1.3" }
 }

@@ -170,9 +170,9 @@ function updateStatus() {
   const inputLimited = state.input?.mode === 'unavailable';
   const editingForm = Boolean(editor || isDirty());
   const navigatingKeyboard = Boolean(document.activeElement?.closest('.keyboard-interactive'));
-  document.querySelector('.engine-status').dataset.status = state.stopping ? 'starting' : suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'limited' : 'active' : 'paused';
-  document.querySelector('#engine-status').textContent = state.stopping ? 'Parando…' : suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
-  document.querySelector('#engine-detail').textContent = state.stopping ? 'Aguardando as ações e o histórico terminarem. Novos disparos estão bloqueados.' : suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? inputLimited ? 'Alguns momentos da tecla estão indisponíveis. Confira a entrada global.' : 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
+  document.querySelector('.engine-status').dataset.status = state.stopping ? 'starting' : suspended ? 'suspended' : state.enabled ? inputLimited ? 'unavailable' : state.input?.mode === 'starting' ? 'starting' : state.shortcuts.failed.length ? 'limited' : 'active' : 'paused';
+  document.querySelector('#engine-status').textContent = state.stopping ? 'Parando…' : suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? inputLimited ? 'Entrada indisponível' : state.input?.mode === 'starting' ? 'Iniciando…' : state.shortcuts.failed.length ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
+  document.querySelector('#engine-detail').textContent = state.stopping ? 'Aguardando as ações e o histórico terminarem. Novos disparos estão bloqueados.' : suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? inputLimited ? 'Ações por tecla indisponíveis. Confira a entrada global.' : state.input?.mode === 'starting' ? 'Preparando a observação global das teclas.' : 'As teclas continuam funcionando nos outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
   document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing && !state.stopping);
   document.querySelector('#control-shortcuts').hidden = state.editing;
   document.querySelector('#control-shortcuts').textContent = state.config.settings.layerShortcut + ' alternar · ' + state.config.settings.pauseShortcut.replace('CommandOrControl', state.platform === 'darwin' ? '⌘' : 'Ctrl') + ' pausar';
@@ -203,7 +203,7 @@ function updateStatus() {
   const failures = state.shortcuts.failed;
   warning.hidden = !failures.length;
   if (failures.length) warning.replaceChildren(icon('alert'), el('div', {}, el('strong', {}, 'Alguns atalhos estão indisponíveis'),
-    el('p', {}, failures.map(item => item.key).join(', ') + ' · Outro aplicativo ou uma restrição do sistema pode estar usando estas teclas.')),
+    el('p', {}, failures.map(item => item.key).join(', ') + ' · Verifique a entrada global e combinações com a mesma posição de tecla.')),
     button('Revisar atalhos', () => navigate('settings'), 'small'));
 }
 
@@ -225,6 +225,9 @@ function render(focusKey) {
   if (feedback?.closest('#editor-drawer')) document.body.append(feedback);
   main.replaceChildren();
   ({ layers: renderLayers, tracking: renderTracking, history: renderHistory, settings: renderSettings })[view]();
+  // Populate the status before showModal forces layout, so rebuilding a long
+  // action list cannot clamp its scroll position while this row is hidden.
+  updateInputStatus();
   for (const form of main.querySelectorAll('form[data-draft]')) form.dataset.baseline = serializeForm(form);
   const drawer = main.querySelector('#editor-drawer');
   if (drawer) {
@@ -313,11 +316,11 @@ function updateApplicationStatus() {
 function updateInputStatus() {
   const node = document.querySelector('#input-status');
   if (!node) return;
-  const relevant = [layerById(), layerById(state.activeLayerId)].some(layer => layer?.bindings.some(binding => binding.enabled !== false && triggerFor(binding) !== 'press'));
+  const relevant = [layerById(), layerById(state.activeLayerId)].some(layer => layer?.bindings.some(binding => binding.enabled !== false));
   node.hidden = !relevant;
   const mode = state.input?.mode || 'off';
   node.dataset.mode = mode;
-  const message = state.input?.message || (mode === 'global' ? 'Entrada global disponível para os momentos da tecla.' : mode === 'starting' ? 'Preparando a entrada global…' : mode === 'unavailable' ? 'Entrada global indisponível. Enquanto pressionada e Ao soltar não executarão ações.' : 'Ative as ações para verificar a entrada global dos momentos da tecla.');
+  const message = state.input?.message || (mode === 'global' ? 'Observação global disponível. As teclas continuam funcionando nos outros aplicativos.' : mode === 'starting' ? 'Preparando a observação global…' : mode === 'unavailable' ? 'Observação global indisponível. As ações por tecla não serão executadas.' : 'Ative as ações para verificar a observação global.');
   if (node.textContent !== message) node.textContent = message;
 }
 
@@ -348,7 +351,7 @@ function renderBindingKeyboard(container, layer, matches) {
     if (!key) return;
     const value = [visualModifiers, key].filter(Boolean).join('+');
     const existing = layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers && triggerFor(binding) === visualTrigger);
-    startEditor({ kind: 'binding', value: existing || null, seed: existing ? undefined : { key: value, trigger: visualTrigger } });
+    startEditor({ kind: 'binding', value: existing || null, seed: existing ? undefined : { key: value, trigger: visualTrigger, ...(visualTrigger === 'press' ? { keyCode: code } : {}) } });
   } });
   const matched = new Set(matches.map(binding => binding.id));
   for (const [code, node] of nodes) {
@@ -432,7 +435,7 @@ function renderLayers() {
   detail.append(el('div', { class: 'section-toolbar' }, el('div', { class: 'search-field' }, icon('search'), search.wrapper), modes, el('span', { id: 'action-count' })),
     el('div', { id: 'bindings', class: 'binding-list table-scroll' }),
     el('p', { class: 'test-explanation' }, 'Confira a prévia antes de executar um teste. A execução funciona mesmo com os atalhos pausados.'),
-    el('details', { class: 'usage-help' }, el('summary', {}, 'Atalhos e uso'), el('p', {}, 'Selecionar uma camada abre suas ações para edição. “Usar esta camada” troca a camada dos atalhos. Enquanto ativas, as teclas configuradas podem substituir a digitação em outros programas.')));
+    el('details', { class: 'usage-help' }, el('summary', {}, 'Atalhos e uso'), el('p', {}, 'Selecionar uma camada abre suas ações para edição. “Usar esta camada” troca a camada dos atalhos. As teclas continuam funcionando nos outros programas e também executam as ações da camada em uso.')));
   const workspace = el('div', { class: 'layer-workspace' }, detail);
   main.append(el('div', { class: 'layer-layout' }, list, workspace));
   if (editor) {
@@ -941,7 +944,7 @@ function renderSettings() {
       el('p', { id: 'application-status', class: 'application-status', role: 'status' }),
       checkboxField('closeToTray', 'Manter na bandeja ao fechar a janela', settings.closeToTray, state.desktop?.trayAvailable ? 'Use “Sair” no menu da bandeja para encerrar o aplicativo.' : 'A bandeja não está disponível nesta sessão. Fechar a janela encerra o aplicativo.', !state.desktop?.trayAvailable)),
     el('details', { class: 'advanced-fields' }, el('summary', {}, 'Repetição das ações'),
-      field('cooldownMs', 'Intervalo mínimo (milissegundos)', settings.cooldownMs, { type: 'number', required: true, min: 100, max: 10000, step: 1, hint: '400 ms = 0,4 segundo. Uma tecla mantida pressionada pode disparar novamente depois deste intervalo.' }).wrapper));
+      field('cooldownMs', 'Intervalo mínimo (milissegundos)', settings.cooldownMs, { type: 'number', required: true, min: 100, max: 10000, step: 1, hint: '400 ms = 0,4 segundo. Limita novos gestos de pressionar/soltar; a repetição de Enquanto pressionada tem intervalo próprio.' }).wrapper));
   shortcutForm.classList.add('settings-form');
   shortcutForm.querySelector('.form-footer .button-row').replaceChildren(
     button('Descartar alterações', () => void guardNavigation(() => render()), 'quiet'),
@@ -960,7 +963,7 @@ function renderSettings() {
     el('p', { class: 'hint token-note' }, 'Configurações com headers HTTP exigem proteção nativa do sistema. O backup local mantém a mesma proteção.'));
   const support = el('details', { class: 'settings-section support-details' }, el('summary', {}, 'Captura e permissões'),
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
-      el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. Para rastreio global integral, use uma sessão X11. Os atalhos globais dependem do portal do compositor.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'Atalhos ocupados por outro programa são informados na barra de avisos. O rastreio global pode depender de permissões da sessão.')),
+      el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. As ações por tecla exigem observação global, disponível em sessões X11 no Linux.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'As teclas são observadas sem bloquear outros programas. A entrada global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
   main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
 }

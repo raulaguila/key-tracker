@@ -196,25 +196,27 @@ async function main() {
       assert.equal(await evaluate('return getComputedStyle(document.querySelector("#engine-dot")).borderLeftWidth'), '2px', 'Paused has a pause symbol');
       await shot('status-paused-' + theme);
       await click('#engine-toggle');
-      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Real shortcuts active');
-      const activeColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
-      assert.notEqual(activeColor, pausedColor, 'Active and paused colors differ: ' + theme);
+      await until('document.querySelector(".engine-status").dataset.status === "unavailable"', 'Wayland explicitly reports unavailable passive input');
+      assert.equal(await evaluate('return document.querySelector("#engine-status").textContent'), 'Entrada indisponível');
+      assert.equal((await nativeState()).input.mode, 'unavailable');
+      const unavailableColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
+      assert.notEqual(unavailableColor, pausedColor, 'Unavailable and paused colors differ: ' + theme);
       assert.equal((await nativeState()).enabled, true);
-      await shot('status-active-' + theme);
+      await shot('status-unavailable-' + theme);
       await evaluate('document.querySelector("#field-action-search").focus();');
       await until('document.querySelector(".engine-status").dataset.status === "suspended"', 'Typing suspends shortcuts');
       const suspendedColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
-      assert.notEqual(suspendedColor, activeColor);
+      assert.notEqual(suspendedColor, unavailableColor);
       assert.notEqual(suspendedColor, pausedColor);
       assert.match(await evaluate('return document.querySelector("#engine-status").textContent'), /digitação/);
       await shot('status-suspended-' + theme);
       await evaluate('document.activeElement.blur();');
-      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Blur resumes shortcuts');
+      await until('document.querySelector(".engine-status").dataset.status === "unavailable"', 'Blur restores explicit Wayland limitation');
       await click('[data-focus="new-layer"]');
       await until('document.querySelector(".engine-status").dataset.status === "suspended"', 'Drawer suspends shortcuts');
       assert.match(await evaluate('return document.querySelector("#engine-status").textContent'), /edição/);
       await click('[data-drawer-close]');
-      await until('document.querySelector(".engine-status").dataset.status === "active"', 'Closing drawer resumes shortcuts');
+      await until('document.querySelector(".engine-status").dataset.status === "unavailable"', 'Closing drawer restores explicit Wayland limitation');
       await click('#engine-toggle');
       await until('document.querySelector(".engine-status").dataset.status === "paused"', 'Engine paused again');
     }
@@ -371,6 +373,7 @@ async function main() {
     await select('#field-keyboard-modifiers', 'Control');
     await click('[data-focus="visual-key-KeyK"]');
     assert.equal(await evaluate('return document.querySelector("#field-key").value'), 'Control+K');
+    assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), 'KeyK', 'Visual press records its physical position');
     await fill('#field-name', 'Teclado QA');
     assert.equal(await evaluate('return Boolean(document.querySelector("#field-type option[value=log]"))'), false, 'Log is not offered when creating actions');
     await select('#field-type', 'clipboard');
@@ -378,6 +381,13 @@ async function main() {
     await save();
     await until('!document.querySelector("#editor-drawer")', 'Visual keyboard action saved');
     const visualBinding = (await nativeState()).config.layers.find(item => item.id === layer.id).bindings.find(item => item.name === 'Teclado QA');
+    assert.equal(visualBinding.keyCode, 'KeyK');
+    await select('#field-editor-keyboard-layout', 'br');
+    await click('[data-focus="visual-key-Slash"]');
+    assert.equal(await evaluate('return document.querySelector("#field-key").value'), 'Control+Semicolon');
+    assert.equal(await evaluate('return document.querySelector("#field-keyCode").value'), 'Slash', 'ABNT2 punctuation keeps the selected physical position');
+    await click('[data-drawer-close]');
+    await select('#field-editor-keyboard-layout', 'us');
     await more(visualBinding.id);
     await click('[data-focus="toggle-' + visualBinding.id + '"]');
     await until('Boolean(document.querySelector("[data-focus=visual-key-KeyK].mapped-disabled"))', 'Disabled mapping has separate visual state');
@@ -781,7 +791,7 @@ async function main() {
     await require('./key-moments-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
     await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data: effects });
     await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until });
-    console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
+    console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, unavailable/paused/suspended indicators in both themes and explicit Wayland limitation, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {
     socket?.close();

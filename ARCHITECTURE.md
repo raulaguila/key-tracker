@@ -17,7 +17,8 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/main.cjs`: janela, ciclo de vida, diálogos nativos, autorização IPC.
 - `app/preload.cjs`: métodos explícitos, sem expor Node ou IPC arbitrário.
 - `app/config.cjs`: limites, esquema, normalização e colisões de atalhos.
-- `app/engine.cjs`: camada ativa, pausa, edição, registros globais e execuções.
+- `app/engine.cjs`: camada ativa, pausa, edição, assinaturas de teclas e execuções.
+- `app/passive-shortcuts.cjs`: combinações observadas em memória, sem reserva de teclas no SO.
 - `app/actions.cjs`: preparação pura e execução das ações simples e sequências.
 - `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
   notificações; injetada pelo main, sem exposição arbitrária no preload.
@@ -48,14 +49,18 @@ o estado anterior. Camada ativa é estado da sessão; inicia na primeira camada.
 
 ## Atalhos
 
-`globalShortcut` registra somente as ações da camada ativa e os controles globais.
-O callback consulta a camada corrente. Ao editar, ações e alternância são
-retiradas; a pausa permanece. Na primeira abertura nada é registrado. Depois da
-primeira ativação, o atalho de pausa permanece disponível para retomar. Falha ao
-registrar a pausa impede ativação; outros conflitos são mostrados individualmente.
+O observador nativo alimenta `PassiveShortcuts` e `KeyGestures`. Não há uso de
+`globalShortcut`, supressão ou reinjeção: o aplicativo em foco recebe as teclas.
+As assinaturas em memória cobrem a camada ativa e os controles globais. Ao editar,
+ações e alternância são retiradas; a pausa permanece. Na primeira abertura o hook
+não inicia sem ativação explícita de ações ou rastreio. Depois da primeira ativação,
+o controle de pausa/retomada mantém o observador até encerrar o aplicativo.
+Sem entrada global, ações por tecla e controles de teclado não executam; a
+interface informa a restrição. Capturas usam `keyCode`, inclusive ao pressionar;
+combinações antigas/digitadas sem esse campo usam posições de referência US.
 
-Não há promessa de bloquear toda repetição de hardware: intervalo mínimo
-configurável e limite de uma execução por ação em voo evitam disparos excessivos.
+O autorepeat não duplica pressionar; repetir exige Enquanto pressionada. Intervalo
+mínimo configurável e limite de uma execução por ação em voo evitam disparos excessivos.
 Há até quatro ações simultâneas. Nenhuma fila ilimitada ou retry automático.
 Uma sequência ocupa uma vaga e executa até dez etapas simples em ordem. Na
 primeira falha interrompe as próximas, sem desfazer efeitos anteriores. O motor
@@ -69,10 +74,10 @@ ações que já começaram continuam, salvo cancelamento explícito.
 Controles independentes do motor. Worker transmite somente down/up e código da
 tecla por IPC; eventos de repetição são descartados. Nenhum desses eventos vai
 ao histórico ou ao disco. O worker atende à demanda de rastreio e de gestos:
-desligar a visualização não o encerra se manter/soltar ainda precisar da entrada.
+desligar a visualização não o encerra após a ativação das ações, inclusive só de pressionar.
 Encerrar o aplicativo termina o worker. Falha nativa oferece
 modo local em vez de derrubar a janela. No Wayland o hook integral é evitado;
-atalhos dependem do portal do compositor e do identificador desktop instalado.
+ações por tecla ficam indisponíveis, sem fallback para atalhos exclusivos do portal.
 
 Legendas automáticas vêm de `navigator.keyboard.getLayoutMap()` no renderer;
 não alteram atalhos registrados. A leitura tem timeout de 2 s e proteção contra

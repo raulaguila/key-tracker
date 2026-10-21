@@ -34,7 +34,7 @@ ambiente de teste desejado. Builds de desenvolvimento não são assinados para
 distribuição pública; o Windows pode exibir alertas de editor desconhecido.
 O projeto ainda não disponibiliza uma versão de produção para resolver isso.
 
-Conflitos com atalhos de outros programas aparecem no aplicativo. Notificações
+As teclas são observadas sem reservar atalhos de outros programas. Notificações
 devem ser conferidas na versão instalada, pois dependem do atalho e da identidade
 registrados pelo instalador, além das configurações de notificações do Windows.
 Na configuração atual, desinstalar pelo NSIS preserva os dados do usuário.
@@ -75,10 +75,10 @@ armazenamento desprotegido.
 
 ### Wayland
 
-Atalhos ao pressionar dependem do portal GlobalShortcuts e do compositor.
-O rastreio é local, com a janela do Dobra em foco. Ações **Enquanto pressionada**
-e **Ao soltar** e captura global integral exigem X11 no Linux. A instalação de um
-pacote desktop ajuda a fornecer a identidade ao portal, mas não garante suporte.
+O rastreio é local, com a janela do Dobra em foco. A observação global passiva
+não está disponível: ações por tecla, troca de camada e pausa pelo teclado
+exigem X11 no Linux. O Dobra informa a limitação e mantém os controles da
+interface e a execução manual disponíveis. Não reserva atalhos pelo portal.
 
 ## Primeiro início e atualização
 

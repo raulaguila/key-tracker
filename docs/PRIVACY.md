@@ -13,9 +13,11 @@ visualização e o controle de gestos. Não persiste teclas rastreadas, não rec
 texto digitado e não as envia pela rede. O histórico pode identificar o **atalho
 configurado** que executou uma ação; isso é diferente de registrar a digitação.
 
-Rastreio visual e entrada necessária a manter/soltar são controles independentes.
-Com ações desse tipo configuradas, o observador pode permanecer ativo durante
-pausa/edição para reconhecer solturas, sem executar ações nesses estados.
+Rastreio visual e entrada necessária às ações são controles independentes.
+Após ativar as ações, o observador permanece ativo durante pausa/edição para
+reconhecer solturas e o controle de pausa/retomada, até encerrar o aplicativo.
+As ações de teclas ficam suspensas nesses estados. A observação é passiva:
+as teclas continuam chegando aos outros programas, sem reinjeção.
 
 A detecção opcional de aplicativo em foco usa nome/caminho/bundle do processo.
 Não coleta títulos de janelas, URLs ou histórico de programas utilizados.

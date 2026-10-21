@@ -106,12 +106,13 @@ nav button[aria-current="page"] { color: var(--primary); background: var(--selec
 .status-dot.enabled { background: var(--success); }
 .status-indicator .status-dot { width: 8px; height: 8px; background: currentColor; border: 1.5px solid currentColor; }
 .status-indicator[data-status="active"] { color: var(--status-active); }
+.status-indicator[data-status="unavailable"] { color: var(--error); }
 .status-indicator[data-status="paused"], .status-indicator[data-status="limited"] { color: var(--status-paused); }
 .status-indicator[data-status="suspended"], .status-indicator[data-status="starting"] { color: var(--status-suspended); }
 .status-indicator[data-status="off"] { color: var(--muted); }
 .status-indicator[data-status="paused"] .status-dot { width: 7px; background: transparent; border: 0; border-inline: 2px solid currentColor; border-radius: 0; }
 .status-indicator[data-status="suspended"] .status-dot { width: 7px; height: 7px; border-radius: 1px; transform: rotate(45deg); }
-.status-indicator[data-status="off"] .status-dot, .status-indicator[data-status="limited"] .status-dot, .status-indicator[data-status="starting"] .status-dot { background: transparent; }
+.status-indicator[data-status="off"] .status-dot, .status-indicator[data-status="limited"] .status-dot, .status-indicator[data-status="starting"] .status-dot, .status-indicator[data-status="unavailable"] .status-dot { background: transparent; }
 .status-indicator[data-status="starting"] .status-dot { border-style: dotted; }
 .statusbar { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 4px 16px; color: var(--muted); font-size: 11px; margin-top: auto; }
 .active-layer-context { min-width: 0; overflow-wrap: anywhere; }

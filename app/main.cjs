@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Storage, readConfigFile, exportConfigSafe } = require('./storage.cjs');
@@ -152,7 +152,7 @@ else {
     if (servicesStopping) return;
     if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
-    engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
+    engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
     const suspendActions = () => {
       engine.resetInput();

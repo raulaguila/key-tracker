@@ -42,7 +42,7 @@ class Tracker {
         this.stopWorker();
       } else if (this.engine.session === 'wayland') {
         this.stopWorker();
-        this.failure = 'No Wayland, ações ao manter ou soltar não estão disponíveis. Use uma sessão X11 para entrada global no Linux.';
+        this.failure = 'No Wayland, a observação global de teclas está indisponível. As ações por tecla não serão executadas. Use uma sessão X11 no Linux.';
       } else if (!this.worker && !this.failure) {
         let allowed = true;
         if (this.engine.platform === 'darwin') {
@@ -68,10 +68,10 @@ class Tracker {
     };
     const input = {
       mode: !this.inputDemand ? 'off' : this.worker ? this.workerMode : 'unavailable',
-      message: !this.inputDemand ? 'Ative as ações para usar os momentos de manter e soltar.'
-        : this.workerMode === 'global' ? 'Momentos de tecla disponíveis globalmente.'
-        : this.worker ? 'Iniciando entrada global para os momentos da tecla…'
-        : this.failure || 'Entrada global indisponível. Os momentos de manter e soltar não serão executados.'
+      message: !this.inputDemand ? 'Ative as ações para observar teclas em outros aplicativos.'
+        : this.workerMode === 'global' ? 'Observação global ativa. As teclas continuam funcionando nos outros aplicativos.'
+        : this.worker ? 'Iniciando observação global das teclas…'
+        : this.failure || 'Observação global indisponível. As ações por tecla não serão executadas.'
     };
     const trackingChanged = JSON.stringify(this.engine.tracking) !== JSON.stringify(tracking);
     const inputChanged = JSON.stringify(this.engine.input) !== JSON.stringify(input);
