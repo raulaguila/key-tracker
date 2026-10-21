@@ -1,5 +1,5 @@
 {
-  "name": "keyboard-tracker",
+  "name": "dobra",
   "version": "0.1.0",
   "description": "Atalhos por camadas, ações locais e rastreio visual do teclado.",
   "author": { "name": "Raul del Aguila", "email": "38803643+raulaguila@users.noreply.github.com" },
@@ -7,7 +7,7 @@
   "repository": { "type": "git", "url": "https://github.com/raulaguila/key-tracker.git" },
   "license": "MIT",
   "main": "app/main.cjs",
-  "desktopName": "io.keyboardtracker.app.desktop",
+  "desktopName": "io.dobra.app.desktop",
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.cjs",
@@ -27,8 +27,8 @@
   "dependencies": { "get-windows": "9.3.0", "uiohook-napi": "1.5.5" },
   "devDependencies": { "electron": "44.9.1", "electron-builder": "26.15.3" },
   "build": {
-    "appId": "io.keyboardtracker.app",
-    "productName": "Keyboard Tracker",
+    "appId": "io.dobra.app",
+    "productName": "Dobra",
     "asar": true,
     "npmRebuild": false,
     "icon": "app/assets/icon.png",
@@ -36,7 +36,7 @@
     "asarUnpack": ["node_modules/uiohook-napi/**/*", "node_modules/node-gyp-build/**/*", "node_modules/get-windows/**/*"],
     "files": ["app/**/*", "package.json", "LICENSE"],
     "directories": { "output": "dist" },
-    "linux": { "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
+    "linux": { "executableName": "dobra", "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
     "deb": { "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0", "libxt6 | libxt6t64"] },
     "win": { "target": ["nsis"] },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false },

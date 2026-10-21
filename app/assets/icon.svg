@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="104" fill="#9e2867"/>
-  <rect x="104" y="80" width="304" height="304" rx="40" fill="none" stroke="#fff" stroke-width="24"/>
-  <path d="M112 426h288M206 154v160m102-160-102 80 102 80" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Dobra"><title>Dobra — estudo de identidade</title><rect width="128" height="128" rx="29" fill="#A94320"/><g transform="translate(20 20) scale(1.375)" color="#FFFFFF"><path fill="currentColor" fill-rule="evenodd" d="M10 6h23v22h22v15c0 9-6 15-15 15H10V6Zm13 16v23h14c4 0 6-2 6-6v-8l-9-9H23Z"/><path d="M33 6v22h22L33 6Z" fill="currentColor" opacity=".38"/></g></svg>

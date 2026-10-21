@@ -32,18 +32,27 @@ function pngChunk(type, data) {
 }
 
 // A native PNG works in Electron Tray on all platforms (SVG input does not).
+function insidePolygon(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i], [xj, yj] = points[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 function trayIcon(state) {
   const width = 48;
   const pixels = Buffer.alloc((width * 4 + 1) * width);
   const color = state === 'active' ? [34, 153, 94] : state === 'suspended' ? [65, 134, 230] : [221, 159, 38];
+  const body = [[10, 5], [25, 5], [25, 19], [39, 19], [39, 29], [38, 34], [34, 39], [10, 39]];
+  const counter = [[18, 15], [26, 15], [32, 21], [32, 29], [31, 31], [18, 31]];
+  const fold = [[25, 5], [25, 19], [39, 19]];
   for (let y = 0; y < width; y++) for (let x = 0; x < width; x++) {
     const index = y * (width * 4 + 1) + 1 + x * 4;
     let pixel = null;
-    if (x >= 3 && x <= 43 && y >= 10 && y <= 36) {
-      pixel = [41, 43, 50, 255];
-      if (y >= 15 && y <= 19 && x >= 8 && x <= 38 && (x - 8) % 8 < 5) pixel = [255, 255, 255, 255];
-      if (y >= 24 && y <= 28 && x >= 8 && x <= 30 && (x - 8) % 8 < 5) pixel = [255, 255, 255, 255];
-    }
+    if (insidePolygon(x, y, body) && !insidePolygon(x, y, counter)) pixel = [169, 67, 32, 255];
+    if (insidePolygon(x, y, fold)) pixel = [203, 138, 116, 255];
     if ((x - 38) ** 2 + (y - 36) ** 2 <= 100) pixel = [255, 255, 255, 255];
     if ((x - 38) ** 2 + (y - 36) ** 2 <= 64) {
       pixel = [...color, 255];
@@ -99,7 +108,7 @@ class DesktopTray {
   template(state) {
     const status = !state.enabled ? 'Pausado' : state.editing ? 'Suspenso durante edição' : 'Ativo';
     return [
-      { label: 'Abrir Keyboard Tracker', click: () => this.showWindow() },
+      { label: 'Abrir Dobra', click: () => this.showWindow() },
       { label: `Estado: ${status}`, enabled: false },
       { type: 'separator' },
       { label: state.enabled ? 'Pausar ações' : 'Ativar ações', click: () => this.invoke(() => this.engine.setEnabled(!this.engine.enabled)) },
@@ -120,7 +129,7 @@ class DesktopTray {
     const layer = state.config.layers.find(item => item.id === state.activeLayerId);
     try {
       this.tray.setImage(this.image(status));
-      this.tray.setToolTip(`Keyboard Tracker · ${label}\n${layer?.name || ''}`);
+      this.tray.setToolTip(`Dobra · ${label}\n${layer?.name || ''}`);
       this.tray.setContextMenu(this.Menu.buildFromTemplate(this.template(state)));
     } catch { this.unavailable(); }
   }

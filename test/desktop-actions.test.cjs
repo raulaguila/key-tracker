@@ -154,7 +154,7 @@ test('escolha nativa de arquivo/pasta/app preserva cancelamento e não executa d
 });
 
 test('histórico exporta apenas eventos e etapas sanitizados, com limites e sem afetar configuração', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-history-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-history-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const config = path.join(directory, 'config.json');
   const target = path.join(directory, 'history.json');
@@ -192,7 +192,7 @@ test('histórico preserva momento configurado sem exportar eventos crus do tecla
 });
 
 test('exportar histórico rejeita hardlinks dos dados internos e não deixa temporários', async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-alias-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-alias-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const config = path.join(directory, 'config.json');
   const alias = path.join(directory, 'history.json');
@@ -207,7 +207,7 @@ test('exportar histórico rejeita hardlinks dos dados internos e não deixa temp
 
 test('exportação atômica troca só o destino quando há hardlink para outro arquivo', async t => {
   const { writeExport } = require('../app/safe-export.cjs');
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-export-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-export-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const original = path.join(directory, 'original.json'), target = path.join(directory, 'export.json');
   await fs.writeFile(original, 'original preservado');

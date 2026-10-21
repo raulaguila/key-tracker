@@ -17,7 +17,7 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     }))
   }] };
   try {
-    await evaluate('document.activeElement.blur();await window.keyboardTracker.setEnabled(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(layerId) + ');');
+    await evaluate('document.activeElement.blur();await window.dobra.setEnabled(false);await window.dobra.saveConfig(' + JSON.stringify(fixture) + ');await window.dobra.setLayer(' + JSON.stringify(layerId) + ');');
     await click('[data-view="layers"]');
     await click('[data-focus="view-table"]');
     await until('document.querySelectorAll(".binding-row").length === 100', '100-row fixture rendered');
@@ -39,21 +39,21 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     await click('[data-focus="more-renderer-performance-0"]');
     assert.equal(await evaluate('return document.querySelector("#menu-renderer-performance-0").children.length'), 3, 'Opening one menu builds its controls');
     const revision = (await nativeState()).configRevision;
-    await evaluate('await window.keyboardTracker.setEditing(true);await window.keyboardTracker.setEditing(false);');
+    await evaluate('await window.dobra.setEditing(true);await window.dobra.setEditing(false);');
     assert.equal((await nativeState()).configRevision, revision, 'Editing state keeps configuration revision unchanged');
     assert.equal(await evaluate('return window.rendererFirstRow === document.querySelector("[data-binding-id=renderer-performance-0]") && document.querySelector("#menu-renderer-performance-0").matches(":popover-open")'), true, 'State changes retain the row and open menu');
     await evaluate('document.querySelector("#menu-renderer-performance-0").hidePopover();');
     await until('document.querySelector("#menu-renderer-performance-0").children.length === 0', 'Closing menu releases its controls');
-    await evaluate('await window.keyboardTracker.runBinding(' + JSON.stringify(layerId) + ',"renderer-performance-0");');
+    await evaluate('await window.dobra.runBinding(' + JSON.stringify(layerId) + ',"renderer-performance-0");');
     await until('Boolean(document.querySelector("[data-binding-id=renderer-performance-0] .binding-result.success"))', 'Successful result is shown');
     await evaluate('window.rendererFirstResult=document.querySelector("[data-binding-id=renderer-performance-0] .binding-result");');
-    await evaluate('await window.keyboardTracker.runBinding(' + JSON.stringify(layerId) + ',"renderer-performance-1");');
+    await evaluate('await window.dobra.runBinding(' + JSON.stringify(layerId) + ',"renderer-performance-1");');
     await until('Boolean(document.querySelector("[data-binding-id=renderer-performance-1] .binding-result.error"))', 'HTTP failure updates its own row');
     assert.equal(await evaluate('return window.rendererFirstRow === document.querySelector("[data-binding-id=renderer-performance-0]") && window.rendererFirstResult === document.querySelector("[data-binding-id=renderer-performance-0] .binding-result")'), true, 'A different result preserves existing row and feedback identities');
     const renamed = structuredClone(fixture);
     renamed.layers[0].bindings[0].name = 'Renomeada QA';
     renamed.layers[0].bindings[0].action.message = 'Modelo atualizado';
-    await evaluate('document.activeElement.blur();await window.keyboardTracker.saveConfig(' + JSON.stringify(renamed) + ');');
+    await evaluate('document.activeElement.blur();await window.dobra.saveConfig(' + JSON.stringify(renamed) + ');');
     await until('document.querySelector("[data-binding-id=renderer-performance-0] strong").textContent === "Renomeada QA"', 'Revision updates row content');
     assert.ok((await nativeState()).configRevision > revision, 'Saving advances configuration revision');
     assert.equal(await evaluate('return window.rendererFirstRow === document.querySelector("[data-binding-id=renderer-performance-0]")'), true, 'Configuration edit keeps keyed row identity');
@@ -71,7 +71,7 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     assert.equal(await evaluate('return [...document.querySelectorAll("#bindings [popover]")].reduce((sum,node)=>sum+node.children.length,0)'), 0, 'Keyboard menus also stay lazy');
     console.log('Renderer optimization UI passed: revision changes, 100 keyed rows, search reuse, lazy menu lifecycle, targeted success/error feedback, fresh action handlers and keyboard reuse. ' + JSON.stringify(search));
   } finally {
-    await evaluate('window.rendererFirstRow=null;window.rendererFirstResult=null;window.rendererVisualRow=null;window.rendererVisualKey=null;document.activeElement.blur();await window.keyboardTracker.setEditing(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(before.config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
+    await evaluate('window.rendererFirstRow=null;window.rendererFirstResult=null;window.rendererVisualRow=null;window.rendererVisualKey=null;document.activeElement.blur();await window.dobra.setEditing(false);await window.dobra.saveConfig(' + JSON.stringify(before.config) + ');await window.dobra.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
     await click('[data-focus="view-table"]').catch(() => {});
     await new Promise(resolve => server.close(resolve));
   }

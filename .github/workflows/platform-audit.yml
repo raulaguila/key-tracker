@@ -36,7 +36,7 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/platform-audit.cjs
         env:
-          KEY_TRACKER_UI_NO_SANDBOX: '1'
+          DOBRA_UI_NO_SANDBOX: '1'
       - name: Audit Windows and macOS runtime
         if: runner.os != 'Linux'
         run: node scripts/platform-audit.cjs

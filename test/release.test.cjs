@@ -49,7 +49,7 @@ test('montagem exige quatro targets e recusa instaladores com nomes duplicados',
 test('manifesto calcula hashes dos instaladores, preserva arquitetura e ignora arquivos internos', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'key-release-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const names = ['Keyboard Tracker-0.1.0-mac-x64.dmg', 'Keyboard Tracker-0.1.0-mac-arm64.dmg', 'Keyboard Tracker-0.1.0-win-x64.exe'];
+  const names = ['Dobra-0.1.0-mac-x64.dmg', 'Dobra-0.1.0-mac-arm64.dmg', 'Dobra-0.1.0-win-x64.exe'];
   for (const name of names) await fs.writeFile(path.join(directory, name), name);
   await fs.writeFile(path.join(directory, 'builder-effective-config.yaml'), 'not a release asset');
   const files = await writeManifest(directory, { version: '0.1.0', commit: 'test-sha' });

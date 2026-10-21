@@ -24,11 +24,11 @@ async function ownedXvfb() {
 async function run() {
   if (process.platform !== 'linux') throw new Error('Esta prova requer Linux/X11; não certifica eventos físicos nos outros sistemas.');
   if (!process.argv.includes('--isolated')) {
-    const child = spawn('xvfb-run', ['-a', process.execPath, __filename, '--isolated', ...process.argv.slice(2)], { stdio: 'inherit', env: { ...process.env, KEY_TRACKER_INPUT_PROOF: '1' } });
+    const child = spawn('xvfb-run', ['-a', process.execPath, __filename, '--isolated', ...process.argv.slice(2)], { stdio: 'inherit', env: { ...process.env, DOBRA_INPUT_PROOF: '1' } });
     process.exitCode = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code ?? 1)); });
     return;
   }
-  if (process.env.KEY_TRACKER_INPUT_PROOF !== '1' || !await ownedXvfb()) throw new Error('A prova exige um display Xvfb local próprio.');
+  if (process.env.DOBRA_INPUT_PROOF !== '1' || !await ownedXvfb()) throw new Error('A prova exige um display Xvfb local próprio.');
   const output = path.resolve(process.argv.filter(value => value !== '--isolated')[2] || path.join(root, 'artifacts', 'input-phases', 'native-linux.json'));
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-input-proof-'));
   let child;
@@ -188,7 +188,7 @@ setTimeout(() => { tracker?.dispose(); engine?.dispose(); app.exit(2); }, 20000)
       .replace('const output = OUTPUT;', 'const output = ' + JSON.stringify(output) + ';');
     await fs.writeFile(entry, source);
     const flags = [entry, '--ozone-platform=x11', '--disable-gpu'];
-    if (process.env.KEY_TRACKER_UI_NO_SANDBOX === '1') flags.push('--no-sandbox');
+    if (process.env.DOBRA_UI_NO_SANDBOX === '1') flags.push('--no-sandbox');
     child = spawn(require('electron'), flags, { cwd: root, env: { ...process.env, XDG_SESSION_TYPE: 'x11', WAYLAND_DISPLAY: '', DBUS_SESSION_BUS_ADDRESS: 'unix:path=' + path.join(directory, 'no-bus') }, stdio: 'inherit' });
     const timer = setTimeout(() => child.kill('SIGKILL'), 25000);
     const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', value => resolve(value ?? 1)); });

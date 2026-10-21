@@ -7,7 +7,7 @@ atualização automática. O usuário escolhe instalar cada versão.
 ## Dados, credenciais e recuperação
 
 Configurações com headers HTTP, inclusive dentro de sequências, são gravadas em
-envelope `key-tracker.safeStorage` versão 1, criptografando a configuração inteira
+envelope `dobra.safeStorage` versão 1, criptografando a configuração inteira
 com o cofre do SO. A configuração em memória continua versão 1. Não há chave fixa
 nem fallback `basic_text`. Configurações sem headers continuam JSON legível.
 

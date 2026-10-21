@@ -52,7 +52,7 @@ test('bandeja reflete estados e camadas, oferece controles sem iniciar nada', t 
   engine.tracking.enabled = true; engine.publish();
   desktop.tray.menu.find(item => item.label === 'Desligar rastreio').click();
   assert.equal(tracking(), false);
-  desktop.tray.menu.find(item => item.label === 'Abrir Keyboard Tracker').click();
+  desktop.tray.menu.find(item => item.label === 'Abrir Dobra').click();
   assert.equal(shown(), 1);
   desktop.tray.menu.find(item => item.label === 'Sair').click();
   assert.equal(quit(), 1, 'sair usa proteção de rascunhos do coordenador');

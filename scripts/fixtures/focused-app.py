@@ -1,7 +1,7 @@
 """Create a bounded foreground-app fixture on an owned, local Xvfb display.
 
 Usage (use the DISPLAY of the isolated Electron QA instance):
-  KEY_TRACKER_CONTEXT_FIXTURE=1 DISPLAY=:99 python3 scripts/fixtures/focused-app.py --duration 30
+  DOBRA_CONTEXT_FIXTURE=1 DISPLAY=:99 python3 scripts/fixtures/focused-app.py --duration 30
 
 Prints readiness as one JSON line. Restores _NET_ACTIVE_WINDOW on shutdown if it
 still points to this fixture. Never connects to a user's ordinary desktop.
@@ -18,7 +18,7 @@ import time
 
 def owned_xvfb_display():
     display = os.environ.get('DISPLAY', '').split('.')[0]
-    if not display.startswith(':') or os.environ.get('KEY_TRACKER_CONTEXT_FIXTURE') != '1':
+    if not display.startswith(':') or os.environ.get('DOBRA_CONTEXT_FIXTURE') != '1':
         return False
     for process in Path('/proc').iterdir():
         if not process.name.isdigit():
@@ -39,7 +39,7 @@ parser.add_argument('--duration', type=int, default=30, choices=range(1, 61), me
 parser.add_argument('--name', default='ContextProof')
 arguments = parser.parse_args()
 if not owned_xvfb_display():
-    raise SystemExit('Refused: provide KEY_TRACKER_CONTEXT_FIXTURE=1 and an owned local Xvfb DISPLAY.')
+    raise SystemExit('Refused: provide DOBRA_CONTEXT_FIXTURE=1 and an owned local Xvfb DISPLAY.')
 if not arguments.name or len(arguments.name) > 120 or any(ord(character) < 32 for character in arguments.name):
     raise SystemExit('Invalid fixture name.')
 

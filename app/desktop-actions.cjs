@@ -173,7 +173,7 @@ function historySnapshot(events) {
 
 async function exportSessionHistory({ events, dialog, window, protectedPaths = [] }) {
   const snapshot = { version: 1, exportedAt: new Date().toISOString(), events: historySnapshot(events) };
-  const result = await dialog.showSaveDialog(window, { title: 'Exportar histórico da sessão', defaultPath: 'keyboard-tracker-history.json', filters: [{ name: 'Histórico JSON', extensions: ['json'] }] });
+  const result = await dialog.showSaveDialog(window, { title: 'Exportar histórico da sessão', defaultPath: 'dobra-history.json', filters: [{ name: 'Histórico JSON', extensions: ['json'] }] });
   if (result.canceled || !result.filePath) return;
   try { await writeExport(result.filePath, JSON.stringify(snapshot, null, 2) + '\n', protectedPaths); }
   catch (error) {

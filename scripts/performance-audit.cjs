@@ -53,7 +53,7 @@ async function launch(base, index) {
   const directory = path.join(base,'profile-'+index); await fs.mkdir(directory);
   const port=await freePort(); let inspector; let output='';
   const started=performance.now();
-  const child=spawn(path.join(root,'dist/linux-unpacked/keyboard-tracker'),['--inspect=127.0.0.1:0','--ozone-platform=x11','--disable-gpu','--remote-debugging-address=127.0.0.1','--remote-debugging-port='+port],{
+  const child=spawn(path.join(root,'dist/linux-unpacked',require('../package.json').build.linux.executableName),['--inspect=127.0.0.1:0','--ozone-platform=x11','--disable-gpu','--remote-debugging-address=127.0.0.1','--remote-debugging-port='+port],{
     env:{...process.env,XDG_CONFIG_HOME:directory,XDG_SESSION_TYPE:'x11',WAYLAND_DISPLAY:''},stdio:['ignore','pipe','pipe']
   });
   let launchError;
@@ -79,7 +79,7 @@ async function launch(base, index) {
   const startupMs=performance.now()-started;
   if(!inspector)throw new Error('Native inspector unavailable: '+output);
   native=await connect(inspector);
-  const state=await page.evaluate('return await window.keyboardTracker.getState()');
+  const state=await page.evaluate('return await window.dobra.getState()');
   if(!state.paths.data.startsWith(directory+path.sep))throw new Error('Refuse non-temporary profile');
   return {page,native,child,startupMs,state,stop:async()=>{
     page.close();native.close();await stopChild();
@@ -127,9 +127,9 @@ async function interactions(page) {
 async function configurationIpc(page) {
   const measurements = await page.evaluate(`
     const editing=[];const saving=[];
-    const config=(await window.keyboardTracker.getState()).config;
-    for(let i=0;i<40;i++){const start=performance.now();await window.keyboardTracker.setEditing(i%2===0);editing.push(performance.now()-start);}
-    for(let i=0;i<5;i++){const start=performance.now();await window.keyboardTracker.saveConfig(config);saving.push(performance.now()-start);}
+    const config=(await window.dobra.getState()).config;
+    for(let i=0;i<40;i++){const start=performance.now();await window.dobra.setEditing(i%2===0);editing.push(performance.now()-start);}
+    for(let i=0;i<5;i++){const start=performance.now();await window.dobra.saveConfig(config);saving.push(performance.now()-start);}
     return {editing,saving};
   `);
   return {editingRoundTripMs:distribution(measurements.editing),saveRoundTripMs:distribution(measurements.saving)};
@@ -147,29 +147,29 @@ async function main() {
     await page.call('Performance.enable');
     await page.evaluate('window.__auditLongTasks=[];new PerformanceObserver(list=>window.__auditLongTasks.push(...list.getEntries().map(e=>({start:e.startTime,duration:e.duration})))).observe({type:"longtask",buffered:true});');
     report.steady.defaultPaused=await steady(native);console.log('idle sampled');
-    const standard=await page.evaluate('return (await window.keyboardTracker.getState()).config');
+    const standard=await page.evaluate('return (await window.dobra.getState()).config');
     report.interactions.default=await interactions(page);
     report.interactions.default.ipc=await configurationIpc(page);
-    await page.evaluate('await window.keyboardTracker.setTracking(true);document.querySelector("[data-view=tracking]").click();');
-    for(let i=0;i<100;i++){const mode=await page.evaluate('return (await window.keyboardTracker.getState()).tracking.mode');if(mode!=='starting'){report.trackingMode=mode;break;}await delay(50);}
+    await page.evaluate('await window.dobra.setTracking(true);document.querySelector("[data-view=tracking]").click();');
+    for(let i=0;i<100;i++){const mode=await page.evaluate('return (await window.dobra.getState()).tracking.mode');if(mode!=='starting'){report.trackingMode=mode;break;}await delay(50);}
     report.steady.tracking=await steady(native);
-    await page.evaluate('window.__auditKeyLatency=[];window.__auditUnsubscribe=window.keyboardTracker.onKey(e=>{if(e.__auditAt)window.__auditKeyLatency.push(performance.timeOrigin+performance.now()-e.__auditAt)});');
-    await native.evaluate('const contents=process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents;await new Promise(resolve=>{let i=0;const timer=setInterval(()=>{contents.send("tracker:key",{code:"KeyA",key:"A",direction:i%2?"up":"down",source:"global",__auditAt:performance.timeOrigin+performance.now()});if(++i===240){clearInterval(timer);resolve();}},8);});');
+    await page.evaluate('window.__auditKeyLatency=[];window.__auditUnsubscribe=window.dobra.onKey(e=>{if(e.__auditAt)window.__auditKeyLatency.push(performance.timeOrigin+performance.now()-e.__auditAt)});');
+    await native.evaluate('const contents=process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents;await new Promise(resolve=>{let i=0;const timer=setInterval(()=>{contents.send("dobra:key",{code:"KeyA",key:"A",direction:i%2?"up":"down",source:"global",__auditAt:performance.timeOrigin+performance.now()});if(++i===240){clearInterval(timer);resolve();}},8);});');
     await delay(100);
     report.keyIpcToDomMs=distribution(await page.evaluate('return window.__auditKeyLatency'));
-    await page.evaluate('window.__auditUnsubscribe();await window.keyboardTracker.setTracking(false);');
+    await page.evaluate('window.__auditUnsubscribe();await window.dobra.setTracking(false);');
     const auto=structuredClone(standard);auto.settings.autoSwitchLayers=true;
-    await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(auto)+');');
+    await page.evaluate('await window.dobra.saveConfig('+JSON.stringify(auto)+');');
     await delay(1500);report.steady.applicationMonitor=await steady(native);
-    report.applicationStatus=await page.evaluate('return (await window.keyboardTracker.getState()).application');
-    await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(standard)+');document.querySelector("[data-view=layers]").click();');
+    report.applicationStatus=await page.evaluate('return (await window.dobra.getState()).application');
+    await page.evaluate('await window.dobra.saveConfig('+JSON.stringify(standard)+');document.querySelector("[data-view=layers]").click();');
     const hundred=fixture(1,100);
-    await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(hundred)+');');await delay(200);
+    await page.evaluate('await window.dobra.saveConfig('+JSON.stringify(hundred)+');');await delay(200);
     report.interactions.hundredActions=await interactions(page);
     report.interactions.hundredActions.ipc=await configurationIpc(page);
     let largest;
     for(let n=1;n<=30;n++){try{const value=fixture(n,100);validateConfig(value);largest=value;}catch{break;}}
-    await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(largest)+');');await delay(200);
+    await page.evaluate('await window.dobra.saveConfig('+JSON.stringify(largest)+');');await delay(200);
     report.largeConfig={layers:largest.layers.length,actions:largest.layers.reduce((n,l)=>n+l.bindings.length,0),compactBytes:Buffer.byteLength(JSON.stringify(largest)),persistedBytes:(await fs.stat(path.join(instance.state.paths.data, 'config.json'))).size};
     report.interactions.largeConfig=await interactions(page);
     report.interactions.largeConfig.ipc=await configurationIpc(page);
@@ -181,7 +181,7 @@ async function main() {
     report.afterCycles={heap:await page.call('Runtime.getHeapUsage'),dom:await page.call('Memory.getDOMCounters')};
     report.longTasks=await page.evaluate('return window.__auditLongTasks');
     report.rendererPerformance=await page.call('Performance.getMetrics');
-    await page.evaluate('await window.keyboardTracker.saveConfig('+JSON.stringify(standard)+');');
+    await page.evaluate('await window.dobra.saveConfig('+JSON.stringify(standard)+');');
     await fs.mkdir(path.dirname(destination),{recursive:true});await fs.writeFile(destination,JSON.stringify(report,null,2)+'\n');
     console.log('Audit recorded:',destination);console.log(JSON.stringify({startup:report.startupMs,large:report.largeConfig,interactions:report.interactions,keyIpc:report.keyIpcToDomMs},null,2));
   } finally {await instance?.stop();await fs.rm(base,{recursive:true,force:true});}

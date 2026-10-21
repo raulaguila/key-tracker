@@ -72,7 +72,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     await (tag === 'SELECT' ? select : fill)(actual, value);
   }
   try {
-    await evaluate('await window.keyboardTracker.setEnabled(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(origin) + ');localStorage.setItem("keyboard-tracker.binding-view","table");');
+    await evaluate('await window.dobra.setEnabled(false);await window.dobra.saveConfig(' + JSON.stringify(config) + ');await window.dobra.setLayer(' + JSON.stringify(origin) + ');localStorage.setItem("dobra.binding-view","table");');
     await reload('Productivity editor ready');
 
     const clipboard = await create('Copiar QA', 'B', 'clipboard', { text: 'Olá {{key}} / {{layer}} — área de transferência' });
@@ -112,7 +112,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     assert.equal((await nativeState()).activeLayerId, target);
     assert.equal((await nativeState()).enabled, false, 'Switching layer never activates the engine');
     await close();
-    await evaluate('await window.keyboardTracker.setLayer(' + JSON.stringify(origin) + ');document.activeElement.blur();');
+    await evaluate('await window.dobra.setLayer(' + JSON.stringify(origin) + ');document.activeElement.blur();');
     await click('[data-view="settings"]'); await click('[data-view="layers"]');
 
     await click('[data-focus="new-binding"]');
@@ -131,7 +131,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     const appearanceBefore = await evaluate('return document.documentElement.dataset.themePreference');
     await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(760,580)');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       for (const zoom of [1, 1.25]) {
         await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(' + zoom + ')');
         await evaluate('await Promise.all(document.querySelector("#editor-drawer").getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{})));document.querySelector("#field-stepDelayMs").closest(".field").scrollIntoView({block:"center"});');
@@ -141,7 +141,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
       }
     }
     await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(1280,900)');
-    await evaluate('window.keyboardAppearance.set(' + JSON.stringify(appearanceBefore) + ');');
+    await evaluate('window.dobraAppearance.set(' + JSON.stringify(appearanceBefore) + ');');
     await click('[data-step-add]');
     await stepField(1, 'type', 'file');
     await stepField(1, 'directory', directory); await stepField(1, 'filename', 'sequence.txt'); await stepField(1, 'content', '{{layer}} / {{key}}');
@@ -208,13 +208,13 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     assert.equal((await bindingByName('Sequência QA')).action.stepDelayMs, 0);
     const legacy = (await nativeState()).config;
     delete legacy.layers[0].bindings.find(item => item.id === sequence.id).action.stepDelayMs;
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(legacy) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(legacy) + ');');
     await click('[data-focus="edit-' + sequence.id + '"]');
     assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '0', 'Legacy sequences without the field retain zero delay');
     await close();
   } finally {
     await nativeEvaluate(clipboardExpression + '.writeText(' + JSON.stringify(clipboardBefore) + ')').catch(() => {});
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(before.config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(before.config) + ');await window.dobra.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
     await new Promise(resolve => server.close(resolve));
   }
   console.log('Productivity UI passed: five action types, real clipboard/application launch, preview isolation, sequence delay/default/limits/zero/drafts/reorder/duplicate/reload/manual wait/history/themes/zoom, partial failure, private history and persistence.');

@@ -1,15 +1,15 @@
 :root {
   color-scheme: light;
   --bg: oklch(1 0 0);
-  --surface: oklch(.975 .003 353);
-  --panel: oklch(.99 .002 353);
-  --ink: oklch(.25 .012 353);
-  --muted: oklch(.47 .012 353);
-  --line: oklch(.885 .008 353);
-  --line-strong: oklch(.77 .012 353);
-  --primary: oklch(.48 .16 353.3);
-  --primary-hover: oklch(.42 .15 353.3);
-  --selected: oklch(.955 .024 353.3);
+  --surface: oklch(.978 .004 45);
+  --panel: oklch(.99 .003 45);
+  --ink: oklch(.27 .019 44);
+  --muted: oklch(.46 .018 44);
+  --line: oklch(.885 .009 45);
+  --line-strong: oklch(.77 .016 45);
+  --primary: oklch(.49 .13 42);
+  --primary-hover: oklch(.43 .12 42);
+  --selected: oklch(.95 .026 42);
   --success: oklch(.37 .09 155);
   --success-bg: oklch(.965 .018 155);
   --error: oklch(.43 .17 25);
@@ -20,8 +20,8 @@
   --status-active: oklch(.43 .12 155);
   --status-paused: oklch(.48 .12 65);
   --status-suspended: oklch(.46 .15 255);
-  --focus: oklch(.48 .16 353.3);
-  --backdrop: oklch(.2 .01 353 / .35);
+  --focus: oklch(.49 .13 42);
+  --backdrop: oklch(.2 .01 45 / .35);
   --sidebar-width: 176px;
   --space-1: 4px;
   --space-2: 6px;
@@ -43,16 +43,16 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: oklch(.16 .005 353);
-  --surface: oklch(.195 .006 353);
-  --panel: oklch(.225 .008 353);
-  --ink: oklch(.91 .008 353);
-  --muted: oklch(.72 .012 353);
-  --line: oklch(.31 .008 353);
-  --line-strong: oklch(.55 .012 353);
-  --primary: oklch(.77 .13 353.3);
-  --primary-hover: oklch(.83 .11 353.3);
-  --selected: oklch(.285 .045 353.3);
+  --bg: oklch(.19 .01 45);
+  --surface: oklch(.215 .012 45);
+  --panel: oklch(.245 .014 45);
+  --ink: oklch(.94 .009 45);
+  --muted: oklch(.73 .019 45);
+  --line: oklch(.32 .015 45);
+  --line-strong: oklch(.55 .019 45);
+  --primary: oklch(.8 .1 46);
+  --primary-hover: oklch(.86 .09 46);
+  --selected: oklch(.3 .04 45);
   --success: oklch(.79 .105 155);
   --success-bg: oklch(.235 .023 155);
   --error: oklch(.78 .12 25);
@@ -64,7 +64,7 @@
   --status-paused: oklch(.82 .13 75);
   --status-suspended: oklch(.78 .11 250);
   --focus: var(--primary);
-  --backdrop: oklch(.06 .004 353 / .7);
+  --backdrop: oklch(.07 .006 45 / .7);
 }
 * { box-sizing: border-box; }
 html { scrollbar-gutter: stable; }
@@ -88,7 +88,8 @@ code, kbd, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospac
 .app-shell { min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); padding: 12px 8px; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line); z-index: var(--z-navigation); }
 .brand { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 5px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.brand img { border-radius: 6px; }
+.brand-mark { flex: 0 0 24px; color: var(--primary); }
+.brand > span { font-size: 21px; font-weight: 760; letter-spacing: -.035em; line-height: 1; }
 nav { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 nav button { position: relative; border: 0; background: transparent; color: var(--muted); border-radius: 5px; display: flex; gap: 8px; align-items: center; min-height: 34px; padding: 8px; text-align: left; font-weight: 500; font-size: 12px; }
 nav button:hover { color: var(--ink); background: var(--line); }

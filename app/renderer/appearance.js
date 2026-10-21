@@ -1,6 +1,6 @@
 // Runs before the stylesheet so a saved dark theme is applied before first paint.
 (() => {
-  const key = 'keyboard-tracker.appearance';
+  const key = 'dobra.appearance';
   const allowed = ['system', 'light', 'dark'];
   const system = window.matchMedia('(prefers-color-scheme: dark)');
   let preference = 'system';
@@ -13,7 +13,7 @@
     document.documentElement.dataset.themePreference = preference;
     window.dispatchEvent(new Event('keyboard-appearance-change'));
   }
-  window.keyboardAppearance = Object.freeze({
+  window.dobraAppearance = Object.freeze({
     get preference() { return preference; },
     set(value) {
       if (!allowed.includes(value)) throw new Error('Tema inválido.');

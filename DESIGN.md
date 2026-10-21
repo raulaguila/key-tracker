@@ -1,4 +1,4 @@
-# Design do Keyboard Tracker
+# Design do Dobra
 
 ## Cena e direção
 
@@ -7,12 +7,18 @@ entre o aplicativo e seus programas usuais. Temas claro e escuro permitem confer
 nomes, teclas e resultados conforme a iluminação. Interface de ferramenta, em pt-BR,
 com uma família de fontes do sistema e hierarquia compacta.
 
-Estratégia **restrained**: branco puro no conteúdo, neutros de baixa saturação na
-navegação e rosa nos controles principais e na seleção. No tema escuro, superfícies
-ganham níveis de luminosidade e o rosa fica mais claro para manter contraste.
-Âncora fornecida pelo script Impeccable: `oklch(0.570 0.158 353.3)`; a cor de ação
-foi escurecida para `oklch(0.48 0.16 353.3)` para texto branco legível. Todas as cores
-estão em tokens OKLCH. Verde comunica sucesso; vermelho, erro; amarelo, conflito.
+Estratégia **restrained**: fundo branco no tema claro, neutros discretamente
+inclinados ao cobre na navegação e Dobra em destaque nos controles principais.
+A direção aprovada é a do estudo Dobra: um D construído como uma superfície
+dobrada, wordmark em minúsculas e identidade próxima, tátil e versátil.
+
+A paleta de referência usa Cobre `#A94320`, Tinta `#302721`, Porcelana `#F6F2EF`
+e Pêssego `#F4AE85`. A interface usa tokens OKLCH com variantes para contraste:
+`oklch(.49 .13 42)` no claro e `oklch(.8 .1 46)` no escuro. As superfícies escuras
+usam luminosidades .19/.215/.245 e hue 45. Verde comunica sucesso; vermelho, erro;
+âmbar, pausa/conflito; azul, suspensão. Estado nunca depende da cor da marca.
+O símbolo no menu usa `currentColor`, acompanhando o tema; ícone nativo e SVG
+compartilham a geometria da dobra. Densidade, drawer e navegação aprovados continuam.
 
 ## Estrutura
 
@@ -103,7 +109,7 @@ pelo estado vindo do processo principal.
 A tabela é a visão inicial. O seletor Tabela/Teclado reutiliza a geometria do
 Rastreio como editor: clicar abre o mesmo drawer; combinações são escolhidas em
 um seletor compacto. Teclas reservadas/sem acelerador compatível ficam indisponíveis,
-e todas as ações continuam acessíveis na lista abaixo. Destaque rosa identifica
+e todas as ações continuam acessíveis na lista abaixo. Destaque na cor de ação do tema identifica
 mapeamento ativo; contorno tracejado e texto identificam ação desativada.
 
 Cada linha mantém Testar, Editar e Mais opções. O popover agrupa ativar/desativar,

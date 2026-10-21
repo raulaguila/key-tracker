@@ -11,7 +11,7 @@ const { spawn } = require('node:child_process');
 async function main() {
   if (process.platform !== 'linux' || !process.env.DISPLAY) throw new Error('Este teste de UI usa Linux/X11. Execute: xvfb-run -a npm run test:ui');
   const root = path.resolve(__dirname, '..');
-  const data = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-ui-'));
+  const data = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-ui-'));
   const screenshots = path.join(root, 'artifacts', 'ui-audit');
   await fs.mkdir(screenshots, { recursive: true });
   let responseStatus = 201;
@@ -28,9 +28,9 @@ async function main() {
   await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
   const port = listener.address().port;
   await new Promise(resolve => listener.close(resolve));
-  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.KEY_TRACKER_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.KEY_TRACKER_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
+  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.DOBRA_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.DOBRA_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
     cwd: root,
-    env: { ...process.env, KEYBOARD_TRACKER_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
+    env: { ...process.env, DOBRA_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';
@@ -135,7 +135,7 @@ async function main() {
       } finally { mainSocket.close(); }
     }
     const nativeClose = () => nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].close()');
-    const nativeState = () => evaluate('return await window.keyboardTracker.getState();');
+    const nativeState = () => evaluate('return await window.dobra.getState();');
     const save = () => evaluate('document.querySelector("form[data-draft]").requestSubmit();');
     async function shot(name) {
       const { data: image } = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
@@ -146,6 +146,9 @@ async function main() {
     await cdp('Page.enable');
     await until('Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Initial UI');
     const initial = await nativeState();
+    assert.equal(await nativeEvaluate('process.mainModule.require("electron").app.getName()'), 'Dobra');
+    assert.equal(await nativeEvaluate('process.mainModule.require("electron").app.getPath("userData")'), data, 'DOBRA_DATA_DIR isolates the test profile');
+    assert.equal(await evaluate('return document.title;'), 'Dobra');
     const secureHeaders = Boolean(initial.storage?.encryptionAvailable);
     assert.equal(initial.enabled, false);
     assert.equal(initial.tracking.enabled, false);
@@ -186,7 +189,7 @@ async function main() {
 
     // Status uses real engine transitions and stays distinct in both themes.
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       await until('document.querySelector(".engine-status").dataset.status === "paused" && !document.querySelector("#engine-toggle").disabled', 'Paused engine ready');
       const pausedColor = await evaluate('return getComputedStyle(document.querySelector("#engine-status")).color');
       assert.equal(await evaluate('return getComputedStyle(document.querySelector("#engine-dot")).borderLeftWidth'), '2px', 'Paused has a pause symbol');
@@ -214,7 +217,7 @@ async function main() {
       await click('#engine-toggle');
       await until('document.querySelector(".engine-status").dataset.status === "paused"', 'Engine paused again');
     }
-    await evaluate('window.keyboardAppearance.set("light");');
+    await evaluate('window.dobraAppearance.set("light");');
 
     // Modal drawer keeps the table at its original width and owns keyboard focus.
     const detailWidth = await evaluate('return document.querySelector(".layer-detail").getBoundingClientRect().width');
@@ -246,6 +249,11 @@ async function main() {
     await until('!document.querySelector("#editor-drawer")', 'Explicit discard closes the drawer');
     assert.equal(await evaluate('return document.documentElement.dataset.sidebar'), 'collapsed', 'New installations use the compact rail');
     await click('#sidebar-toggle');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('document.activeElement.blur();window.dobraAppearance.set(' + JSON.stringify(theme) + ');await Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})));');
+      await shot('dobra-' + theme);
+    }
+    await evaluate('window.dobraAppearance.set("light");');
 
     // Sidebar is a visual preference: native keyboard control, reload persistence,
     // accessible labels, and no configuration/draft changes.
@@ -283,7 +291,7 @@ async function main() {
     assert.ok(layer);
     assert.equal(state.activeLayerId, initial.activeLayerId, 'Editing another layer never changes the active layer');
     await evaluate('Array.from(document.querySelectorAll(".detail-heading button")).find(button => button.textContent.includes("Usar esta camada")).click();');
-    await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Explicit use changes the active layer');
+    await until('(await window.dobra.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Explicit use changes the active layer');
 
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'HTTP QA');
@@ -328,16 +336,16 @@ async function main() {
       await more(id);
       await click('[data-focus="remove-' + id + '"]');
       await click('#confirm-dialog .danger-solid');
-      await until('!(await window.keyboardTracker.getState()).config.layers.some(layer => layer.bindings.some(binding => binding.id === ' + JSON.stringify(id) + '))', 'Temporary action deleted');
+      await until('!(await window.dobra.getState()).config.layers.some(layer => layer.bindings.some(binding => binding.id === ' + JSON.stringify(id) + '))', 'Temporary action deleted');
     }
     const savedBinding = async id => (await nativeState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === id);
     await more(binding.id);
     await click('[data-focus="toggle-' + binding.id + '"]');
-    await until('(await window.keyboardTracker.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === false', 'Individual action disabled');
+    await until('(await window.dobra.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === false', 'Individual action disabled');
     assert.ok(await evaluate('return Boolean(document.querySelector(".binding-disabled .disabled-label"))'));
     await more(binding.id);
     await click('[data-focus="toggle-' + binding.id + '"]');
-    await until('(await window.keyboardTracker.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === true', 'Individual action reenabled');
+    await until('(await window.dobra.getState()).config.layers.flatMap(layer => layer.bindings).find(binding => binding.id === ' + JSON.stringify(binding.id) + ').enabled === true', 'Individual action reenabled');
     await more(binding.id);
     await click('[data-focus="duplicate-' + binding.id + '"]');
     assert.equal(await evaluate('return document.querySelector("#field-key").value'), '', 'Duplicate requires a new shortcut');
@@ -380,7 +388,7 @@ async function main() {
     await deleteAction(visualBinding.id);
 
     await click('[data-focus="edit-layer"]');
-    await fill('#field-applications', 'com.keyboardtracker.qa');
+    await fill('#field-applications', 'io.dobra.qa');
     await save();
     await until('!document.querySelector("#editor-drawer")', 'Application association saved');
     await click('[data-focus="duplicate-layer"]');
@@ -396,11 +404,11 @@ async function main() {
     await click('[data-focus="edit-layer"]');
     await click('.danger-zone button');
     await click('#confirm-dialog .danger-solid');
-    await until('!(await window.keyboardTracker.getState()).config.layers.some(layer => layer.id === ' + JSON.stringify(copiedLayer.id) + ')', 'Duplicated layer removed');
+    await until('!(await window.dobra.getState()).config.layers.some(layer => layer.id === ' + JSON.stringify(copiedLayer.id) + ')', 'Duplicated layer removed');
     await select('#active-layer-picker', initial.activeLayerId);
-    await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(initial.activeLayerId), 'Direct picker selects layer');
+    await until('(await window.dobra.getState()).activeLayerId === ' + JSON.stringify(initial.activeLayerId), 'Direct picker selects layer');
     await select('#active-layer-picker', layer.id);
-    await until('(await window.keyboardTracker.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Direct picker restores layer');
+    await until('(await window.dobra.getState()).activeLayerId === ' + JSON.stringify(layer.id), 'Direct picker restores layer');
     assert.ok(await evaluate('return document.querySelector("#toast").textContent.includes("Camada QA")'));
 
     async function openPreview(id) {
@@ -473,11 +481,11 @@ async function main() {
     assert.equal((await nativeState()).config.settings.layerShortcut, 'F9');
     await click('#field-autoSwitchLayers');
     await save();
-    await until('(await window.keyboardTracker.getState()).application.status === "unavailable"', 'Wayland profile limitation explicit');
+    await until('(await window.dobra.getState()).application.status === "unavailable"', 'Wayland profile limitation explicit');
     assert.ok(await evaluate('return document.querySelector("#application-status").textContent.includes("Wayland")'));
     await click('#field-autoSwitchLayers');
     await save();
-    await until('(await window.keyboardTracker.getState()).application.status === "off"', 'Application monitor can be disabled');
+    await until('(await window.dobra.getState()).application.status === "off"', 'Application monitor can be disabled');
     assert.equal(await evaluate('return document.querySelector("#field-closeToTray").disabled'), !(await nativeState()).desktop.trayAvailable);
 
     await shot('settings');
@@ -557,14 +565,14 @@ async function main() {
         for (const width of [1440, 980, 390]) {
           await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
           for (const theme of ['light', 'dark']) {
-            await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+            await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
             await assertKeyboardGeometry(layout + ', ' + size + ', ' + width + ', ' + theme);
           }
         }
       }
       await cdp('Emulation.clearDeviceMetricsOverride');
     }
-    await evaluate('window.keyboardAppearance.set("light");');
+    await evaluate('window.dobraAppearance.set("light");');
     await select('#field-keyboard-layout', 'br');
     assert.ok(await evaluate('return Boolean(document.querySelector(".iso-enter") && document.querySelector(\'.keycap[data-code="IntlRo"]\'))'), 'ABNT2 includes ISO Enter and the extra slash');
     for (const size of ['compact', 'tkl', 'full']) {
@@ -573,7 +581,7 @@ async function main() {
       assert.equal(await evaluate('return Boolean(document.querySelector(".keyboard-navigation"))'), size !== 'compact');
     }
     await click('input[role="switch"]');
-    await until('(await window.keyboardTracker.getState()).tracking.mode === "local"', 'Local capture ready for international keys');
+    await until('(await window.dobra.getState()).tracking.mode === "local"', 'Local capture ready for international keys');
     await evaluate('document.activeElement.blur();');
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ç', code: 'Semicolon', windowsVirtualKeyCode: 186 });
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: '/', code: 'IntlRo', windowsVirtualKeyCode: 193 });
@@ -588,12 +596,12 @@ async function main() {
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 2, '] and Enter remain distinct pressed keys');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       await assertKeyboardGeometry('ABNT2, ] and Enter pressed, ' + theme);
       await delay(180);
       await shot('tracking-abnt2-enter-' + theme);
     }
-    await evaluate('window.keyboardAppearance.set("light");');
+    await evaluate('window.dobraAppearance.set("light");');
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: ']', code: 'Backslash', windowsVirtualKeyCode: 220 });
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 0);
@@ -650,7 +658,7 @@ async function main() {
     await click('[data-focus="more-' + logBinding.id + '"]');
     await click('[data-focus="remove-' + logBinding.id + '"]');
     await click('#confirm-dialog .danger-solid');
-    await until('!(await window.keyboardTracker.getState()).config.layers.find(item => item.id === ' + JSON.stringify(layer.id) + ').bindings.some(item => item.id === ' + JSON.stringify(logBinding.id) + ')', 'Binding deleted only after confirmation');
+    await until('!(await window.dobra.getState()).config.layers.find(item => item.id === ' + JSON.stringify(layer.id) + ').bindings.some(item => item.id === ' + JSON.stringify(logBinding.id) + ')', 'Binding deleted only after confirmation');
     await fill('#field-action-search', 'não corresponde a nenhuma ação');
     assert.match(await evaluate('return document.querySelector("#bindings").textContent'), /Nenhuma ação encontrada/);
     await fill('#field-action-search', '');
@@ -667,7 +675,7 @@ async function main() {
     await click('[data-focus="edit-layer"]');
     await click('.danger-zone button');
     await click('#confirm-dialog .danger-solid');
-    await until('!(await window.keyboardTracker.getState()).config.layers.some(item => item.id === ' + JSON.stringify(temporaryLayer.id) + ')', 'Layer deleted after confirmation');
+    await until('!(await window.dobra.getState()).config.layers.some(item => item.id === ' + JSON.stringify(temporaryLayer.id) + ')', 'Layer deleted after confirmation');
     assert.equal((await nativeState()).activeLayerId, layer.id, 'Deleting an unused layer preserves the active layer');
 
     // A long, real action list exercises page position without DOM-only spacers.
@@ -676,7 +684,7 @@ async function main() {
     scrollFixture.layers.find(item => item.id === layer.id).bindings = Array.from({ length: 30 }, (_, index) => ({
       id: 'scroll-' + index, key: 'Control+Alt+' + (index < 24 ? 'F' + (index + 1) : String(index - 23)), name: 'Scroll QA ' + index, action: { type: 'log', message: 'QA' }
     }));
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(scrollFixture) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(scrollFixture) + ');');
     await until('Boolean(document.querySelector("[data-focus=\\"edit-scroll-29\\"]"))', 'Long action list rendered');
     await evaluate('document.querySelector("[data-focus=\\"edit-scroll-29\\"]").focus();');
     const scrollPosition = await evaluate('return window.scrollY');
@@ -686,11 +694,11 @@ async function main() {
     await click('[data-drawer-close]');
     assert.equal(await evaluate('return window.scrollY'), scrollPosition, 'Closing the drawer preserves background scroll');
     assert.equal(await evaluate('return document.activeElement.dataset.focus'), 'edit-scroll-29');
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(beforeScrollFixture) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(beforeScrollFixture) + ');');
     await until('!document.querySelector("[data-focus=\\"edit-scroll-29\\"]")', 'Temporary action fixture restored');
 
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       for (const width of [1440, 1280, 980, 800, 760, 580, 390]) {
         await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
         for (const collapsed of [false, true]) {
@@ -717,7 +725,7 @@ async function main() {
     await click('[data-view="layers"]');
     await click('[data-focus="view-keyboard"]');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       for (const width of [1280, 800, 390]) {
         await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
         const bounds = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
@@ -736,13 +744,13 @@ async function main() {
       const beforeTray = (await nativeState()).config;
       const trayConfig = structuredClone(beforeTray);
       trayConfig.settings.closeToTray = true;
-      await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(trayConfig) + ');document.activeElement.blur();');
+      await evaluate('await window.dobra.saveConfig(' + JSON.stringify(trayConfig) + ');document.activeElement.blur();');
       await nativeClose();
       await until('document.hidden', 'Native close hides to tray');
       assert.equal((await nativeState()).editing, false, 'Hidden window never keeps shortcuts suspended');
-      await evaluate('await window.keyboardTracker.showWindow();');
+      await evaluate('await window.dobra.showWindow();');
       await until('!document.hidden', 'Tray restores same window');
-      await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(beforeTray) + ');');
+      await evaluate('await window.dobra.saveConfig(' + JSON.stringify(beforeTray) + ');');
     }
     const diskConfig = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
     const stored = (await nativeState()).storage.protection === 'encrypted' ? (await nativeState()).config : diskConfig;

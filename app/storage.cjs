@@ -23,7 +23,7 @@ async function readBoundedFile(file) {
   } finally { await handle.close(); }
 }
 
-const ENVELOPE_FORMAT = 'key-tracker.safeStorage';
+const ENVELOPE_FORMAT = 'dobra.safeStorage';
 
 async function readConfigFile(file, platform = process.platform) {
   return decodeConfig(await readBoundedFile(file), platform);

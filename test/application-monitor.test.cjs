@@ -101,7 +101,7 @@ test('monitor ignora processo próprio, distingue ausência de foco e ferramenta
   const { engine, monitor, enable } = fixture({ getActiveWindow: async () => result });
   t.after(() => monitor.dispose());
   enable(true); await tick();
-  result = { owner: { name: 'Keyboard Tracker', path: '/self', processId: process.pid } };
+  result = { owner: { name: 'Dobra', path: '/self', processId: process.pid } };
   await monitor.poll();
   assert.equal(engine.application.current.name, 'Editor');
   result = undefined;
@@ -136,23 +136,23 @@ test('desligar e reativar depois do agendamento mantém consultas recorrentes', 
 });
 
 test('worker real cancela helper bloqueado no timeout, ao desligar e no encerramento', { skip: process.platform !== 'linux' }, async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-tracker-helper-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-helper-'));
   const previousPath = process.env.PATH;
-  const previousPidFile = process.env.KEY_TRACKER_NATIVE_TEST_PID;
-  const script = '#!/bin/sh\nprintf "%s" "$$" > "$KEY_TRACKER_NATIVE_TEST_PID"\nexec /bin/sleep 30\n';
+  const previousPidFile = process.env.DOBRA_NATIVE_TEST_PID;
+  const script = '#!/bin/sh\nprintf "%s" "$$" > "$DOBRA_NATIVE_TEST_PID"\nexec /bin/sleep 30\n';
   await fs.writeFile(path.join(directory, 'xprop'), script, { mode: 0o700 });
   await fs.writeFile(path.join(directory, 'xwininfo'), script, { mode: 0o700 });
   process.env.PATH = directory + path.delimiter + previousPath;
   t.after(async () => {
     process.env.PATH = previousPath;
-    if (previousPidFile === undefined) delete process.env.KEY_TRACKER_NATIVE_TEST_PID;
-    else process.env.KEY_TRACKER_NATIVE_TEST_PID = previousPidFile;
+    if (previousPidFile === undefined) delete process.env.DOBRA_NATIVE_TEST_PID;
+    else process.env.DOBRA_NATIVE_TEST_PID = previousPidFile;
     await fs.rm(directory, { recursive: true, force: true });
   });
   for (const mode of ['timeout', 'off', 'quit']) {
     await t.test(mode, async () => {
       const pidFile = path.join(directory, mode + '.pid');
-      process.env.KEY_TRACKER_NATIVE_TEST_PID = pidFile;
+      process.env.DOBRA_NATIVE_TEST_PID = pidFile;
       const { engine, monitor, enable } = fixture({ intervalMs: 60000, timeoutMs: 2000 });
       let pid;
       try {

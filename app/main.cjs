@@ -14,10 +14,10 @@ const { DesktopTray, trayHostAvailable } = require('./desktop-tray.cjs');
 const { WindowLifecycle } = require('./window-lifecycle.cjs');
 const { DesktopActions, chooseActionTarget, exportSessionHistory } = require('./desktop-actions.cjs');
 
-if (!app.isPackaged && process.env.KEYBOARD_TRACKER_DATA_DIR) app.setPath('userData', path.resolve(process.env.KEYBOARD_TRACKER_DATA_DIR));
-app.setName('Keyboard Tracker');
-if (process.platform === 'win32') app.setAppUserModelId('io.keyboardtracker.app');
-if (process.platform === 'linux') app.setDesktopName('io.keyboardtracker.app.desktop');
+if (!app.isPackaged && process.env.DOBRA_DATA_DIR) app.setPath('userData', path.resolve(process.env.DOBRA_DATA_DIR));
+app.setName('Dobra');
+if (process.platform === 'win32') app.setAppUserModelId('io.dobra.app');
+if (process.platform === 'linux') app.setDesktopName('io.dobra.app.desktop');
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -47,14 +47,14 @@ else {
   };
 
   function handle(channel, callback) {
-    ipcMain.handle(`tracker:${channel}`, async (event, ...args) => {
+    ipcMain.handle(`dobra:${channel}`, async (event, ...args) => {
       if (event.sender !== window?.webContents || event.senderFrame !== window.webContents.mainFrame || !isAppURL(event.senderFrame.url)) throw new Error('Origem não autorizada.');
       return callback(...args);
     });
   }
 
   function send(channel, payload) {
-    if (window && !window.isDestroyed()) window.webContents.send(`tracker:${channel}`, payload);
+    if (window && !window.isDestroyed()) window.webContents.send(`dobra:${channel}`, payload);
   }
 
   function statePayload(state, full = false) {
@@ -78,7 +78,7 @@ else {
   function createWindow() {
     window = new BrowserWindow({
       width: 1280, height: 860, minWidth: 760, minHeight: 580,
-      title: 'Keyboard Tracker', backgroundColor: '#ffffff', show: false,
+      title: 'Dobra', backgroundColor: '#ffffff', show: false,
       icon: path.join(__dirname, 'assets', 'icon.png'),
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true }
     });
@@ -121,6 +121,7 @@ else {
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
+    app.setAboutPanelOptions({ applicationName: 'Dobra', applicationVersion: app.getVersion(), iconPath: path.join(__dirname, 'assets', 'icon.png') });
     const protection = await createConfigProtection({ safeStorage, platform: process.platform });
     const storage = new Storage(app.getPath('userData'), { protection });
     const config = await loadWithRecovery({ storage, dialog });
@@ -171,7 +172,7 @@ else {
     handle('choose-action-target', kind => chooseActionTarget({ kind, dialog, window }));
     handle('export-history', async () => exportSessionHistory({ events: engine.events, dialog, window, protectedPaths: await storage.protectedPaths() }));
     handle('export-diagnostics', async () => {
-      const result = await dialog.showSaveDialog(window, { title: 'Exportar diagnóstico', defaultPath: 'keyboard-tracker-diagnostics.json', filters: [{ name: 'Diagnóstico JSON', extensions: ['json'] }] });
+      const result = await dialog.showSaveDialog(window, { title: 'Exportar diagnóstico', defaultPath: 'dobra-diagnostics.json', filters: [{ name: 'Diagnóstico JSON', extensions: ['json'] }] });
       if (result.canceled || !result.filePath) return;
       const diagnostic = createDiagnostics({ state: engine.state(), versions: { ...process.versions, app: app.getVersion() }, platform: process.platform, arch: process.arch });
       await writeExport(result.filePath, JSON.stringify(diagnostic, null, 2) + '\n', await storage.protectedPaths());
@@ -191,7 +192,7 @@ else {
       if (error) throw new Error('Não foi possível abrir a pasta de dados.');
     });
     handle('export-config', stateResult(async () => {
-      const result = await dialog.showSaveDialog(window, { title: 'Exportar configuração', defaultPath: 'keyboard-tracker.json', filters: [{ name: 'Configuração JSON', extensions: ['json'] }] });
+      const result = await dialog.showSaveDialog(window, { title: 'Exportar configuração', defaultPath: 'dobra.json', filters: [{ name: 'Configuração JSON', extensions: ['json'] }] });
       if (!result.canceled && result.filePath) {
         await writeExport(result.filePath, encodeConfig(exportConfigSafe(engine.config)), await storage.protectedPaths());
       }
@@ -208,7 +209,7 @@ else {
       });
     }));
     const template = [
-      ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }] }] : []),
+      ...(process.platform === 'darwin' ? [{ label: 'Dobra', submenu: [{ role: 'about', label: 'Sobre Dobra' }, { type: 'separator' }, { role: 'quit', label: 'Sair de Dobra' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
       { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => engine.cancelAllExecutions() }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
     ];
@@ -222,7 +223,7 @@ else {
     monitor.configure();
     engine.publish();
   }).catch(error => {
-    dialog.showErrorBox('Não foi possível iniciar o Keyboard Tracker', error.message);
+    dialog.showErrorBox('Não foi possível iniciar o Dobra', error.message);
     app.quit();
   });
 }

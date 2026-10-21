@@ -39,7 +39,7 @@ module.exports = async function productionUI({ cdp, evaluate, click, fill, until
     throw new Error('Export did not produce ' + filename);
   }
   try {
-    await evaluate('await window.keyboardTracker.setEnabled(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(config) + ');await window.keyboardTracker.setLayer("production-ui");localStorage.setItem("keyboard-tracker.binding-view","table");window.__productionReload=true;');
+    await evaluate('await window.dobra.setEnabled(false);await window.dobra.saveConfig(' + JSON.stringify(config) + ');await window.dobra.setLayer("production-ui");localStorage.setItem("dobra.binding-view","table");window.__productionReload=true;');
     await cdp('Page.reload');
     await until('!window.__productionReload && Boolean(document.querySelector("[data-focus=new-binding]"))', 'Production fixture ready');
     await launch('production-wait');
@@ -58,9 +58,9 @@ module.exports = async function productionUI({ cdp, evaluate, click, fill, until
     assert.equal((await nativeState()).events.find(item => item.bindingId === 'production-http').status, 'cancelled');
     await launch('production-all-a'); await launch('production-all-b');
     assert.equal((await nativeState()).running.length, 2);
-    await evaluate('document.activeElement.blur();await window.keyboardTracker.setEnabled(true);');
+    await evaluate('document.activeElement.blur();await window.dobra.setEnabled(true);');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       await nativeEvaluate(electron + '.BrowserWindow.getAllWindows()[0].setSize(760,580)');
       await evaluate('await Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})));');
       await shot('production-running-' + theme);
@@ -73,7 +73,7 @@ module.exports = async function productionUI({ cdp, evaluate, click, fill, until
     assert.equal(await evaluate('return [...document.querySelectorAll("#events .event-status-cell .event-status")].every(node=>node.classList.contains("cancelled"))'), true);
     const backupA = structuredClone(config); backupA.layers[0].name = 'PRIVATE_BACKUP_A';
     const backupB = structuredClone(config); backupB.layers[0].name = 'PRIVATE_BACKUP_B';
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(backupA) + ');await window.keyboardTracker.saveConfig(' + JSON.stringify(backupB) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(backupA) + ');await window.dobra.saveConfig(' + JSON.stringify(backupB) + ');');
     await click('[data-view="settings"]');
     assert.equal(await evaluate('return document.querySelector("[data-focus=restore-backup]").disabled'), false);
     assert.equal(await evaluate('return document.querySelector("#storage-protection").dataset.protection'), (await nativeState()).storage.protection);
@@ -101,7 +101,7 @@ module.exports = async function productionUI({ cdp, evaluate, click, fill, until
     const portable = await waitFile(portablePath);
     assert.deepEqual(portable.layers[0].bindings.find(item => item.id === 'production-http').action.headers, {});
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');document.querySelector("#storage-protection").scrollIntoView({block:"start"});window.scrollBy(0,-72);const dismiss=document.querySelector("#toast:not([hidden]) button");dismiss?.click();await Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})));');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');document.querySelector("#storage-protection").scrollIntoView({block:"start"});window.scrollBy(0,-72);const dismiss=document.querySelector("#toast:not([hidden]) button");dismiss?.click();await Promise.all(document.getAnimations().map(animation=>animation.finished.catch(()=>{})));');
       const bounds = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
       assert.ok(bounds.scroll <= bounds.width, 'Protection and recovery controls fit the viewport');
       await shot('production-storage-' + theme);
@@ -111,7 +111,7 @@ module.exports = async function productionUI({ cdp, evaluate, click, fill, until
     console.log('Production UI passed: real wait/HTTP cancellation, stop-all pauses, cancelled filtering, backup confirmation/recovery, settings draft guard, native diagnostic/portable exports, privacy and two themes.');
   } finally {
     await nativeEvaluate('if(globalThis.__productionDialogs){' + electron + '.dialog.showMessageBox=globalThis.__productionDialogs.message;' + electron + '.dialog.showSaveDialog=globalThis.__productionDialogs.save;delete globalThis.__productionDialogs;delete globalThis.__productionConfirm;delete globalThis.__productionSavePath;}' + electron + '.clipboard.writeText(' + JSON.stringify(clipboardBefore) + ');' + electron + '.BrowserWindow.getAllWindows()[0].setSize(1280,900);').catch(() => {});
-    await evaluate('await window.keyboardTracker.cancelAllExecutions();await window.keyboardTracker.saveConfig(' + JSON.stringify(before.config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
+    await evaluate('await window.dobra.cancelAllExecutions();await window.dobra.saveConfig(' + JSON.stringify(before.config) + ');await window.dobra.setLayer(' + JSON.stringify(before.activeLayerId) + ');').catch(() => {});
     server.closeAllConnections?.(); await new Promise(resolve => server.close(resolve));
   }
 };

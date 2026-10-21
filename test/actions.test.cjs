@@ -10,7 +10,7 @@ const { defaultConfig } = require('../app/config.cjs');
 const context = { key: 'A', layer: 'Camada 1' };
 
 async function directory(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'key-tracker-test-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-test-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   return root;
 }
@@ -20,7 +20,7 @@ test('arquivo cria em Documentos, não sobrescreve e acrescenta quando configura
   const options = { documents: root };
   const action = { type: 'file', directory: '', filename: 'nota.txt', content: '{{key}} · {{layer}}', mode: 'create' };
   await executeAction(action, context, options);
-  const target = path.join(root, 'Keyboard Tracker', 'nota.txt');
+  const target = path.join(root, 'Dobra', 'nota.txt');
   assert.equal(await fs.readFile(target, 'utf8'), 'A · Camada 1');
   await assert.rejects(executeAction({ ...action, content: 'sobrescrever' }, context, options), /já existe/);
   await executeAction({ ...action, content: '\nmais', mode: 'append' }, context, options);

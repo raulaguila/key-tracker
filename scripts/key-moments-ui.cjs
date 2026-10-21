@@ -19,7 +19,7 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     await (tag === 'SELECT' ? select : fill)(selector, value);
   }
   try {
-    await evaluate('await window.keyboardTracker.setEnabled(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(config) + ');await window.keyboardTracker.setLayer("moments-ui");localStorage.setItem("keyboard-tracker.binding-view","table");window.__momentsReload=true;');
+    await evaluate('await window.dobra.setEnabled(false);await window.dobra.saveConfig(' + JSON.stringify(config) + ');await window.dobra.setLayer("moments-ui");localStorage.setItem("dobra.binding-view","table");window.__momentsReload=true;');
     await cdp('Page.reload');
     await until('!window.__momentsReload && Boolean(document.querySelector("[data-focus=new-binding]"))', 'Moments fixture ready');
     for (const trigger of ['press', 'hold', 'release']) {
@@ -42,11 +42,11 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     const configured = (await nativeState()).config;
     const legacy = structuredClone(configured);
     delete legacy.layers[0].bindings.find(item => item.trigger === 'hold').holdDelayMs;
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(legacy) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(legacy) + ');');
     await edit('hold');
     assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '250', 'Legacy delay falls back to its repeat interval');
     await close();
-    await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(configured) + ');');
+    await evaluate('await window.dobra.saveConfig(' + JSON.stringify(configured) + ');');
     await edit('hold');
     assert.equal(await evaluate('return document.querySelector("#field-repeatMs").value'), '250');
     assert.equal(await evaluate('return document.querySelector("#field-holdDelayMs").value'), '900');
@@ -78,10 +78,10 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /Enquanto pressionada · início 900 ms · a cada 250 ms/);
     assert.match(await evaluate('return document.querySelector(".editor-heading").textContent'), /uma execução/);
     await close();
-    await evaluate('document.activeElement.blur();await window.keyboardTracker.setEnabled(true);');
+    await evaluate('document.activeElement.blur();await window.dobra.setEnabled(true);');
     await until('document.querySelector("#input-status").dataset.mode === "unavailable"', 'Wayland reports unavailable global input');
     assert.match(await evaluate('return document.querySelector("#input-status").textContent'), /Wayland|indispon|suport/i);
-    await evaluate('await window.keyboardTracker.setEnabled(false);');
+    await evaluate('await window.dobra.setEnabled(false);');
     await edit('release');
     await select('#field-type', 'sequence');
     await stepField(0, 'text', 'draft secret text');
@@ -106,7 +106,7 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     assert.equal(await evaluate('return document.activeElement.closest("[data-sequence-step]").dataset.stepIndex'), '1');
     await stepField(0, 'text', 'draft secret text');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(760,580)');
       for (const zoom of [1, 1.25]) {
         await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(' + zoom + ')');
@@ -161,7 +161,7 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     assert.match(await evaluate('return document.querySelector(".trigger-summary").textContent'), /início 0 ms · a cada 250 ms/);
     await click('[data-edit-trigger]');
     for (const theme of ['light', 'dark']) {
-      await evaluate('window.keyboardAppearance.set(' + JSON.stringify(theme) + ');');
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
       for (const zoom of [1, 1.25]) {
         await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(' + zoom + ')');
         await evaluate('await Promise.all(document.querySelector("#editor-drawer").getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{})));document.querySelector("#field-holdDelayMs").closest(".field").scrollIntoView({block:"center"});');
@@ -176,6 +176,6 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     await nativeEvaluate('process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);process.mainModule.require("electron").BrowserWindow.getAllWindows()[0].setSize(1280,900)');
     await evaluate('const form=document.querySelector("form[data-draft]");if(form){for(const input of form.querySelectorAll("input,textarea,select"))input.removeAttribute("required");}');
     if (await evaluate('return Boolean(document.querySelector("#editor-drawer"))')) { await close(); if (await evaluate('return document.querySelector("#confirm-dialog").open')) await click('#confirm-dialog .danger-solid'); }
-    await evaluate('await window.keyboardTracker.setEnabled(false);await window.keyboardTracker.saveConfig(' + JSON.stringify(before.config) + ');await window.keyboardTracker.setLayer(' + JSON.stringify(before.activeLayerId) + ');');
+    await evaluate('await window.dobra.setEnabled(false);await window.dobra.saveConfig(' + JSON.stringify(before.config) + ');await window.dobra.setLayer(' + JSON.stringify(before.activeLayerId) + ');');
   }
 };

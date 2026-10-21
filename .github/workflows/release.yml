@@ -54,7 +54,7 @@ jobs:
           xvfb-run -a npm run test:ui
           npm run test:input
         env:
-          KEY_TRACKER_UI_NO_SANDBOX: '1'
+          DOBRA_UI_NO_SANDBOX: '1'
       - run: npm run release:build
         env:
           WIN_CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
@@ -91,7 +91,7 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/platform-audit.cjs --packaged
         env:
-          KEY_TRACKER_UI_NO_SANDBOX: '1'
+          DOBRA_UI_NO_SANDBOX: '1'
       - name: Verify signed packaged runtime on Windows and macOS
         if: runner.os != 'Linux'
         run: node scripts/platform-audit.cjs --packaged

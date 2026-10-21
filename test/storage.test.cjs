@@ -119,7 +119,7 @@ test('headers inside sequences encrypt entire v1 configuration and previous back
     const content = await fs.readFile(file, 'utf8');
     assert.equal(content.includes('synthetic-'), false);
     assert.equal(content.includes('https:'), false);
-    assert.equal(JSON.parse(content).format, 'key-tracker.safeStorage');
+    assert.equal(JSON.parse(content).format, 'dobra.safeStorage');
   }
   assert.deepEqual(await storage.load(), second);
   assert.deepEqual(await storage.readBackup(), first);

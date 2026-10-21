@@ -1,8 +1,17 @@
-# Keyboard Tracker
+# Dobra
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="app/assets/dobra-logo-dark.svg">
+  <img src="app/assets/dobra-logo.svg" alt="Dobra" width="240">
+</picture>
+
+**Mais possibilidades em cada tecla.**
 
 Aplicativo desktop para associar **camadas de ações às teclas** e acompanhar seu
 teclado visualmente. Interface em português. Base Electron para Windows, macOS e
 Linux.
+
+Identidade visual e nomes técnicos: [guia da marca Dobra](docs/BRAND.md).
 
 ## Executar
 
@@ -45,7 +54,7 @@ teclas internacionais dependem do suporte do hook; variantes e IMEs podem diferi
 
 1. Em **Camadas**, cadastre ou edite suas camadas e ações.
 2. Na camada 1 inicial, `A` copia um texto pronto. Na camada 2, `A` cria
-   uma nota em `Documentos/Keyboard Tracker`.
+   uma nota em `Documentos/Dobra`.
 3. Clique **Ativar ações**. `F8` alterna entre as camadas.
 4. `Ctrl+Shift+F12` pausa/retoma; no macOS, `⌘+Shift+F12`. Os dois atalhos podem
    ser alterados em **Configurações**. O controle global de pausa passa a ficar
@@ -88,7 +97,7 @@ tipo, mover ou recolher etapas. Salve antes de preparar a prévia e executar tes
 | Ativar camada | Escolhe diretamente uma camada cadastrada, sem ativar ações pausadas |
 | Executar sequência | Executa de 1 a 10 etapas, em ordem, com os tipos simples disponíveis |
 | Requisição HTTP | Envia método, parâmetros, headers e corpo configurados |
-| Criar ou acrescentar arquivo | Salva conteúdo no destino escolhido ou em Documentos/Keyboard Tracker |
+| Criar ou acrescentar arquivo | Salva conteúdo no destino escolhido ou em Documentos/Dobra |
 
 O editor de sequências permite adicionar, remover e mudar a ordem das etapas.
 **Delay entre etapas (ms)** define um intervalo de 0 a 60.000 ms, contado após
@@ -164,7 +173,7 @@ troca manual. Erros/permissões também aparecem em Configurações.
 | Ação | Configuração |
 | --- | --- |
 | Request HTTP | GET, POST, PUT, PATCH, DELETE ou HEAD; URL; headers e query como objetos JSON de strings; corpo opcional |
-| Arquivo | Pasta (vazia usa Documentos/Keyboard Tracker), nome, conteúdo e modo criar/acrescentar |
+| Arquivo | Pasta (vazia usa Documentos/Dobra), nome, conteúdo e modo criar/acrescentar |
 | Log | Mensagem gravada no log local do aplicativo |
 
 Exemplo de request: URL `http://localhost:3000/event`, método `POST`, headers

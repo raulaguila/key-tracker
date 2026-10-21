@@ -82,7 +82,7 @@ class Tracker {
 
   startWorker() {
     try {
-      const worker = this.fork(path.join(__dirname, 'tracker-worker.cjs'), [], { serviceName: 'Keyboard Tracker Input', stdio: 'ignore' });
+      const worker = this.fork(path.join(__dirname, 'tracker-worker.cjs'), [], { serviceName: 'Dobra Input', stdio: 'ignore' });
       this.worker = worker;
       this.workerMode = 'starting';
       this.timer = setTimeout(() => {

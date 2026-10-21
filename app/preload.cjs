@@ -20,12 +20,12 @@ async function completeState(value) {
   if (merged) return merged;
   // Events and invoke replies use different IPC channels. A reply can arrive
   // before the event containing its config; hydrate once without exposing a patch.
-  if (!hydration) hydration = ipcRenderer.invoke('tracker:get-state').then(mergeState).finally(() => { hydration = null; });
+  if (!hydration) hydration = ipcRenderer.invoke('dobra:get-state').then(mergeState).finally(() => { hydration = null; });
   const fresh = await hydration;
   return mergeState(value) || fresh;
 }
-const invokeState = (channel, ...args) => ipcRenderer.invoke('tracker:' + channel, ...args).then(completeState);
-ipcRenderer.on('tracker:state', (_event, value) => {
+const invokeState = (channel, ...args) => ipcRenderer.invoke('dobra:' + channel, ...args).then(completeState);
+ipcRenderer.on('dobra:state', (_event, value) => {
   void completeState(value).then(state => {
     if (state.stateRevision <= notifiedRevision) return;
     notifiedRevision = state.stateRevision;
@@ -38,27 +38,27 @@ const subscribe = (channel, callback) => {
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
 };
-contextBridge.exposeInMainWorld('keyboardTracker', {
+contextBridge.exposeInMainWorld('dobra', {
   getState: () => invokeState('get-state'),
   saveConfig: config => invokeState('save-config', config),
   setEnabled: enabled => invokeState('set-enabled', enabled),
   setLayer: id => invokeState('set-layer', id),
   setEditing: editing => invokeState('set-editing', editing),
-  previewBinding: (layerId, bindingId) => ipcRenderer.invoke('tracker:preview-binding', layerId, bindingId),
+  previewBinding: (layerId, bindingId) => ipcRenderer.invoke('dobra:preview-binding', layerId, bindingId),
   runBinding: (layerId, bindingId, previewId) => invokeState('run-binding', layerId, bindingId, previewId),
   cancelExecution: bindingId => invokeState('cancel-execution', bindingId),
   cancelAllExecutions: () => invokeState('cancel-all-executions'),
   setTracking: enabled => invokeState('set-tracking', enabled),
-  chooseDirectory: () => ipcRenderer.invoke('tracker:choose-directory'),
-  chooseApplication: () => ipcRenderer.invoke('tracker:choose-application'),
-  chooseActionTarget: kind => ipcRenderer.invoke('tracker:choose-action-target', kind),
-  showWindow: () => ipcRenderer.invoke('tracker:show-window'),
-  confirmClose: () => ipcRenderer.invoke('tracker:confirm-close'),
-  cancelClose: () => ipcRenderer.invoke('tracker:cancel-close'),
-  openDataDirectory: () => ipcRenderer.invoke('tracker:open-data-directory'),
+  chooseDirectory: () => ipcRenderer.invoke('dobra:choose-directory'),
+  chooseApplication: () => ipcRenderer.invoke('dobra:choose-application'),
+  chooseActionTarget: kind => ipcRenderer.invoke('dobra:choose-action-target', kind),
+  showWindow: () => ipcRenderer.invoke('dobra:show-window'),
+  confirmClose: () => ipcRenderer.invoke('dobra:confirm-close'),
+  cancelClose: () => ipcRenderer.invoke('dobra:cancel-close'),
+  openDataDirectory: () => ipcRenderer.invoke('dobra:open-data-directory'),
   exportConfig: () => invokeState('export-config'),
-  exportHistory: () => ipcRenderer.invoke('tracker:export-history'),
-  exportDiagnostics: () => ipcRenderer.invoke('tracker:export-diagnostics'),
+  exportHistory: () => ipcRenderer.invoke('dobra:export-history'),
+  exportDiagnostics: () => ipcRenderer.invoke('dobra:export-diagnostics'),
   restoreBackup: () => invokeState('restore-backup'),
   importConfig: () => invokeState('import-config'),
   onState: callback => {
@@ -66,6 +66,6 @@ contextBridge.exposeInMainWorld('keyboardTracker', {
     stateListeners.add(callback);
     return () => stateListeners.delete(callback);
   },
-  onCloseRequested: callback => subscribe('tracker:close-requested', callback),
-  onKey: callback => subscribe('tracker:key', callback)
+  onCloseRequested: callback => subscribe('dobra:close-requested', callback),
+  onKey: callback => subscribe('dobra:key', callback)
 });

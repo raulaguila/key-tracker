@@ -7,7 +7,7 @@ import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
 import { runningExecutions, updateStorageStatus } from './production.js';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
-const api = window.keyboardTracker;
+const api = window.dobra;
 const main = document.querySelector('#main');
 const labels = actionLabels;
 const pendingBindings = new Set();
@@ -23,7 +23,7 @@ let historyQuery = '';
 let historyFilter = 'all';
 let runningPanel;
 let bindingView = 'table';
-try { bindingView = localStorage.getItem('keyboard-tracker.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
+try { bindingView = localStorage.getItem('dobra.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
 let visualModifiers = '';
 let visualTrigger = 'press';
 let previewGeneration = 0;
@@ -34,7 +34,7 @@ let editingQueue = Promise.resolve();
 let closingAllowed = false;
 
 // Visual preferences stay on this computer, separate from exported actions.
-const sidebarPreference = 'keyboard-tracker.sidebar-collapsed';
+const sidebarPreference = 'dobra.sidebar-collapsed';
 const sidebarToggle = document.querySelector('#sidebar-toggle');
 function setSidebarCollapsed(collapsed) {
   document.documentElement.dataset.sidebar = collapsed ? 'collapsed' : 'expanded';
@@ -64,15 +64,15 @@ function syncAppearanceControls() {
   themeToggle.title = label;
   themeToggle.replaceChildren(icon(dark ? 'sun' : 'moon'), el('span', { class: 'nav-label' }, label));
   const select = document.querySelector('#field-theme');
-  if (select) select.value = window.keyboardAppearance.preference;
+  if (select) select.value = window.dobraAppearance.preference;
 }
 themeToggle.addEventListener('click', () => {
-  window.keyboardAppearance.set(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  window.dobraAppearance.set(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 });
 window.addEventListener('keyboard-appearance-change', syncAppearanceControls);
 syncAppearanceControls();
 
-const keyboardPreferenceKey = 'keyboard-tracker.keyboard-preview';
+const keyboardPreferenceKey = 'dobra.keyboard-preview';
 let keyboardPreference = normalizeKeyboardPreference();
 try { keyboardPreference = normalizeKeyboardPreference(JSON.parse(localStorage.getItem(keyboardPreferenceKey))); } catch { /* Invalid or unavailable storage uses defaults. */ }
 let systemKeyboardMap = null;
@@ -369,7 +369,7 @@ function renderBindingKeyboard(container, layer, matches) {
   }
   container.classList.remove('table-scroll');
   container.append(el('div', { class: 'binding-visual-toolbar' }, modifiers.wrapper, moment.wrapper, layoutChoice.wrapper), keyboard,
-    el('div', { class: 'keyboard-caption' }, el('span', {}, 'Clique em uma tecla para configurar. Use as setas para navegar.'), el('span', {}, 'Rosa: ativada · tracejado: desativada')),
+    el('div', { class: 'keyboard-caption' }, el('span', {}, 'Clique em uma tecla para configurar. Use as setas para navegar.'), el('span', {}, 'Destaque: ativada · tracejado: desativada')),
     el('p', { class: 'hint visual-layout-note' }, keyboardPreference.layout === 'auto' ? layoutStatus : layout.name + '. O layout visual não altera os atalhos salvos.'),
     el('div', { class: 'visual-binding-list', role: 'list', 'aria-label': 'Todas as ações, incluindo outras combinações' }, layer.bindings.map(binding => el('div', { 'data-binding-id': binding.id, class: 'visual-binding-item' + (binding.enabled === false ? ' binding-disabled' : ''), role: 'listitem' },
       button(binding.name, () => startEditor({ kind: 'binding', value: binding }), 'quiet visual-binding-edit', { 'data-focus': 'edit-' + binding.id }), shortcut(binding.key, state.platform), el('small', { class: 'visual-trigger-label' }, triggerDescription(binding)), binding.enabled === false ? el('small', { class: 'disabled-label' }, 'Desativada') : null,
@@ -427,7 +427,7 @@ function renderLayers() {
   detail.append(el('p', { id: 'input-status', class: 'input-mode-status', role: 'status', hidden: true }));
   const search = field('action-search', 'Buscar ações', actionQuery, { type: 'search', placeholder: 'Buscar ação, tecla ou tipo…' });
   search.input.addEventListener('input', () => { actionQuery = search.input.value; updateBindings(); });
-  const modes = el('div', { class: 'filter-group binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('keyboard-tracker.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
+  const modes = el('div', { class: 'filter-group binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('dobra.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
   detail.append(el('div', { class: 'section-toolbar' }, el('div', { class: 'search-field' }, icon('search'), search.wrapper), modes, el('span', { id: 'action-count' })),
     el('div', { id: 'bindings', class: 'binding-list table-scroll' }),
     el('p', { class: 'test-explanation' }, 'Confira a prévia antes de executar um teste. A execução funciona mesmo com os atalhos pausados.'),
@@ -829,7 +829,7 @@ function renderTracking() {
   main.append(el('section', { class: 'pressed-panel', 'aria-label': 'Teclas pressionadas agora' }, el('h2', {}, 'Pressionadas agora'), el('p', { id: 'pressed-label', role: 'status', 'aria-atomic': 'true' }, 'Nenhuma tecla pressionada'),
     el('div', { id: 'pressed-keys', class: 'pressed-keys', 'aria-hidden': 'true' })),
     el('div', { id: 'keyboard-preview' }),
-    el('div', { class: 'keyboard-caption' }, el('span', { id: 'keyboard-reference' }), el('span', {}, 'Teclas pressionadas em rosa')),
+    el('div', { class: 'keyboard-caption' }, el('span', { id: 'keyboard-reference' }), el('span', {}, 'Teclas pressionadas em destaque')),
     el('details', { class: 'usage-help keyboard-help' }, el('summary', {}, 'Layout, privacidade e funcionamento'), geometry.wrapper,
       el('p', {}, 'As legendas do sistema podem diferir do teclado conectado. Ajuste layout, formato e padrão físico para corrigir a referência. A seleção visual não altera os atalhos das ações.'),
       el('p', {}, 'As teclas rastreadas não são gravadas. O rastreio é independente das ações controladas na barra superior. Algumas teclas internacionais podem não estar disponíveis na captura global deste sistema; seus nomes continuam aparecendo quando recebidos.')));
@@ -914,13 +914,13 @@ function updateHistory() {
 
 function defaultFilesPath() {
   const separator = state.platform === 'win32' ? '\\' : '/';
-  return state.paths.documents.replace(/[\\/]$/, '') + separator + 'Keyboard Tracker';
+  return state.paths.documents.replace(/[\\/]$/, '') + separator + 'Dobra';
 }
 
 function renderSettings() {
   main.append(heading('Configurações'));
-  const theme = field('theme', 'Tema', window.keyboardAppearance.preference, { choices: [['system', 'Seguir o sistema'], ['light', 'Claro'], ['dark', 'Escuro']], hint: 'Aplicado na hora e salvo neste computador.' });
-  theme.input.addEventListener('change', () => window.keyboardAppearance.set(theme.input.value));
+  const theme = field('theme', 'Tema', window.dobraAppearance.preference, { choices: [['system', 'Seguir o sistema'], ['light', 'Claro'], ['dark', 'Escuro']], hint: 'Aplicado na hora e salvo neste computador.' });
+  theme.input.addEventListener('change', () => window.dobraAppearance.set(theme.input.value));
   const appearance = el('section', { class: 'settings-section appearance-section' }, el('div', { class: 'section-heading' }, el('h2', {}, 'Aparência')), theme.wrapper);
   const settings = state.config.settings;
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {

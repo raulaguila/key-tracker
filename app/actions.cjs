@@ -22,7 +22,7 @@ function prepareAction(action, context, { documents, layers = [], platform = pro
     case 'layer': return { type: 'layer', layerId: action.layerId, layerName: layers.find(layer => layer.id === action.layerId)?.name ?? action.layerId };
     case 'sequence': return { type: 'sequence', stepDelayMs: action.stepDelayMs ?? 0, steps: action.steps.map(step => prepareAction(step, context, { documents, layers, platform }, now)) };
     case 'file': {
-      const directory = action.directory || path.join(documents, 'Keyboard Tracker');
+      const directory = action.directory || path.join(documents, 'Dobra');
       if (!path.isAbsolute(directory)) throw new Error('Escolha uma pasta absoluta para salvar o arquivo.');
       // Templates never turn layer names or shortcuts into paths on any OS.
       const safeVars = Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, v.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')]));

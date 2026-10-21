@@ -1,0 +1,173 @@
+{
+  "scope": "Standalone visual study; no production application changes",
+  "interactions": {
+    "filterCheck": {
+      "brand": "dobra",
+      "theme": "dark",
+      "visibleScreens": [
+        "Dobra, tema escuro"
+      ]
+    },
+    "pauseCheck": "Pausado",
+    "searchCheck": "D\t\nCopiar minha assinatura\nCopiar texto · Ao pressionar\n\t",
+    "layerCheck": {
+      "fMapped": false,
+      "layer": "Pessoal",
+      "rows": 3,
+      "sequenceHidden": true
+    },
+    "keyboardVisible": true
+  },
+  "responsive": [
+    {
+      "appOverflow": false,
+      "overflow": false,
+      "width": 370
+    },
+    {
+      "appOverflow": false,
+      "overflow": false,
+      "width": 820
+    },
+    {
+      "appOverflow": false,
+      "overflow": false,
+      "width": 1024
+    },
+    {
+      "appOverflow": false,
+      "overflow": false,
+      "width": 1440
+    }
+  ],
+  "contrast": [
+    {
+      "samples": [
+        {
+          "name": "body",
+          "ratio": 15.47
+        },
+        {
+          "name": "secondary",
+          "ratio": 7.11
+        },
+        {
+          "name": "primary",
+          "ratio": 6.88
+        },
+        {
+          "name": "status",
+          "ratio": 8.01
+        },
+        {
+          "name": "selectedLayer",
+          "ratio": 5.7
+        },
+        {
+          "name": "selectedSecondary",
+          "ratio": 5.94
+        }
+      ],
+      "screen": "Klavra, tema claro"
+    },
+    {
+      "samples": [
+        {
+          "name": "body",
+          "ratio": 15.29
+        },
+        {
+          "name": "secondary",
+          "ratio": 7.28
+        },
+        {
+          "name": "primary",
+          "ratio": 8.63
+        },
+        {
+          "name": "status",
+          "ratio": 8.59
+        },
+        {
+          "name": "selectedLayer",
+          "ratio": 7.02
+        },
+        {
+          "name": "selectedSecondary",
+          "ratio": 5.73
+        }
+      ],
+      "screen": "Klavra, tema escuro"
+    },
+    {
+      "samples": [
+        {
+          "name": "body",
+          "ratio": 15.02
+        },
+        {
+          "name": "secondary",
+          "ratio": 7.11
+        },
+        {
+          "name": "primary",
+          "ratio": 6.63
+        },
+        {
+          "name": "status",
+          "ratio": 8.01
+        },
+        {
+          "name": "selectedLayer",
+          "ratio": 5.69
+        },
+        {
+          "name": "selectedSecondary",
+          "ratio": 6.16
+        }
+      ],
+      "screen": "Dobra, tema claro"
+    },
+    {
+      "samples": [
+        {
+          "name": "body",
+          "ratio": 15.48
+        },
+        {
+          "name": "secondary",
+          "ratio": 7.69
+        },
+        {
+          "name": "primary",
+          "ratio": 9.05
+        },
+        {
+          "name": "status",
+          "ratio": 8.59
+        },
+        {
+          "name": "selectedLayer",
+          "ratio": 7.17
+        },
+        {
+          "name": "selectedSecondary",
+          "ratio": 5.74
+        }
+      ],
+      "screen": "Dobra, tema escuro"
+    }
+  ],
+  "contrastMethod": "Computed OKLCH tokens converted to linear sRGB; representative text/background pairs",
+  "consoleErrors": [],
+  "checks": {
+    "fourScreens": true,
+    "brandFilter": true,
+    "themeFilter": true,
+    "search": true,
+    "pauseResume": true,
+    "layerSwitch": true,
+    "keyboardPreview": true
+  },
+  "screenshots": "Browser-rendered JPEG captures"
+}

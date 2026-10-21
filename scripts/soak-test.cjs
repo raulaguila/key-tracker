@@ -24,7 +24,7 @@ async function main() {
   watchdog.unref();
   const started = performance.now();
   const heapBefore = process.memoryUsage().heapUsed;
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'key-tracker-soak-'));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dobra-soak-'));
   const server = http.createServer((request, response) => { response.writeHead(204); response.end(); });
   let engine;
   let completed = 0, cancelled = 0, saves = 0, batches = 0;
