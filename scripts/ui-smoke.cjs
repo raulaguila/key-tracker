@@ -28,7 +28,7 @@ async function main() {
   await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
   const port = listener.address().port;
   await new Promise(resolve => listener.close(resolve));
-  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.KEY_TRACKER_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
+  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.KEY_TRACKER_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.KEY_TRACKER_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
     cwd: root,
     env: { ...process.env, KEYBOARD_TRACKER_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -418,7 +418,7 @@ async function main() {
     await until('Boolean(document.querySelector("[data-test-result=success]"))', 'HTTP test completed');
     assert.equal(request.method, 'POST');
     assert.equal(request.url, '/event?origem=teclado+B');
-    assert.equal(request.headers['content-type'], secureHeaders ? 'application/json' : undefined);
+    assert.equal(request.headers['content-type'], secureHeaders ? 'application/json' : 'text/plain;charset=UTF-8');
     assert.equal(request.body, '{"key":"B"}');
     assert.match(await evaluate('return document.querySelector("#toast").textContent'), /HTTP 201/);
     assert.ok(await evaluate('return document.querySelector("[data-test-result]").textContent.includes("ms")'));
