@@ -1,0 +1,275 @@
+{
+  "version": 1,
+  "date": "2026-10-21T15:33:11.052Z",
+  "commit": "7e8a938e93d974815ba03590531b3b725b326c62",
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "release": "7.0.0-38-generic",
+    "cpu": "12th Gen Intel(R) Core(TM) i9-12900K",
+    "logicalCpus": 24,
+    "ramGiB": 61.56621551513672,
+    "node": "v24.15.0",
+    "electron": "44.9.3",
+    "ci": false,
+    "gpu": "disabled"
+  },
+  "notes": [
+    "Runtime is real Electron loading production source, not the packaged executable.",
+    "CI machines differ; values are not a controlled OS-to-OS comparison.",
+    "Startup includes CDP connection and readiness checks; OS caches are not flushed.",
+    "Key registration is tested; physical-key delivery and user permissions are not certified."
+  ],
+  "probes": {
+    "initialPaused": true,
+    "preload": true,
+    "storage": {
+      "encryptionAvailable": true,
+      "protection": "plain",
+      "backupAvailable": false,
+      "message": "Configuração sem headers HTTP.",
+      "backupChecking": false,
+      "present": true
+    },
+    "persistence": true,
+    "clipboard": {
+      "status": "success",
+      "matched": true,
+      "length": 25,
+      "expectedLength": 25
+    },
+    "sequenceDelay": {
+      "schemaPersisted": true,
+      "previewed": true,
+      "status": "success",
+      "stepDelayMs": 80,
+      "durationMs": 82,
+      "steps": [
+        {
+          "index": 1,
+          "status": "success"
+        },
+        {
+          "index": 2,
+          "status": "success"
+        }
+      ],
+      "finalClipboard": true,
+      "passed": true
+    },
+    "cancellation": {
+      "waiting": true,
+      "status": "cancelled",
+      "remaining": 0,
+      "noLaterEffect": true,
+      "passed": true
+    },
+    "applicationLaunch": {
+      "status": "success",
+      "message": "Aplicativo de auditoria: Aplicativo aberto."
+    },
+    "notification": {
+      "status": "error",
+      "message": "Notificação de auditoria: O sistema não confirmou a exibição da notificação.",
+      "note": "A show event confirms native API acknowledgement, not that a person saw it."
+    },
+    "globalShortcuts": {
+      "enabled": true,
+      "registered": [
+        "CommandOrControl+Shift+F12",
+        "F8",
+        "A",
+        "D",
+        "E",
+        "B",
+        "C"
+      ],
+      "failed": []
+    },
+    "accessibilityTrusted": null,
+    "tracking": {
+      "enabled": true,
+      "mode": "global",
+      "message": "Capturando pressionar e soltar em todo o sistema. As teclas não são salvas."
+    },
+    "applicationMonitor": {
+      "status": "unavailable",
+      "message": "Nenhum aplicativo em foco foi identificado. O controle manual continua disponível.",
+      "identified": false
+    },
+    "tray": {
+      "trayAvailable": false
+    },
+    "keyMoments": {
+      "attempted": true,
+      "mode": "global",
+      "registered": true,
+      "schemaPersisted": true,
+      "shared": true,
+      "visualOff": true,
+      "pausedObserves": true,
+      "note": "Real worker availability, global registration and shared lifecycle; physical press/hold/release delivery is a separate Linux XTest probe.",
+      "passed": true
+    },
+    "canonicalPersistence": {
+      "bytes": 254920,
+      "legacyBytes": 548895,
+      "canonicalMatches": true,
+      "legacyReadable": true,
+      "rendererReloaded": true
+    },
+    "stateTransport": {
+      "complete": true,
+      "sameConfigRevision": true,
+      "ordered": true
+    }
+  },
+  "startupsMs": [
+    190.84373399999998,
+    181.01426800000002,
+    219.71913899999993
+  ],
+  "interfaceMs": [
+    188.842443,
+    176.508463,
+    215.33715199999995
+  ],
+  "shutdowns": [
+    {
+      "graceful": true,
+      "elapsedMs": 43.68822,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 65.59108899999995,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "graceful": true,
+      "elapsedMs": 63.549111999998786,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "package": {
+    "archive": "dist/linux-unpacked/resources/app.asar",
+    "sourceMatches": {
+      "app/main.cjs": true,
+      "app/shutdown.cjs": true,
+      "app/state-delivery.cjs": true,
+      "app/preload.cjs": true,
+      "app/config.cjs": true,
+      "app/storage.cjs": true,
+      "app/config-protection.cjs": true,
+      "app/recovery.cjs": true,
+      "app/diagnostics.cjs": true,
+      "app/engine.cjs": true,
+      "app/key-gestures.cjs": true,
+      "app/tracking.cjs": true,
+      "app/tracker-worker.cjs": true,
+      "app/actions.cjs": true,
+      "app/desktop-actions.cjs": true,
+      "app/safe-export.cjs": true,
+      "app/application-monitor.cjs": true,
+      "app/application-reader.cjs": true,
+      "app/native-process-scope.cjs": true,
+      "app/desktop-tray.cjs": true,
+      "app/window-lifecycle.cjs": true,
+      "app/renderer/index.html": true,
+      "app/renderer/app.js": true,
+      "app/renderer/production.js": true,
+      "app/renderer/action-editor.js": true,
+      "app/renderer/key-moments.js": true,
+      "app/renderer/binding-table.js": true,
+      "app/renderer/styles.css": true
+    },
+    "nativeFiles": [
+      "/node_modules/get-windows/build-tmp-napi-v9/Release/node-get-windows.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-arm64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-6-darwin-unknown-x64/node-active-win.node",
+      "/node_modules/get-windows/lib/binding/napi-9-darwin-unknown-arm64/node-get-windows.node",
+      "/node_modules/get-windows/lib/binding/napi-9-linux-glibc-x64/node-get-windows.node",
+      "/node_modules/get-windows/main",
+      "/node_modules/uiohook-napi/prebuilds/darwin-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/darwin-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-loong64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/linux-x64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-arm64/uiohook-napi.node",
+      "/node_modules/uiohook-napi/prebuilds/win32-x64/uiohook-napi.node"
+    ],
+    "note": "Package inspected; runtime below uses the same source in Electron development mode with an isolated profile."
+  },
+  "startup": {
+    "n": 3,
+    "median": 190.84373399999998,
+    "p95": 219.71913899999993,
+    "max": 219.71913899999993,
+    "mean": 197.19238033333332
+  },
+  "runtime": {
+    "packaged": false,
+    "isPackaged": false,
+    "arch": "x64",
+    "name": "Dobra"
+  },
+  "idle": {
+    "seconds": 5,
+    "cpuReported": {
+      "n": 5,
+      "median": 0.041451863112020176,
+      "p95": 0.12441521383622245,
+      "max": 0.12441521383622245,
+      "mean": 0.04975430974306575
+    },
+    "summedRssMiB": {
+      "n": 5,
+      "median": 597.0078125,
+      "p95": 604.171875,
+      "max": 604.171875,
+      "mean": 598.22890625
+    },
+    "note": "RSS is a sum of Electron-listed processes and includes shared pages more than once."
+  },
+  "configuration": {
+    "default": {
+      "actions": 2,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 1.1000000014901161,
+        "p95": 3.2999999970197678,
+        "max": 3.7000000029802322,
+        "mean": 1.4149999998509883
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 3.8000000044703484,
+        "p95": 4.299999997019768,
+        "max": 4.299999997019768,
+        "mean": 3.849999999627471
+      }
+    },
+    "large": {
+      "actions": 2500,
+      "editingIpcMs": {
+        "n": 20,
+        "median": 6.5,
+        "p95": 8.899999998509884,
+        "max": 9,
+        "mean": 7.005000000074506
+      },
+      "saveIpcMs": {
+        "n": 4,
+        "median": 56.600000001490116,
+        "p95": 69.20000000298023,
+        "max": 69.20000000298023,
+        "mean": 57.125
+      }
+    }
+  },
+  "complete": true,
+  "corePassed": true
+}

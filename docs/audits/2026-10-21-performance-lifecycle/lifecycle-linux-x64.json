@@ -1,0 +1,30 @@
+{
+  "platform": "linux",
+  "electron": "44.9.3",
+  "cases": {
+    "loadingClose": {
+      "shellMs": 269.262936,
+      "code": 0,
+      "signal": null,
+      "elapsedMs": 25.869623999999988
+    },
+    "hiddenUpdates": {
+      "publications": 50,
+      "hiddenDeliveries": 0,
+      "restoredDeliveries": 1
+    },
+    "busyClose": {
+      "shellMs": 286.972714,
+      "code": 0,
+      "signal": null,
+      "elapsedMs": 726.9778269999999
+    },
+    "reopen": {
+      "shellMs": 288.167633,
+      "code": 0,
+      "signal": null,
+      "elapsedMs": 33.17599900000005
+    }
+  },
+  "complete": true
+}

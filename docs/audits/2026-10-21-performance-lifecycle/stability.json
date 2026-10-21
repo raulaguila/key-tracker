@@ -1,0 +1,56 @@
+{
+  "probe": "bounded-engine-storage-http",
+  "mode": "duration",
+  "requestedDurationSeconds": 120,
+  "batches": 5224,
+  "executions": 20896,
+  "completed": 16716,
+  "cancelled": 4180,
+  "saves": 2090,
+  "peakRunning": 4,
+  "stepsPerSequence": 10,
+  "runElapsedMs": 120005,
+  "elapsedMs": 120021,
+  "heapBeforeBytes": 5508264,
+  "heapAfterBytes": 49140224,
+  "diagnostics": {
+    "schemaVersion": 1,
+    "generatedAt": "2026-10-21T15:21:22.834Z",
+    "versions": {
+      "app": "0.1.0",
+      "electron": null,
+      "node": "24.15.0",
+      "chrome": null
+    },
+    "host": {
+      "platform": "linux",
+      "arch": "x64"
+    },
+    "capabilities": {
+      "inputGlobal": false,
+      "trackingGlobal": false,
+      "applicationMonitoring": false,
+      "tray": false,
+      "encryption": false,
+      "backup": true,
+      "protection": "plain"
+    },
+    "counts": {
+      "layers": 2,
+      "bindings": 5,
+      "disabledBindings": 0,
+      "running": 0,
+      "registeredShortcuts": 0,
+      "failedShortcuts": 0,
+      "events": 100,
+      "actionSuccesses": 80,
+      "actionErrors": 0,
+      "actionCancelled": 20
+    },
+    "timingMs": {
+      "samples": 100,
+      "total": 1884,
+      "max": 25
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "baseline": "7e8a938",
+  "workingTree": true,
+  "actions": 2500,
+  "historyEvents": 100,
+  "publishesPerRound": 100,
+  "rounds": 5,
+  "scope": "Node producer only; excludes Electron IPC, contextBridge and DOM; not an end-to-end speedup.",
+  "beforeMs": [
+    189.145446,
+    184.11772399999998,
+    185.99765099999996,
+    187.77723500000002,
+    188.20509500000003
+  ],
+  "afterMs": [
+    5.286938999999961,
+    5.608305000000087,
+    5.625246000000061,
+    5.2455240000001595,
+    5.5084730000000945
+  ]
+}

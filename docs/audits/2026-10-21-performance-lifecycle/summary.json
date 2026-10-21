@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "fd8db503de87c15750f398fdff9fd3d79d0910fa",
+  "tests": {
+    "passed": 187,
+    "failed": 0,
+    "skipped": 0
+  },
+  "axe": {
+    "states": 14,
+    "violations": 0
+  },
+  "package": {
+    "matchedProductionFiles": 28
+  },
+  "lifecycle": {
+    "loadingBeforeVault": true,
+    "closeWhileLoading": true,
+    "acceptedSavePreserved": true,
+    "cancelledHistoryPreserved": true,
+    "laterStepBlocked": true,
+    "hiddenUpdatesCoalesced": true,
+    "reopenPassed": true,
+    "heldKeyStopPassed": true,
+    "heldKeyShutdownPassed": true
+  },
+  "ci": {
+    "workflowsConcludedSuccess": 3,
+    "jobsWithAllStepsPassed": 9,
+    "staleJobHeaderCount": 3,
+    "evidence": "ci.json"
+  }
+}

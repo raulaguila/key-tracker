@@ -1,0 +1,773 @@
+{
+  "sourceCommit": "fd8db503de87c15750f398fdff9fd3d79d0910fa",
+  "verifiedAt": "2026-10-21T15:44:54.369Z",
+  "note": "Workflow runs concluded success. Original job headers preserved: some still report in_progress although every step, including Complete job, concluded success.",
+  "workflows": [
+    {
+      "id": 39627134958,
+      "name": "Desktop",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39627134958",
+      "headSha": "fd8db503de87c15750f398fdff9fd3d79d0910fa",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 119315154522,
+          "name": "verify (windows-latest)",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run check",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm test",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify lifecycle on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify lifecycle on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload lifecycle evidence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify bounded stability workload",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify UI flows in Electron",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify native key moments in isolated X11",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Build native installer",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload installers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify packaged runtime on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify packaged runtime on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315154671,
+          "name": "verify (macos-15-intel)",
+          "reportedStatus": "in_progress",
+          "reportedConclusion": null,
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run check",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm test",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify lifecycle on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify lifecycle on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload lifecycle evidence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify bounded stability workload",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify UI flows in Electron",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify native key moments in isolated X11",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Build native installer",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload installers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify packaged runtime on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify packaged runtime on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315154755,
+          "name": "verify (macos-latest)",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run check",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm test",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify lifecycle on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify lifecycle on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload lifecycle evidence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify bounded stability workload",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify UI flows in Electron",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify native key moments in isolated X11",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Build native installer",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload installers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify packaged runtime on Linux",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Verify packaged runtime on Windows and macOS",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315154760,
+          "name": "verify (ubuntu-latest)",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run check",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm test",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify lifecycle on Linux",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify lifecycle on Windows and macOS",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Upload lifecycle evidence",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify bounded stability workload",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify UI flows in Electron",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify native key moments in isolated X11",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build native installer",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload installers",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify packaged runtime on Linux",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify packaged runtime on Windows and macOS",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 39627134926,
+      "name": "Dependency security",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39627134926",
+      "headSha": "fd8db503de87c15750f398fdff9fd3d79d0910fa",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 119315154333,
+          "name": "audit",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm audit --audit-level=moderate",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 39627135006,
+      "name": "Platform audit",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39627135006",
+      "headSha": "fd8db503de87c15750f398fdff9fd3d79d0910fa",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 119315154615,
+          "name": "audit (macos-latest)",
+          "reportedStatus": "in_progress",
+          "reportedConclusion": null,
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run pack",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Audit Linux runtime",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Audit Windows and macOS runtime",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315154831,
+          "name": "audit (macos-15-intel)",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run pack",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Audit Linux runtime",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Audit Windows and macOS runtime",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315155023,
+          "name": "audit (windows-latest)",
+          "reportedStatus": "in_progress",
+          "reportedConclusion": null,
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run pack",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Audit Linux runtime",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Audit Windows and macOS runtime",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 119315155109,
+          "name": "audit (ubuntu-latest)",
+          "reportedStatus": "completed",
+          "reportedConclusion": "success",
+          "allStepsPassed": true,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run npm run pack",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Audit Linux runtime",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Audit Windows and macOS runtime",
+              "status": "completed",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
