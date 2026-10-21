@@ -2,7 +2,7 @@
   "date": "2026-10-21T14:54:43.326277+00:00",
   "baseCommit": "01f63d8fab52610d7709b49361dfe925da82071b",
   "workingTreeAtMeasurement": true,
-  "scope": "Correções F01–F05, antes do commit; resultados CI serão associados ao SHA publicado.",
+  "scope": "Correções F01–F05 com evidências locais e CI do SHA publicado.",
   "electron": "44.9.3",
   "tests": {
     "passed": 179,
@@ -24,10 +24,16 @@
     "axeBundled": false
   },
   "findings": {
-    "F01": "corrected; local evidence passed",
-    "F02": "corrected; local evidence passed",
-    "F03": "corrected; local evidence passed",
-    "F04": "corrected; local evidence passed",
-    "F05": "corrected; local evidence passed"
+    "F01": "corrected; local and CI checks passed",
+    "F02": "corrected; local and CI checks passed",
+    "F03": "corrected; local and CI checks passed",
+    "F04": "corrected; local and CI checks passed",
+    "F05": "corrected; local and CI checks passed"
+  },
+  "sourceCommit": "7bcb61a8bb02fd89d6bf603dc4a928411420afc3",
+  "ci": {
+    "passed": true,
+    "jobs": 9,
+    "evidence": "ci.json"
   }
 }

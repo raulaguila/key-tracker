@@ -2,8 +2,7 @@
 
 Registro de 21/10/2026. Os cinco achados da
 [auditoria completa](../2026-10-21-full/report.md) foram corrigidos e passaram
-nas verificações locais. A validação CI do commit publicado é registrada após
-o envio. [Resumo verificável](summary.json) · [Índice](../README.md).
+nas verificações locais e no CI do commit publicado. [Resumo verificável](summary.json) · [Índice](../README.md).
 
 ## Alterações e regressões
 
@@ -70,3 +69,22 @@ Audit npm não cobre vulnerabilidades desconhecidas ou todos os componentes
 binários do Chromium. Assinatura, notarização, instalador em máquina limpa,
 permissões e teclado físico/Wayland continuam nos gates de
 [produção](../../PRODUCTION.md).
+
+
+## CI do commit `7bcb61a`
+
+Os nove jobs terminaram com sucesso, no SHA
+[`7bcb61a8bb02fd89d6bf603dc4a928411420afc3`](https://github.com/raulaguila/key-tracker/commit/7bcb61a8bb02fd89d6bf603dc4a928411420afc3).
+[Resultado por job e etapa](ci.json).
+
+- [Desktop](https://github.com/raulaguila/key-tracker/actions/runs/39621196100):
+  testes e instaladores em Windows x64, Linux x64, macOS ARM64 e macOS Intel x64;
+  UI/axe e XTest no Linux; lançamento e sonda do executável empacotado nos quatro.
+- [Platform audit](https://github.com/raulaguila/key-tracker/actions/runs/39621196064):
+  quatro destinos aprovados, incluindo comparação dos módulos do ASAR.
+- [Dependency security](https://github.com/raulaguila/key-tracker/actions/runs/39621196125):
+  aprovado com bloqueio em moderado, alto e crítico.
+
+Os instaladores nos artifacts de Desktop são builds de desenvolvimento.
+Este registro não transforma os jobs em validação de assinatura, notarização
+ou instalação em hardware físico.
