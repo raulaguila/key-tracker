@@ -1,0 +1,492 @@
+{
+  "commit": "92dbe82a68563891677bc6932c7f62a25ccf15b9",
+  "axeVersion": "4.12.1",
+  "scenarios": [
+    {
+      "theme": "light",
+      "view": "layers",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "tracking",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 7
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "view": "history",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "settings",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "drawer-clipboard",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "drawer-http",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "drawer-sequence",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "light",
+      "view": "drawer-sequence-200percent",
+      "geometry": {
+        "width": 380,
+        "height": 276,
+        "pageScrollWidth": 372,
+        "drawerWidth": 357,
+        "drawerScrollWidth": 357,
+        "controls": [
+          {
+            "name": "Editar gatilho",
+            "x": 287,
+            "y": 71.140625,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Fechar editor",
+            "x": 319,
+            "y": 16,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "field-name",
+            "x": 24.5,
+            "y": 154.984375,
+            "w": 324.5,
+            "h": 32.84375
+          },
+          {
+            "name": "field-key",
+            "x": 24.5,
+            "y": 265.0703125,
+            "w": 194.84375,
+            "h": 32.84375
+          },
+          {
+            "name": "Capturar tecla",
+            "x": 225.34375,
+            "y": 265.0703125,
+            "w": 123.65625,
+            "h": 32
+          },
+          {
+            "name": "Ao pressionarEnquanto pressionadaAo soltar",
+            "x": 24.5,
+            "y": 377.9453125,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-enabled",
+            "x": 24.5,
+            "y": 425.140625,
+            "w": 15,
+            "h": 15
+          },
+          {
+            "name": "Copiar textoAbrir URL, arquivo ou aplicativoMostrar notificaçãoTrocar camadaExecutar sequênciaRequisição HTTPCriar ou acrescentar em arquivo",
+            "x": 24.5,
+            "y": 499.1875,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-stepDelayMs",
+            "x": 237,
+            "y": 545.1875,
+            "w": 112,
+            "h": 32.84375
+          },
+          {
+            "name": "Mover etapa 1 para cima",
+            "x": 247,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Mover etapa 1 para baixo",
+            "x": 283,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Remover etapa 1",
+            "x": 319,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Copiar textoAbrir URL, arquivo ou aplicativoMostrar notificaçãoTrocar camadaRequisição HTTPCriar ou acrescentar em arquivo",
+            "x": 24.5,
+            "y": 807.203125,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-step-aef40d98-e1a1-4892-bd8e-55070e173c75-text",
+            "x": 24.5,
+            "y": 878.046875,
+            "w": 324.5,
+            "h": 96
+          },
+          {
+            "name": "Adicionar etapa",
+            "x": 24.5,
+            "y": 1042.234375,
+            "w": 132.4296875,
+            "h": 30
+          },
+          {
+            "name": "Cancelar",
+            "x": 128.71875,
+            "y": 234,
+            "w": 71.046875,
+            "h": 30
+          },
+          {
+            "name": "Salvar alterações",
+            "x": 205.765625,
+            "y": 234,
+            "w": 139.234375,
+            "h": 30
+          }
+        ]
+      }
+    },
+    {
+      "theme": "dark",
+      "view": "layers",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "tracking",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 7
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "view": "history",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "settings",
+      "violations": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI",
+          "nodes": [
+            {
+              "target": [
+                ".brand"
+              ],
+              "html": "<div class=\"brand\" aria-label=\"Dobra\">",
+              "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute."
+            }
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "drawer-clipboard",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "drawer-http",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "drawer-sequence",
+      "violations": [],
+      "incomplete": []
+    },
+    {
+      "theme": "dark",
+      "view": "drawer-sequence-200percent",
+      "geometry": {
+        "width": 380,
+        "height": 276,
+        "pageScrollWidth": 372,
+        "drawerWidth": 357,
+        "drawerScrollWidth": 357,
+        "controls": [
+          {
+            "name": "Editar gatilho",
+            "x": 287,
+            "y": 71.140625,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Fechar editor",
+            "x": 319,
+            "y": 16,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "field-name",
+            "x": 24.5,
+            "y": 154.984375,
+            "w": 324.5,
+            "h": 32.84375
+          },
+          {
+            "name": "field-key",
+            "x": 24.5,
+            "y": 265.0703125,
+            "w": 194.84375,
+            "h": 32.84375
+          },
+          {
+            "name": "Capturar tecla",
+            "x": 225.34375,
+            "y": 265.0703125,
+            "w": 123.65625,
+            "h": 32
+          },
+          {
+            "name": "Ao pressionarEnquanto pressionadaAo soltar",
+            "x": 24.5,
+            "y": 377.9453125,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-enabled",
+            "x": 24.5,
+            "y": 425.140625,
+            "w": 15,
+            "h": 15
+          },
+          {
+            "name": "Copiar textoAbrir URL, arquivo ou aplicativoMostrar notificaçãoTrocar camadaExecutar sequênciaRequisição HTTPCriar ou acrescentar em arquivo",
+            "x": 24.5,
+            "y": 499.1875,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-stepDelayMs",
+            "x": 237,
+            "y": 545.1875,
+            "w": 112,
+            "h": 32.84375
+          },
+          {
+            "name": "Mover etapa 1 para cima",
+            "x": 247,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Mover etapa 1 para baixo",
+            "x": 283,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Remover etapa 1",
+            "x": 319,
+            "y": 740.359375,
+            "w": 30,
+            "h": 30
+          },
+          {
+            "name": "Copiar textoAbrir URL, arquivo ou aplicativoMostrar notificaçãoTrocar camadaRequisição HTTPCriar ou acrescentar em arquivo",
+            "x": 24.5,
+            "y": 807.203125,
+            "w": 324.5,
+            "h": 34
+          },
+          {
+            "name": "field-step-1334d325-bbdb-4343-98fd-40a697581553-text",
+            "x": 24.5,
+            "y": 878.046875,
+            "w": 324.5,
+            "h": 96
+          },
+          {
+            "name": "Adicionar etapa",
+            "x": 24.5,
+            "y": 1042.234375,
+            "w": 132.4296875,
+            "h": 30
+          },
+          {
+            "name": "Cancelar",
+            "x": 128.71875,
+            "y": 234,
+            "w": 71.046875,
+            "h": 30
+          },
+          {
+            "name": "Salvar alterações",
+            "x": 205.765625,
+            "y": 234,
+            "w": 139.234375,
+            "h": 30
+          }
+        ]
+      }
+    }
+  ]
+}

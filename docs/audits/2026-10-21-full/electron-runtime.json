@@ -1,0 +1,20 @@
+{
+  "installed": "44.9.1",
+  "sameMajorLatest": "44.9.3",
+  "registryLatest": "45.0.0",
+  "releases": [
+    {
+      "version": "44.9.2",
+      "published_at": "2026-10-20T17:44:18Z",
+      "url": "https://github.com/electron/electron/releases/tag/v44.9.2",
+      "body": "# Release Notes for v44.9.2\n\n"
+    },
+    {
+      "version": "44.9.3",
+      "published_at": "2026-10-21T03:27:21Z",
+      "url": "https://github.com/electron/electron/releases/tag/v44.9.3",
+      "body": "# Release Notes for v44.9.3\n\n## Other Changes\n\n* Backported fixes from upstream ANGLE, Chromium, PDFium, Skia and V8. [#55149](https://github.com/electron/electron/pull/55149)\n\n"
+    }
+  ],
+  "note": "npm --omit=dev excludes electron dependency metadata, but the Electron/Chromium/Node runtime is shipped in the desktop package; no specific exploit or CVE applicability was established."
+}

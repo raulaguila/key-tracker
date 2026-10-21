@@ -1,0 +1,23 @@
+{
+  "integrity": {
+    "scope": "Owned temporary profile only",
+    "actionReported": "success",
+    "files": [
+      {
+        "filename": "config.json",
+        "readable": false
+      },
+      {
+        "filename": "config.backup.json",
+        "readable": false
+      }
+    ],
+    "reloadAccepted": false,
+    "backupAccepted": false
+  },
+  "keyring": {
+    "probe": "Unresponsive provider fixture",
+    "availability": "still-pending",
+    "observedMs": 151
+  }
+}

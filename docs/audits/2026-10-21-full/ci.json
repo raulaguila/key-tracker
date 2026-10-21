@@ -1,0 +1,107 @@
+{
+  "runs": [
+    {
+      "name": "Platform audit",
+      "id": 39609850130,
+      "status": "completed",
+      "conclusion": "success",
+      "sha": "d6c5cf4b3260730903aeaa8d79ca4970abb58d50",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39609850130",
+      "updated_at": "2026-10-21T13:40:42Z"
+    },
+    {
+      "name": "Desktop",
+      "id": 39609850287,
+      "status": "completed",
+      "conclusion": "success",
+      "sha": "d6c5cf4b3260730903aeaa8d79ca4970abb58d50",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39609850287",
+      "updated_at": "2026-10-21T13:42:39Z"
+    }
+  ],
+  "jobs": [
+    {
+      "run": {
+        "name": "Platform audit",
+        "id": 39609850130,
+        "status": "completed",
+        "conclusion": "success",
+        "sha": "d6c5cf4b3260730903aeaa8d79ca4970abb58d50",
+        "url": "https://github.com/raulaguila/key-tracker/actions/runs/39609850130",
+        "updated_at": "2026-10-21T13:40:42Z"
+      },
+      "jobs": [
+        {
+          "name": "audit (windows-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "audit (ubuntu-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "audit (macos-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "audit (macos-15-intel)",
+          "conclusion": "success",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "name": "Desktop",
+        "id": 39609850287,
+        "status": "completed",
+        "conclusion": "success",
+        "sha": "d6c5cf4b3260730903aeaa8d79ca4970abb58d50",
+        "url": "https://github.com/raulaguila/key-tracker/actions/runs/39609850287",
+        "updated_at": "2026-10-21T13:42:39Z"
+      },
+      "jobs": [
+        {
+          "name": "verify (macos-15-intel)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "verify (ubuntu-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "verify (macos-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "verify (windows-latest)",
+          "conclusion": "success",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "securityHistory": [
+    {
+      "name": "Dependency security",
+      "id": 39607422947,
+      "sha": "3fbb67308d11c27a7e51463b191140a6f864ed40",
+      "conclusion": "success",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39607422947"
+    },
+    {
+      "name": "Dependency security",
+      "id": 39607421270,
+      "sha": "3fbb67308d11c27a7e51463b191140a6f864ed40",
+      "conclusion": "success",
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39607421270"
+    }
+  ],
+  "note": "Existing CI on last product-code commit d6c5cf4; audited HEAD 92dbe82 changes documentation only. No new Windows/macOS hardware validation."
+}

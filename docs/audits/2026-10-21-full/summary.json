@@ -1,0 +1,46 @@
+{
+  "auditedCommit": "92dbe82a68563891677bc6932c7f62a25ccf15b9",
+  "date": "2026-10-21",
+  "staticCheck": "passed",
+  "unit": {
+    "tests": 169,
+    "pass": 169,
+    "fail": 0,
+    "durationMs": 3707.625259
+  },
+  "ui": {
+    "passed": true,
+    "privateDbusAndKeyring": true,
+    "checks": [
+      "Productivity UI passed: five action types, real clipboard/application launch, preview isolation, sequence delay/default/limits/zero/drafts/reorder/duplicate/reload/manual wait/history/themes/zoom, partial failure, private history and persistence.",
+      "Renderer optimization UI passed: revision changes, 100 keyed rows, search reuse, lazy menu lifecycle, targeted success/error feedback, fresh action handlers and keyboard reuse. {\"medianMs\":0.8999999985098839,\"p95Ms\":1.5,\"addedNodes\":0,\"documentElements\":3002}",
+      "Key moments UI passed: three moments on one shortcut, physical/logical capture, manual invalidation, independent initial delay/repeat, legacy fallback/zero/validation/edit/duplicate/reload, visual moment selection, explicit preview, unavailable input feedback, one-open sequence/draft/reorder/remove/validation, compact light/dark 760×580 at 100/125% zoom.",
+      "Production UI passed: real wait/HTTP cancellation, stop-all pauses, cancelled filtering, backup confirmation/recovery, settings draft guard, native diagnostic/portable exports, privacy and two themes.",
+      "UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations."
+    ]
+  },
+  "input": "passed",
+  "platform": "passed",
+  "packageMatchesSourceFiles": 25,
+  "axe": {
+    "version": "4.12.1",
+    "automatedScenarios": 14,
+    "zoomScenarios": 2,
+    "uniqueStableViolations": [
+      "aria-prohibited-attr"
+    ],
+    "excludedTransientContrastAlerts": true
+  },
+  "findings": {
+    "P0": 0,
+    "P1": 2,
+    "P2": 3,
+    "P3": 0
+  },
+  "productCodeModified": false,
+  "electron": {
+    "installed": "44.9.1",
+    "sameMajorPatchAvailable": "44.9.3",
+    "npmProductionAuditExcludesElectron": true
+  }
+}
