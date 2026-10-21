@@ -304,3 +304,52 @@ delay da sequência; ignora somente o delay inicial do momento da tecla.
 Aceite: legado/limites/zero, ordem e tempos reais sem espera extra, falha parcial,
 prévia congelada, persistência/rascunhos/duplicação/UI em ambos os temas e gates
 existentes dos três sistemas.
+
+## Expansão autorizada: preparação para produção
+
+Autorização: implementar todas as melhorias recomendadas, adicionar Mac Intel,
+fazer commit e enviar à main. Status accepted; política de mocks acima mantida.
+
+- Persistência: último backup válido local, protegido como a configuração atual;
+  gravações atômicas e serializadas preservam a versão anterior. Configuração
+  inválida nunca é sobrescrita silenciosamente. Startup oferece restauração ou
+  importação por diálogo nativo, preservando o arquivo com problema. Restaurar
+  pela interface exige confirmação e deixa ações pausadas. Backup automático
+  não contém credenciais em texto aberto.
+- Credenciais: proteção nativa do SO via safeStorage para configuração com
+  headers HTTP, incluindo etapas de sequência. Envelope criptografado local
+  mantém config v1 em memória. Sem provedor seguro, nenhuma nova gravação de
+  headers sensíveis em texto aberto é permitida. Legado existente é preservado,
+  com condição de migração explícita; migração somente após criptografia segura
+  disponível. Não usar fallback basic_text nem chave fixa. Exportação portátil
+  remove headers HTTP por padrão, inclusive nas sequências; importação exige
+  reinserir credenciais. Runtime/previews mantêm semântica atual.
+- State.storage: {encryptionAvailable:boolean, protection:'encrypted'|'plain'|
+  'legacy'|'unavailable', backupAvailable:boolean, message:string}; sem segredos.
+- Execuções: state.running array, máximo quatro, com bindingId, layerId, name,
+  key, startedAt (ISO), stepIndex, stepCount e phase:'running'|'waiting'|
+  'cancelling'. Sem conteúdo de etapas. cancelExecution(bindingId) e
+  cancelAllExecutions() retornam State. Cancelamento aborta espera/HTTP e impede
+  próximas etapas; não desfaz efeitos concluídos nem fecha aplicativos abertos.
+  Pausar conserva política existente; cancelAll também pausa e cancela gestos
+  para não reagendar hold. Encerrar aborta execuções pendentes. Resultado
+  cancelado usa status 'cancelled', distinto de erro e sucesso, sanitizado.
+- restoreBackup() retorna State após confirmação nativa; exportDiagnostics()
+  salva JSON somente por escolha explícita e retorna void. Sem telemetria.
+  Diagnóstico contém versões, SO/arquitetura, capacidades, contagens e tempos;
+  nunca config, headers, corpo HTTP, URL, caminhos pessoais, nomes de camadas,
+  ações/aplicativos, mensagens livres ou teclas rastreadas. Exportação usa a
+  proteção de arquivos internos existente. UI mostra proteção, recuperação,
+  execuções atuais/cancelar e diagnóstico em Configurações/Histórico.
+- Distribuição: CI nativo Windows x64, Linux x64, macOS ARM64 e macOS x64;
+  pacotes com arquitetura no nome. Workflow de release manual gera artefatos,
+  checksums e release em rascunho somente após validação de versão e assinatura.
+  Windows exige certificado; macOS assinatura Developer ID, hardened runtime e
+  notarização. Segredos externos ausentes bloqueiam release pública, não testes
+  e artifacts de desenvolvimento. Não publicar release nem comprar certificados.
+- Provas: regressões de criptografia/indisponibilidade/legado/exportação,
+  backup/restauração/falha parcial, cancelamento em espera/HTTP/encerramento,
+  diagnóstico sem dados privados, UI completa e sondas reais dos quatro jobs.
+  Adicionar teste de estabilidade limitado e reproduzível e roteiro de QA do
+  app instalado, atualização/retorno, permissões e hardware por SO. Não declarar
+  hardware, assinatura ou longa duração certificados sem execução/evidência.

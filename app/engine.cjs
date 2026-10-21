@@ -35,6 +35,8 @@ class Engine extends EventEmitter {
     this.failed = [];
     this.events = [];
     this.inFlight = new Set();
+    this.executions = new Map();
+    this.disposed = false;
     this.lastRun = new Map();
     this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
@@ -50,7 +52,7 @@ class Engine extends EventEmitter {
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state() {
-    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, events: this.events });
+    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
   }
 
   publish() {
@@ -320,6 +322,7 @@ class Engine extends EventEmitter {
   }
 
   async runBinding(layerId, bindingId, previewId) {
+    if (this.disposed) throw new Error('O aplicativo está encerrando.');
     const { layer, binding } = this.findBinding(layerId, bindingId);
     if (this.inFlight.has(binding.id)) throw new Error('Esta ação ainda está em execução.');
     if (this.inFlight.size >= 4) throw new Error('Limite de quatro ações simultâneas atingido.');
@@ -333,14 +336,25 @@ class Engine extends EventEmitter {
     }
     this.inFlight.add(binding.id);
     const started = this.now();
+    const controller = new AbortController();
+    const execution = { controller, state: { bindingId, layerId, name: binding.name, key: binding.key, startedAt: new Date(started).toISOString(), stepIndex: 1, stepCount: binding.action.type === 'sequence' ? binding.action.steps.length : 1, phase: 'running' } };
+    this.executions.set(binding.id, execution);
+    const progress = next => {
+      if (controller.signal.aborted || this.disposed || Object.entries(next).every(([key, value]) => execution.state[key] === value)) return;
+      Object.assign(execution.state, next);
+      this.publish();
+    };
+    this.publish();
     let httpStatus;
     const steps = [];
     const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0, steps: structuredClone(steps) } : {}) });
     try {
       prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
       const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,
-        desktopActions: this.desktopActions, setLayer: id => this.setLayer(id), now: this.now, preparedAction: prepared,
+        desktopActions: this.desktopActions, setLayer: id => this.setLayer(id), now: this.now, preparedAction: prepared, signal: controller.signal, onProgress: progress,
         onStep: step => steps.push(step), onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
+      if (controller.signal.aborted) throw new Error('Execução cancelada.');
+      execution.finished = true;
       const event = this.record('success', `${binding.name}: ${message}`, details());
       try { await this.storage.appendLog(event); }
       catch { this.record('error', 'A ação foi executada, mas não foi possível salvar o histórico em disco.'); }
@@ -348,17 +362,45 @@ class Engine extends EventEmitter {
       // Keep request secrets and content out of the execution history.
       if (binding.action.type === 'http' && Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
       const failedStep = steps.find(step => step.status === 'error');
-      const message = binding.action.type === 'sequence'
+      const cancelled = controller.signal.aborted;
+      execution.finished = true;
+      const message = cancelled ? 'Execução cancelada. Efeitos já concluídos foram preservados.' : binding.action.type === 'sequence'
         ? failedStep ? `Sequência interrompida na etapa ${failedStep.index} de ${binding.action.steps.length}: ${failedStep.message}` : 'Não foi possível preparar ou executar a sequência.'
         : actionErrorMessage(binding.action.type, error, httpStatus);
-      const event = this.record('error', `${binding.name}: ${message}`, details());
+      const event = this.record(cancelled ? 'cancelled' : 'error', `${binding.name}: ${message}`, details());
       try { await this.storage.appendLog(event); }
       catch { this.record('error', 'Não foi possível salvar o histórico em disco.'); }
-    } finally { this.inFlight.delete(binding.id); }
+    } finally { this.inFlight.delete(binding.id); this.executions.delete(binding.id); }
     return this.publish();
   }
 
-  dispose() { this.resetInput(); this.enabled = false; this.armed = false; this.previews.clear(); this.shortcutsAPI.unregisterAll(); this.registrations.clear(); }
+  cancelExecution(bindingId) {
+    if (typeof bindingId !== 'string' || !bindingId || bindingId.length > 100) throw new Error('Identificador de ação inválido.');
+    const execution = this.executions.get(bindingId);
+    if (!execution || execution.finished || execution.controller.signal.aborted) return this.state();
+    execution.state.phase = 'cancelling';
+    execution.controller.abort();
+    return this.publish();
+  }
+
+  cancelAllExecutions() {
+    this.resetInput();
+    this.enabled = false;
+    this.syncShortcuts();
+    for (const execution of this.executions.values()) {
+      if (execution.finished) continue;
+      execution.state.phase = 'cancelling';
+      execution.controller.abort();
+    }
+    return this.publish();
+  }
+
+  dispose() {
+    this.disposed = true;
+    this.resetInput(); this.enabled = false; this.armed = false;
+    for (const execution of this.executions.values()) if (!execution.finished) { execution.state.phase = 'cancelling'; execution.controller.abort(); }
+    this.previews.clear(); this.shortcutsAPI.unregisterAll(); this.registrations.clear();
+  }
 }
 
 module.exports = { Engine };

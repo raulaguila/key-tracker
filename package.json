@@ -13,6 +13,10 @@
     "test": "node --test test/*.test.cjs",
     "test:ui": "node scripts/ui-smoke.cjs",
     "test:input": "node scripts/input-phases-smoke.cjs",
+    "test:soak": "node scripts/soak-test.cjs",
+    "release:preflight": "node scripts/release-preflight.cjs",
+    "release:build": "node scripts/signed-build.cjs",
+    "release:manifest": "node scripts/release-manifest.cjs",
     "check": "node scripts/check.cjs",
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",
@@ -28,14 +32,15 @@
     "asar": true,
     "npmRebuild": false,
     "icon": "app/assets/icon.png",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asarUnpack": ["node_modules/uiohook-napi/**/*", "node_modules/node-gyp-build/**/*", "node_modules/get-windows/**/*"],
     "files": ["app/**/*", "package.json", "LICENSE"],
     "directories": { "output": "dist" },
     "linux": { "target": ["AppImage", "deb"], "category": "Utility", "syncDesktopName": true },
     "deb": { "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0", "libxt6 | libxt6t64"] },
     "win": { "target": ["nsis"] },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
-    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false },
+    "mac": { "target": ["dmg", "zip"], "hardenedRuntime": false, "category": "public.app-category.utilities", "extendInfo": { "NSInputMonitoringUsageDescription": "Mostrar as teclas pressionadas no rastreador visual, somente quando ativado." } }
   },
   "overrides": { "tar": "7.5.22" }
 }

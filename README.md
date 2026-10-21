@@ -201,15 +201,26 @@ não reconstitui texto digitado e não envia eventos à rede.
 ## Configuração e dados
 
 **Configurações → Abrir pasta de dados** mostra `config.json` e
-`logs/activity.jsonl`. Configuração persiste; a camada ativa é reiniciada na
+`config.backup.json` e `logs/activity.jsonl`. Configuração persiste; a camada ativa é reiniciada na
 primeira camada ao abrir. Histórico visual mostra até 100 eventos da sessão;
 resultados e mensagens de log ficam em disco, com rotação em 1 MiB e uma cópia.
 
 Importação/exportação JSON disponíveis na mesma tela. Importar pausa as ações e
 valida o arquivo antes de substituir a configuração. Pastas absolutas podem
 precisar ser ajustadas ao importar em outro SO; deixar pasta vazia usa Documentos
-do sistema atual. Tokens configurados em headers ficam no JSON local e na
-exportação; não há cofre de credenciais nesta versão.
+do sistema atual. Configurações com headers HTTP usam criptografia do cofre do SO,
+inclusive no backup. Sem provedor seguro, novas gravações com headers são
+recusadas; legado é preservado e indica migração pendente. Exportação portátil
+remove todos os headers, inclusive nas sequências. Configuração inválida oferece
+recuperação na abertura, com preservação do original.
+
+No Histórico, **Em execução** mostra etapa/espera e permite cancelar uma ação ou
+**Parar todas**, que também pausa os atalhos. Cancelar impede as etapas futuras
+sem desfazer efeitos concluídos. Configurações oferece **Restaurar backup** e
+**Exportar diagnóstico** sem configurações ou dados privados.
+
+Processo de distribuição assinada, manutenção, carga prolongada, recuperação e
+roteiro de QA instalado em [PRODUCTION.md](docs/PRODUCTION.md).
 
 ## Testes e instaladores
 
@@ -231,6 +242,11 @@ instaladores a cada push na `main`. Também pode ser executado em
 eles não são publicados em releases automaticamente. Assinatura de
 código e notarização dependem dos certificados do distribuidor; os builds de
 desenvolvimento podem acionar avisos do sistema.
+
+macOS tem jobs nativos separados para Apple Silicon (ARM64) e Intel (x64), com
+arquitetura no nome dos arquivos. **Signed release candidate** prepara um
+rascunho após gates de versão, QA, assinatura/notarização e checksums; não publica
+automaticamente. O CI também abre os executáveis empacotados nos quatro targets.
 
 No Linux, o `.deb` declara `libxt6 | libxt6t64`, exigido pelo rastreio nativo,
 além das dependências padrão do Electron. Para usar o AppImage, essa biblioteca

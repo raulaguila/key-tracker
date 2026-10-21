@@ -94,7 +94,7 @@ export function toast(message, status = 'success') {
   (document.querySelector('#editor-drawer[open]') || document.body).append(node);
   clearTimeout(toastTimer);
   node.className = 'toast ' + status;
-  node.replaceChildren(icon(status === 'error' ? 'alert' : 'check'), el('span', {}, message),
+  node.replaceChildren(icon(status === 'cancelled' ? 'close' : status === 'error' ? 'alert' : 'check'), el('span', {}, message),
     button('Fechar mensagem', () => { node.hidden = true; }, 'quiet', { symbol: 'close', iconOnly: true }));
   node.hidden = false;
   if (status !== 'error') toastTimer = setTimeout(() => { node.hidden = true; }, 6000);

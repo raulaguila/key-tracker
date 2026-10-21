@@ -80,7 +80,8 @@ test('configuração persiste, corrupção é preservada, log é serializado e r
   await fs.writeFile(storage.configPath, '{invalid');
   await assert.rejects(storage.load(), /preservado/);
   assert.equal(await fs.readFile(storage.configPath, 'utf8'), '{invalid');
-  await storage.save(defaultConfig());
+  await assert.rejects(storage.save(defaultConfig()), /preservado/);
+  assert.equal(await fs.readFile(storage.configPath, 'utf8'), '{invalid');
 });
 
 test('log grava mensagem interpolada', async t => {
@@ -254,4 +255,22 @@ test('zero, legado e etapa única não agendam espera; falha encerra sem delay f
   assert.equal(await Promise.race([rejected.then(() => true), delay(10).then(() => false)]), true);
   assert.deepEqual(steps.map(step => step.status), ['success', 'error']);
   assert.doesNotMatch(JSON.stringify(steps), /conteúdo privado/);
+});
+
+test('signal já cancelado e cancelamento entre etapas com delay zero impedem novos efeitos', async () => {
+  const controller = new AbortController();
+  controller.abort('razão privada');
+  let effects = 0;
+  await assert.rejects(executeAction({ type: 'clipboard', text: 'privado' }, context, { signal: controller.signal, desktopActions: { clipboard: () => { effects++; } } }), /Execução cancelada/);
+  assert.equal(effects, 0);
+  const next = new AbortController();
+  const steps = [];
+  await assert.rejects(executeAction({ type: 'sequence', stepDelayMs: 0, steps: [
+    { type: 'clipboard', text: 'um' }, { type: 'clipboard', text: 'dois' }
+  ] }, context, {
+    signal: next.signal, desktopActions: { clipboard: () => { effects++; } },
+    onStep: step => { steps.push(step); next.abort('razão privada'); }
+  }), /Execução cancelada/);
+  assert.equal(effects, 1);
+  assert.deepEqual(steps.map(step => step.status), ['success']);
 });

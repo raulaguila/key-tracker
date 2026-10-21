@@ -71,7 +71,7 @@ export function createBindingTable({ platform, labels, typeLabels, summaryFor, o
         record.feedback?.remove(); record.feedback = null;
         if (pending || result) {
           record.feedback = el('p', { class: 'binding-result ' + (pending ? 'info' : result.status), ...(pending ? { role: 'status' } : {}) },
-            pending ? null : icon(result.status === 'error' ? 'alert' : 'check'), pending ? 'Executando ação…' : result.message);
+            pending ? null : icon(result.status === 'cancelled' ? 'close' : result.status === 'error' ? 'alert' : 'check'), pending ? 'Executando ação…' : result.message);
           record.copy.append(record.feedback);
         }
         record.resultKey = resultKey;

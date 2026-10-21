@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('keyboardTracker', {
   setEditing: editing => invokeState('set-editing', editing),
   previewBinding: (layerId, bindingId) => ipcRenderer.invoke('tracker:preview-binding', layerId, bindingId),
   runBinding: (layerId, bindingId, previewId) => invokeState('run-binding', layerId, bindingId, previewId),
+  cancelExecution: bindingId => invokeState('cancel-execution', bindingId),
+  cancelAllExecutions: () => invokeState('cancel-all-executions'),
   setTracking: enabled => invokeState('set-tracking', enabled),
   chooseDirectory: () => ipcRenderer.invoke('tracker:choose-directory'),
   chooseApplication: () => ipcRenderer.invoke('tracker:choose-application'),
@@ -56,6 +58,8 @@ contextBridge.exposeInMainWorld('keyboardTracker', {
   openDataDirectory: () => ipcRenderer.invoke('tracker:open-data-directory'),
   exportConfig: () => invokeState('export-config'),
   exportHistory: () => ipcRenderer.invoke('tracker:export-history'),
+  exportDiagnostics: () => ipcRenderer.invoke('tracker:export-diagnostics'),
+  restoreBackup: () => invokeState('restore-backup'),
   importConfig: () => invokeState('import-config'),
   onState: callback => {
     if (typeof callback !== 'function') throw new Error('Callback inválido.');

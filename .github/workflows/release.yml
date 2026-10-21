@@ -1,0 +1,136 @@
+name: Signed release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version matching package.json (vX.Y.Z)
+        required: true
+        type: string
+      qa_approved:
+        description: Installed-app QA checklist completed for all four targets
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: signed-release
+  cancel-in-progress: false
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    environment: production-release
+    timeout-minutes: 40
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_QA_APPROVED: ${{ inputs.qa_approved }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run release:preflight
+        env:
+          WIN_CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          MAC_CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          MAC_CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:soak
+      - name: Electron UI and native key delivery
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a npm run test:ui
+          npm run test:input
+        env:
+          KEY_TRACKER_UI_NO_SANDBOX: '1'
+      - run: npm run release:build
+        env:
+          WIN_CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          MAC_CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          MAC_CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - name: Verify macOS signature and notarization ticket
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r -d '' bundle; do
+            found=1
+            codesign --verify --deep --strict --verbose=2 "$bundle"
+            spctl --assess --type execute --verbose=2 "$bundle"
+            xcrun stapler validate "$bundle"
+          done < <(find dist -maxdepth 2 -name '*.app' -type d -print0)
+          test "$found" = 1
+      - name: Verify Windows Authenticode
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem dist -Filter *.exe
+          if (!$installers) { throw 'Installer missing' }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid') { throw 'Installer signature is not valid' }
+          }
+      - name: Verify signed packaged runtime on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/platform-audit.cjs --packaged
+        env:
+          KEY_TRACKER_UI_NO_SANDBOX: '1'
+      - name: Verify signed packaged runtime on Windows and macOS
+        if: runner.os != 'Linux'
+        run: node scripts/platform-audit.cjs --packaged
+      - run: npm run release:manifest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/SHA256SUMS.txt
+            dist/release-manifest.json
+          if-no-files-found: error
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_QA_APPROVED: ${{ inputs.qa_approved }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: signed-*
+          path: release-artifacts
+      - name: Assemble installers with unique architecture names
+        run: node scripts/release-manifest.cjs --assemble release-artifacts dist
+      - name: Create draft only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run release:preflight
+          gh release create "$RELEASE_TAG" dist/* --draft --target "$GITHUB_SHA" --title "$RELEASE_TAG" --notes "Candidato assinado e validado pelo CI. Conferir docs/PRODUCTION.md antes de publicar. Configurações criptografadas locais exigem esta versão ou superior; faça exportação portátil antes de retornar a uma versão anterior."

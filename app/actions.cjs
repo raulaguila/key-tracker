@@ -74,8 +74,13 @@ function actionErrorMessage(type, error, httpStatus) {
   return type === 'log' ? 'Não foi possível salvar a mensagem no log.' : 'Não foi possível gravar o arquivo.';
 }
 
+function checkCancellation(signal) {
+  if (signal?.aborted) throw Object.assign(new Error('Execução cancelada.'), { code: 'EXECUTION_CANCELLED' });
+}
+
 async function executeAction(action, context, options = {}) {
-  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, desktopActions = {}, setLayer, now = Date.now, onStep } = options;
+  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, desktopActions = {}, setLayer, now = Date.now, onStep, onProgress, signal } = options;
+  checkCancellation(signal);
   const prepared = preparedAction ?? prepareAction(action, context, options);
   switch (prepared.type) {
     case 'clipboard': {
@@ -100,20 +105,31 @@ async function executeAction(action, context, options = {}) {
     }
     case 'sequence': {
       for (let index = 0; index < prepared.steps.length; index++) {
+        checkCancellation(signal);
+        onProgress?.({ stepIndex: index + 1, stepCount: prepared.steps.length, phase: 'running' });
+        checkCancellation(signal);
         const step = prepared.steps[index];
         const started = now();
         let httpStatus;
         const details = (status, message) => ({ index: index + 1, type: step.type, status, message, durationMs: Math.max(0, now() - started), ...(httpStatus === undefined ? {} : { httpStatus }) });
         try {
-          const message = await executeAction(action.steps[index], context, { ...options, preparedAction: step, onStep: undefined, onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
+          const message = await executeAction(action.steps[index], context, { ...options, preparedAction: step, onStep: undefined, onProgress: undefined, onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
           onStep?.(details('success', message));
         } catch (error) {
+          if (signal?.aborted) {
+            onStep?.(details('cancelled', 'Execução cancelada.'));
+            checkCancellation(signal);
+          }
           if (Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
           const message = actionErrorMessage(step.type, error, httpStatus);
           onStep?.(details('error', message));
           throw new Error(`Sequência interrompida na etapa ${index + 1} de ${prepared.steps.length}: ${message}`);
         }
-        if (index < prepared.steps.length - 1 && prepared.stepDelayMs > 0) await delay(prepared.stepDelayMs);
+        checkCancellation(signal);
+        if (index < prepared.steps.length - 1 && prepared.stepDelayMs > 0) {
+          onProgress?.({ stepIndex: index + 1, stepCount: prepared.steps.length, phase: 'waiting' });
+          await delay(prepared.stepDelayMs, undefined, { signal });
+        }
       }
       return `Sequência concluída: ${prepared.steps.length} ${prepared.steps.length === 1 ? 'etapa' : 'etapas'}.`;
     }
@@ -124,6 +140,7 @@ async function executeAction(action, context, options = {}) {
     case 'file': {
       const { directory, target } = prepared;
       await fs.mkdir(directory, { recursive: true });
+      checkCancellation(signal);
       try {
         if (prepared.mode === 'append') {
           // Refuse symbolic links: appending should affect the chosen file only.
@@ -139,11 +156,13 @@ async function executeAction(action, context, options = {}) {
     }
     case 'http': {
       const url = new URL(prepared.url);
-      const options = { method: prepared.method, headers: prepared.headers, signal: AbortSignal.timeout(10000), redirect: 'manual' };
+      const timeout = AbortSignal.timeout(10000);
+      const options = { method: prepared.method, headers: prepared.headers, signal: signal ? AbortSignal.any([signal, timeout]) : timeout, redirect: 'manual' };
       if (prepared.body && !['GET', 'HEAD'].includes(prepared.method)) options.body = prepared.body;
       let response;
       try { response = await fetchImpl(url, options); }
       catch (error) {
+        checkCancellation(signal);
         throw new Error(error.name === 'TimeoutError' || error.name === 'AbortError' ? 'A requisição excedeu o limite de 10 segundos.' : 'Não foi possível conectar ao destino HTTP.');
       }
       onHttpStatus?.(response.status);

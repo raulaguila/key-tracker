@@ -63,3 +63,20 @@ test('preload propaga rejeições de gravação e nunca converte erros em estado
   const { api } = fixture(async () => { throw new Error('Disco sem espaço'); });
   await assert.rejects(api.saveConfig({}), /Disco sem espaço/);
 });
+
+test('controles de produção reconstituem State e exportação de diagnóstico não expõe estado extra', async () => {
+  const config = { layers: [{ id: 'current' }] };
+  const calls = [];
+  let revision = 1;
+  const { api } = fixture(async (channel, ...args) => {
+    calls.push([channel, ...args]);
+    if (channel === 'tracker:export-diagnostics') return undefined;
+    return state(revision++, 0, channel === 'tracker:get-state' ? config : undefined);
+  });
+  await api.getState();
+  assert.equal((await api.cancelExecution('binding')).config, config);
+  assert.equal((await api.cancelAllExecutions()).config, config);
+  assert.equal((await api.restoreBackup()).config, config);
+  assert.equal(await api.exportDiagnostics(), undefined);
+  assert.deepEqual(calls.slice(1), [['tracker:cancel-execution', 'binding'], ['tracker:cancel-all-executions'], ['tracker:restore-backup'], ['tracker:export-diagnostics']]);
+});

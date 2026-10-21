@@ -7,6 +7,7 @@ const http = require('node:http');
 
 module.exports = async function productivityUI({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate, data }) {
   const before = await nativeState();
+  const secureHeaders = Boolean(before.storage?.encryptionAvailable);
   const clipboardExpression = 'process.mainModule.require("electron").clipboard';
   const clipboardBefore = await nativeEvaluate(clipboardExpression + '.readText()');
   const directory = path.join(data, 'productivity');
@@ -150,6 +151,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     await stepField(2, 'body', 'body-secret-qa');
     // Parameter rows have accessible labels but no fixed UUIDs; drive their observed inputs.
     await evaluate('const step=document.querySelectorAll("[data-sequence-step]")[2];const map=[...step.querySelectorAll("[data-map]")].find(el=>el.dataset.map.endsWith("headers"));const inputs=map.querySelectorAll("input");inputs[0].value="Authorization";inputs[1].value="Bearer sequence-secret-qa";for(const input of inputs)input.dispatchEvent(new Event("input",{bubbles:true}));');
+    if (!secureHeaders) await evaluate('const step=document.querySelectorAll("[data-sequence-step]")[2];for(const input of step.querySelector("[data-map$=headers]").querySelectorAll("input")){input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));}');
     await click('[data-step-add]'); await stepField(3, 'text', 'NÃO EXECUTAR');
     // Reordering and removing steps must preserve their live drafts.
     await click('[data-sequence-step]:last-of-type [data-step-up]');
@@ -177,7 +179,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
     assert.equal(result.steps[2].httpStatus, 503);
     assert.equal(await fs.readFile(path.join(directory, 'sequence.txt'), 'utf8'), 'Produtividade QA / F');
     assert.equal(await nativeEvaluate(clipboardExpression + '.readText()'), 'Primeira etapa F', 'First step runs; step after failure does not run');
-    assert.deepEqual(request, { body: 'body-secret-qa', authorization: 'Bearer sequence-secret-qa' });
+    assert.deepEqual(request, { body: 'body-secret-qa', authorization: secureHeaders ? 'Bearer sequence-secret-qa' : undefined });
     const events = JSON.stringify((await nativeState()).events);
     assert.ok(!events.includes('sequence-secret-qa') && !events.includes('body-secret-qa'), 'History keeps nested HTTP secrets private');
     await shot('productivity-sequence-result'); await close();

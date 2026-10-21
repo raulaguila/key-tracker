@@ -9,6 +9,9 @@ const { performance } = require('node:perf_hooks');
 const { validateConfig, encodeConfig } = require('../app/config.cjs');
 const { readConfigFile } = require('../app/storage.cjs');
 const root = path.resolve(__dirname, '..');
+const packaged = process.argv.includes('--packaged');
+// Packaged mode uses only the disposable CI account. Never touch a local user's profile.
+if (packaged && process.env.GITHUB_ACTIONS !== 'true') throw new Error('A sonda empacotada só pode executar no usuário descartável do CI.');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const stats = values => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -51,7 +54,17 @@ async function launch(profile) {
   if (process.platform === 'linux') flags.push('--ozone-platform=x11');
   if (process.env.KEY_TRACKER_UI_NO_SANDBOX === '1') flags.push('--no-sandbox');
   const started = performance.now();
-  const child = spawn(require('electron'), [root, ...flags], { cwd: root, env: { ...process.env, KEYBOARD_TRACKER_DATA_DIR: profile, XDG_SESSION_TYPE: 'x11', WAYLAND_DISPLAY: '', DBUS_SESSION_BUS_ADDRESS: 'unix:path=' + path.join(profile, 'no-desktop-bus') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let executable = require('electron');
+  if (packaged) {
+    executable = null;
+    for (const folder of await fs.readdir(path.join(root, 'dist'))) {
+      const candidate = process.platform === 'darwin' ? path.join(root, 'dist', folder, 'Keyboard Tracker.app', 'Contents', 'MacOS', 'Keyboard Tracker')
+        : path.join(root, 'dist', folder, process.platform === 'win32' ? 'Keyboard Tracker.exe' : 'keyboard-tracker');
+      try { if ((await fs.stat(candidate)).isFile()) { executable = candidate; break; } } catch {}
+    }
+    if (!executable) throw new Error('Executável empacotado não encontrado.');
+  }
+  const child = spawn(executable, [...(packaged ? [] : [root]), ...flags], { cwd: root, env: { ...process.env, KEYBOARD_TRACKER_DATA_DIR: profile, XDG_SESSION_TYPE: 'x11', WAYLAND_DISPLAY: '', DBUS_SESSION_BUS_ADDRESS: 'unix:path=' + path.join(profile, 'no-desktop-bus') }, stdio: ['ignore', 'pipe', 'pipe'] });
   let tail = '', inspector, spawnError, page, native;
   child.stdout.resume();
   child.once('error', error => { spawnError = error; });
@@ -99,7 +112,11 @@ async function launch(profile) {
     native = await cdp(inspector);
     const state = await page.evaluate('return await window.keyboardTracker.getState();');
     const normalize = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
-    if (normalize(state.paths.data) !== normalize(profile)) throw new Error('Profile isolation failed');
+    if (!packaged && normalize(state.paths.data) !== normalize(profile)) throw new Error('Profile isolation failed');
+    if (packaged) {
+      const relative = path.relative(normalize(os.homedir()), normalize(state.paths.data));
+      if (!relative || relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw new Error('Packaged profile must belong to the disposable CI account.');
+    }
     return { page, native, state, startupMs, stop };
   } catch (error) { await stop(); throw error; }
 }
@@ -120,9 +137,9 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
-  return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
+  return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: packaged ? 'Runtime uses the packaged executable in a disposable CI account.' : 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-platform-audit-'));
@@ -137,11 +154,15 @@ async function main() {
     }
     result.startup = stats(result.startupsMs);
     const { page, native, state } = instance;
+    result.runtime = { packaged, ...(await native.evaluate('const {app}=process.mainModule.require("electron");return {isPackaged:app.isPackaged,arch:process.arch};')) };
+    if (result.runtime.isPackaged !== packaged || result.runtime.arch !== process.arch) throw new Error('Identidade ou arquitetura do runtime inesperada.');
+    if (packaged) result.notes[0] = 'Runtime uses the packaged executable and the disposable CI user profile; installer UX, signing and physical hardware still require manual QA.';
     await page.call('Runtime.enable');
     const original = state.config;
     originalClipboard = await native.evaluate('return process.mainModule.require("electron").clipboard.readText();');
     result.probes.initialPaused = !state.enabled && !state.tracking.enabled;
-    result.probes.preload = await page.evaluate('return ["getState","saveConfig","previewBinding","runBinding","chooseActionTarget","exportHistory"].every(key=>typeof window.keyboardTracker[key]==="function");');
+    result.probes.preload = await page.evaluate('return ["getState","saveConfig","previewBinding","runBinding","chooseActionTarget","exportHistory","cancelExecution","cancelAllExecutions","restoreBackup","exportDiagnostics"].every(key=>typeof window.keyboardTracker[key]==="function");');
+    result.probes.storage = { ...state.storage, present: typeof state.storage?.encryptionAvailable === 'boolean' };
     const fixture = structuredClone(original);
     fixture.layers[0].bindings = [{ id: 'audit-copy', key: 'A', name: 'Copiar auditoria', action: { type: 'clipboard', text: 'keyboard-platform-audit-{{key}}' } }];
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');');
@@ -166,6 +187,21 @@ async function main() {
       finalClipboard: await native.evaluate('return (await process.mainModule.require("electron").clipboard.readText())==="keyboard-platform-audit-last";')
     };
     result.probes.sequenceDelay.passed = result.probes.sequenceDelay.schemaPersisted && result.probes.sequenceDelay.previewed && sequenced.status === 'success' && sequenced.stepDelayMs === 80 && sequenced.durationMs >= 70 && sequenced.steps.length === 2 && sequenced.steps.every(step => step.status === 'success') && result.probes.sequenceDelay.finalClipboard;
+    fixture.layers[0].bindings.push({ id: 'audit-cancel', key: 'E', name: 'Cancelamento de auditoria', action: { type: 'sequence', stepDelayMs: 5000, steps: [
+      { type: 'clipboard', text: 'keyboard-audit-before-cancel' }, { type: 'clipboard', text: 'keyboard-audit-must-not-run' }
+    ] } });
+    await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');');
+    await page.evaluate('const api=window.keyboardTracker;const s=await api.getState();window.__auditCancel=api.runBinding(s.config.layers[0].id,"audit-cancel");return true;');
+    let waiting = false;
+    for (let i = 0; i < 100; i++) {
+      waiting = await page.evaluate('return (await window.keyboardTracker.getState()).running.some(e=>e.bindingId==="audit-cancel"&&e.phase==="waiting");');
+      if (waiting) break;
+      await delay(20);
+    }
+    const cancelled = await page.evaluate('const api=window.keyboardTracker;await api.cancelExecution("audit-cancel");await window.__auditCancel;delete window.__auditCancel;const s=await api.getState();return {event:s.events.find(e=>e.bindingId==="audit-cancel"),remaining:s.running.length};');
+    const cancellationClipboard = await native.evaluate('return (await process.mainModule.require("electron").clipboard.readText())==="keyboard-audit-before-cancel";');
+    result.probes.cancellation = { waiting, status: cancelled.event?.status, remaining: cancelled.remaining, noLaterEffect: cancellationClipboard };
+    result.probes.cancellation.passed = waiting && cancelled.event?.status === 'cancelled' && cancelled.remaining === 0 && cancellationClipboard;
     fixture.layers[0].bindings.push({ id: 'audit-app', key: 'B', name: 'Aplicativo de auditoria', action: { type: 'open', kind: 'application', target: process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'whoami.exe') : '/usr/bin/true' } });
     fixture.layers[0].bindings.push({ id: 'audit-notification', key: 'C', name: 'Notificação de auditoria', action: { type: 'notification', title: 'Keyboard Tracker audit', message: 'Temporary CI integration probe' } });
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(fixture) + ');');
@@ -239,7 +275,7 @@ async function main() {
     result.probes.stateTransport = await page.evaluate('const api=window.keyboardTracker;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.storage.present && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.cancellation.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;
@@ -248,7 +284,7 @@ async function main() {
     if (instance) result.shutdowns.push(await instance.stop());
     if (result.shutdowns.some(shutdown => !shutdown.graceful)) { result.corePassed = false; process.exitCode = 1; }
     await fs.rm(directory, { recursive: true, force: true });
-    const output = path.join(root, 'artifacts', 'os-audit', 'platform-' + process.platform + '-' + process.arch + '.json');
+    const output = path.join(root, 'artifacts', 'os-audit', 'platform-' + process.platform + '-' + process.arch + (packaged ? '-packaged' : '') + '.json');
     await fs.mkdir(path.dirname(output), { recursive: true }); await fs.writeFile(output, JSON.stringify(result, null, 2) + '\n');
     console.log(JSON.stringify({ platform: process.platform, arch: process.arch, complete: result.complete, corePassed: result.corePassed, startup: result.startup, probes: result.probes, error: result.error }, null, 2));
   }

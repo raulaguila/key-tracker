@@ -1,0 +1,27 @@
+{
+  "scope": "Real Electron safeStorage in isolated Linux Xvfb + D-Bus + temporary GNOME keyring/profile; synthetic headers only. Keyring and profile removed after proof.",
+  "secure": {
+    "platform": "linux",
+    "electron": "44.9.1",
+    "backend": "gnome_libsecret",
+    "available": true,
+    "roundtrip": true,
+    "mainContainsSecret": false,
+    "backupContainsSecret": false,
+    "backupRoundtrip": true,
+    "newProcessRoundtrip": true
+  },
+  "basicTextRefusal": {
+    "platform": "linux",
+    "electron": "44.9.1",
+    "backend": "basic_text",
+    "available": false,
+    "refused": true,
+    "error": "Cofre seguro indispon\u00edvel. Remova os headers HTTP ou configure a criptografia do sistema antes de salvar."
+  },
+  "limits": [
+    "Linux x64 only; macOS and Windows use CI/native QA.",
+    "OS cryptography does not protect against arbitrary code already running as this user on every platform.",
+    "Temporary isolated keyring used; no user keyring or profile accessed."
+  ]
+}

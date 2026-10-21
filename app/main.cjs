@@ -1,7 +1,10 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { Storage, readConfigFile } = require('./storage.cjs');
+const { Storage, readConfigFile, exportConfigSafe } = require('./storage.cjs');
+const { createConfigProtection } = require('./config-protection.cjs');
+const { loadWithRecovery } = require('./recovery.cjs');
+const { createDiagnostics } = require('./diagnostics.cjs');
 const { Engine } = require('./engine.cjs');
 const { Tracker } = require('./tracking.cjs');
 const { encodeConfig } = require('./config.cjs');
@@ -118,8 +121,10 @@ else {
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
-    const storage = new Storage(app.getPath('userData'));
-    const config = await storage.load();
+    const protection = await createConfigProtection({ safeStorage, platform: process.platform });
+    const storage = new Storage(app.getPath('userData'), { protection });
+    const config = await loadWithRecovery({ storage, dialog });
+    if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
@@ -145,6 +150,8 @@ else {
     handle('set-editing', stateResult(editing => engine.setEditing(editing)));
     handle('preview-binding', (layerId, bindingId) => engine.previewBinding(layerId, bindingId));
     handle('run-binding', stateResult((layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId)));
+    handle('cancel-execution', stateResult(bindingId => engine.cancelExecution(bindingId)));
+    handle('cancel-all-executions', stateResult(() => engine.cancelAllExecutions()));
     handle('show-window', showWindow);
     handle('confirm-close', () => lifecycle?.confirm());
     handle('cancel-close', () => lifecycle?.cancel());
@@ -162,7 +169,23 @@ else {
       return result.canceled ? null : result.filePaths[0];
     });
     handle('choose-action-target', kind => chooseActionTarget({ kind, dialog, window }));
-    handle('export-history', () => exportSessionHistory({ events: engine.events, dialog, window, protectedPaths: [storage.configPath, storage.logPath, storage.logPath + '.1'] }));
+    handle('export-history', async () => exportSessionHistory({ events: engine.events, dialog, window, protectedPaths: await storage.protectedPaths() }));
+    handle('export-diagnostics', async () => {
+      const result = await dialog.showSaveDialog(window, { title: 'Exportar diagnóstico', defaultPath: 'keyboard-tracker-diagnostics.json', filters: [{ name: 'Diagnóstico JSON', extensions: ['json'] }] });
+      if (result.canceled || !result.filePath) return;
+      const diagnostic = createDiagnostics({ state: engine.state(), versions: { ...process.versions, app: app.getVersion() }, platform: process.platform, arch: process.arch });
+      await writeExport(result.filePath, JSON.stringify(diagnostic, null, 2) + '\n', await storage.protectedPaths());
+    });
+    handle('restore-backup', stateResult(async () => {
+      const result = await dialog.showMessageBox(window, { type: 'question', title: 'Restaurar backup', message: 'Restaurar a configuração anterior?', detail: 'As ações serão pausadas e as execuções em andamento serão canceladas. A configuração atual válida será preservada no backup.', buttons: ['Restaurar backup', 'Cancelar'], defaultId: 1, cancelId: 1, noLink: true });
+      if (result.response !== 0) return engine.state();
+      return serialConfig(async () => {
+        engine.cancelAllExecutions();
+        const backup = await storage.readBackup();
+        if (!backup) throw new Error('Nenhum backup válido disponível.');
+        return engine.saveConfig(backup);
+      });
+    }));
     handle('open-data-directory', async () => {
       const error = await shell.openPath(storage.directory);
       if (error) throw new Error('Não foi possível abrir a pasta de dados.');
@@ -170,7 +193,7 @@ else {
     handle('export-config', stateResult(async () => {
       const result = await dialog.showSaveDialog(window, { title: 'Exportar configuração', defaultPath: 'keyboard-tracker.json', filters: [{ name: 'Configuração JSON', extensions: ['json'] }] });
       if (!result.canceled && result.filePath) {
-        await writeExport(result.filePath, encodeConfig(engine.config), [storage.configPath, storage.logPath, storage.logPath + '.1']);
+        await writeExport(result.filePath, encodeConfig(exportConfigSafe(engine.config)), await storage.protectedPaths());
       }
       return engine.state();
     }));
@@ -187,7 +210,7 @@ else {
     const template = [
       ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
+      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => engine.cancelAllExecutions() }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
     createWindow();

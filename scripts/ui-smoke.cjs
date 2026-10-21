@@ -146,6 +146,7 @@ async function main() {
     await cdp('Page.enable');
     await until('Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Initial UI');
     const initial = await nativeState();
+    const secureHeaders = Boolean(initial.storage?.encryptionAvailable);
     assert.equal(initial.enabled, false);
     assert.equal(initial.tracking.enabled, false);
     await shot('layers');
@@ -305,11 +306,17 @@ async function main() {
     assert.equal(await evaluate('return document.querySelector("[name=\\"headers-value\\"]").value'), 'application/json');
     assert.equal(await evaluate('return document.querySelector("[name=\\"query-value\\"]").value'), 'teclado {{key}}');
     await shot('http-editor');
+    if (!secureHeaders) {
+      await save();
+      await until('!document.querySelector(".form-errors").hidden', 'Saving HTTP headers fails closed without a secure provider');
+      assert.ok(await evaluate('return Boolean(document.querySelector("#editor-drawer"))'), 'Rejected save preserves the HTTP draft');
+      await fill('[name="headers-key"]', ''); await fill('[name="headers-value"]', '');
+    }
     await save();
     await until('!document.querySelector("form[data-draft]")', 'HTTP binding saved');
     state = await nativeState();
     const binding = state.config.layers.find(item => item.id === layer.id).bindings[0];
-    assert.deepEqual(binding.action.headers, { 'Content-Type': 'application/json' });
+    assert.deepEqual(binding.action.headers, secureHeaders ? { 'Content-Type': 'application/json' } : {});
     assert.deepEqual(binding.action.query, { origem: 'teclado {{key}}' });
     assert.equal(binding.key, 'B');
 
@@ -411,7 +418,7 @@ async function main() {
     await until('Boolean(document.querySelector("[data-test-result=success]"))', 'HTTP test completed');
     assert.equal(request.method, 'POST');
     assert.equal(request.url, '/event?origem=teclado+B');
-    assert.equal(request.headers['content-type'], 'application/json');
+    assert.equal(request.headers['content-type'], secureHeaders ? 'application/json' : undefined);
     assert.equal(request.body, '{"key":"B"}');
     assert.match(await evaluate('return document.querySelector("#toast").textContent'), /HTTP 201/);
     assert.ok(await evaluate('return document.querySelector("[data-test-result]").textContent.includes("ms")'));
@@ -737,12 +744,15 @@ async function main() {
       await until('!document.hidden', 'Tray restores same window');
       await evaluate('await window.keyboardTracker.saveConfig(' + JSON.stringify(beforeTray) + ');');
     }
-    const stored = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
+    const diskConfig = JSON.parse(await fs.readFile(path.join(data, 'config.json'), 'utf8'));
+    const stored = (await nativeState()).storage.protection === 'encrypted' ? (await nativeState()).config : diskConfig;
+    if ((await nativeState()).storage.protection === 'encrypted') assert.equal(diskConfig.layers, undefined, 'Protected disk envelope does not expose configuration fields');
     assert.equal(stored.settings.layerShortcut, 'F9');
     assert.ok(stored.layers.some(item => item.id === layer.id));
     await require('./productivity-ui.cjs')({ cdp, evaluate, click, pointerClick, fill, select, until, nativeState, save, shot, nativeEvaluate, data });
     await require('./renderer-performance-ui.cjs')({ evaluate, click, fill, until, nativeState });
     await require('./key-moments-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
+    await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data });
     console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, real active/paused/suspended indicators in both themes, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {

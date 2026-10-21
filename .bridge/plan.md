@@ -1,19 +1,24 @@
-# Bridge plan — Delay entre etapas de sequência
+# Bridge plan — Preparação para produção
 
 <!-- bridge:plan-schema 1 -->
 
 ## Checklist
 
-- [x] /keel build intervalo entre etapas e prévia congelada
-- [x] /impeccable craft campo de sequência e apresentação dos tempos
-- [x] /bridge sync histórico, persistência, documentação e regressões
-- [x] /bridge ship testes, builds e commit
+- [x] /keel build proteção nativa e recuperação da configuração
+- [x] /keel build cancelamento, progresso, diagnóstico e estabilidade
+- [x] /impeccable craft controles de execução, proteção e recuperação
+- [x] /bridge sync IPC, startup, exportações e compatibilidade
+- [x] /bridge preparar CI Intel e distribuição assinada, documentação e gates
+- [ ] Commit e envio à main; conferir CI e registrar limitações externas
 
-Sync sem lacunas: configuração opcional preserva legado; prévia e evento usam
-`stepDelayMs` efetivo; renderer e exportação consomem o mesmo campo. Provas locais:
-139 testes passaram; sintaxe, UI completa, XTest Linux e pacote/sonda Electron
-passaram. Sonda mediu 82 ms para intervalo de 80 ms e confirmou clipboard final.
-Quatro capturas do novo campo conferidas em light/dark, zoom 100%/125%.
-Código e9d0889 enviado à main. Desktop 39502962038 e Platform audit 39502962353
-passaram em Windows x64, macOS ARM64 e Linux x64. Instaladores gerados; artifacts
-de integração conferidos para o mesmo SHA, com sequência e saída limpa aprovadas.
+Contrato aceito pela autorização de implementar todas as melhorias. Assinatura
+real requer certificados do distribuidor; QA físico requer máquinas/permissões.
+Esses passos serão preparados sem inventar resultados ou publicar release.
+
+Sync sem lacunas confirmadas entre State/API/UI. Revisão cruzada de recuperação,
+exportação e IPC sem P0/P1. Dois problemas do novo harness/release foram achados
+e corrigidos: perfil empacotado usa usuário CI e tag existente deve apontar ao SHA
+construído, incluindo tags anotadas (antes do build e novamente antes do draft).
+Provas locais: testes, UI completa, cofre nativo isolado, XTest e integração
+Electron Linux passaram; carga de 60 segundos fez 10.088 execuções/1.010 saves.
+Pendente: commit/push e CI real dos quatro targets.

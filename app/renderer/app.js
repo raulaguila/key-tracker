@@ -4,6 +4,7 @@ import { createActionEditor, actionLabels, actionTypeLabels, sequenceDelayLabel 
 import { createBindingTable } from './binding-table.js';
 import { createBindingTrigger, triggerLabels, triggerFor, triggerDescription } from './key-moments.js';
 import { shortcutForCode, shortcutModifiers } from './keyboard-bindings.mjs';
+import { runningExecutions, updateStorageStatus } from './production.js';
 import { layouts, normalizeKeyboardPreference, resolveKeyboardLayout, readSystemKeyboardMap, keyboardEventLabel } from './keyboard-layouts.mjs';
 
 const api = window.keyboardTracker;
@@ -20,6 +21,7 @@ let capture = null;
 let actionQuery = '';
 let historyQuery = '';
 let historyFilter = 'all';
+let runningPanel;
 let bindingView = 'table';
 try { bindingView = localStorage.getItem('keyboard-tracker.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
 let visualModifiers = '';
@@ -187,6 +189,8 @@ function updateStatus() {
   updateApplicationStatus();
   editor?.triggerControls?.setInputState(state.input, state.enabled);
   updateInputStatus();
+  if (runningPanel?.node.isConnected) runningPanel.update(state.running);
+  updateStorageStatus(state.storage);
   const closeToTray = document.querySelector('#field-closeToTray');
   if (closeToTray) {
     closeToTray.disabled = !state.desktop?.trayAvailable;
@@ -606,9 +610,9 @@ function executionSteps(steps, open = false, total, eventId, stepDelayMs) {
   return el('details', { class: 'execution-steps', open, 'data-event-steps': eventId },
     el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' iniciadas' : ' registradas') + ' · ' + sequenceDelayLabel(stepDelayMs)),
     el('ol', {}, steps.map(step => el('li', { value: step.index, class: 'execution-step ' + step.status },
-      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'error' ? 'alert' : 'check'), step.status === 'error' ? 'Falhou' : 'Concluída')),
+      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'cancelled' ? 'close' : step.status === 'error' ? 'alert' : 'check'), step.status === 'cancelled' ? 'Cancelada' : step.status === 'error' ? 'Falhou' : 'Concluída')),
       el('p', {}, step.message), el('p', { class: 'hint' }, [Number.isFinite(step.durationMs) ? step.durationMs + ' ms' : null, step.httpStatus ? 'HTTP ' + step.httpStatus : null].filter(Boolean).join(' · '))))),
-    interrupted ? el('p', { class: 'hint' }, 'A sequência parou nesta falha. As etapas anteriores não foram desfeitas.' + (total && total > steps.length ? ' ' + (total - steps.length) + ' etapa(s) não iniciada(s).' : '')) : null);
+    interrupted || steps.some(step => step.status === 'cancelled') ? el('p', { class: 'hint' }, (interrupted ? 'A sequência parou nesta falha.' : 'A sequência foi cancelada.') + ' As etapas anteriores não foram desfeitas.' + (total && total > steps.length ? ' ' + (total - steps.length) + ' etapa(s) não iniciada(s).' : '')) : null);
 }
 
 function updateTestPreview() {
@@ -623,7 +627,7 @@ function updateTestPreview() {
   execute.querySelector('span').textContent = target.running ? 'Executando…' : 'Executar teste';
   refresh.disabled = target.running || target.loading;
   if (target.loading) content.append(el('p', { class: 'hint' }, 'Resolvendo variáveis…'));
-  if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
+  if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'cancelled' ? 'Execução cancelada' : target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
     el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
     el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.'),
     executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined, undefined, target.result.stepDelayMs)));
@@ -855,7 +859,12 @@ function renderHistory() {
   main.append(heading('Histórico de execução', '',
     el('div', { class: 'button-row' }, button('Exportar histórico', () => void perform(() => api.exportHistory()), '', { symbol: 'download', 'data-focus': 'export-history' }),
       button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), 'quiet', { symbol: 'folder' }))));
-  const filters = [['all', 'Tudo'], ['action', 'Ações'], ['error', 'Erros']];
+  runningPanel = runningExecutions({ platform: state.platform,
+    onCancel: id => void perform(() => api.cancelExecution(id)),
+    onCancelAll: () => void perform(() => api.cancelAllExecutions()) });
+  main.append(runningPanel.node);
+  runningPanel.update(state.running);
+  const filters = [['all', 'Tudo'], ['action', 'Ações'], ['error', 'Erros'], ['cancelled', 'Cancelados']];
   const search = field('history-search', 'Buscar no histórico', historyQuery, { type: 'search', placeholder: 'Buscar por mensagem, camada ou tecla' });
   search.input.addEventListener('input', () => { historyQuery = search.input.value; updateHistory(); });
   main.append(el('div', { class: 'history-toolbar' }, el('div', { class: 'filter-group', role: 'group', 'aria-label': 'Filtrar eventos' }, filters.map(([value, label]) =>
@@ -871,12 +880,14 @@ function updateHistory() {
   const container = document.querySelector('#events');
   if (!container) return;
   const query = historyQuery.trim().toLocaleLowerCase('pt-BR');
-  const events = state.events.filter(event => (historyFilter === 'all' || (historyFilter === 'error' ? event.status === 'error' : event.kind === 'action')) &&
+  const events = state.events.filter(event => (historyFilter === 'all' || (['error', 'cancelled'].includes(historyFilter) ? event.status === historyFilter : event.kind === 'action')) &&
     [event.message, event.layer, event.key].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(query));
   document.querySelector('#history-count').textContent = events.length + (events.length === 1 ? ' evento encontrado' : ' eventos encontrados');
   const expandedEvents = new Set([...container.querySelectorAll('[data-event-steps][open]')].map(node => node.dataset.eventSteps));
   container.replaceChildren();
   if (!events.length) {
+    if (state.running?.length) { container.append(el('p', { class: 'hint' }, 'Os resultados aparecerão aqui quando as execuções terminarem.')); return; }
+    if (historyFilter === 'cancelled') { container.append(empty('Nenhum cancelamento registrado', 'As ações canceladas aparecerão aqui.')); return; }
     container.append(empty(query ? 'Nenhum evento encontrado' : historyFilter === 'error' ? 'Nenhum erro registrado' : 'Seu histórico começa com uma ação',
       query ? 'Tente outra busca ou altere o filtro.' : historyFilter === 'error' ? 'As falhas de execução aparecerão aqui com o motivo.' : 'Execute um teste em Camadas para conferir o resultado aqui.',
       !query && historyFilter !== 'error' ? button('Configurar ações', () => navigate('layers'), '', { symbol: 'layers' }) : null));
@@ -893,8 +904,8 @@ function updateHistory() {
     body.append(el('tr', {},
       el('td', { class: 'event-time' }, el('time', { datetime: valid ? date.toISOString() : undefined, title: valid ? date.toLocaleString('pt-BR') : '' },
         valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
-      el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
-        { success: 'Concluído', error: 'Erro', info: 'Sistema' }[event.status] || event.status)),
+      el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'cancelled' ? 'close' : event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
+        { success: 'Concluído', error: 'Erro', info: 'Sistema', cancelled: 'Cancelado' }[event.status] || event.status)),
       el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, expandedEvents.has(event.id), undefined, event.id, event.stepDelayMs)),
       el('td', { class: 'event-context' }, context())));
   }
@@ -932,19 +943,32 @@ function renderSettings() {
     button('Descartar alterações', () => void guardNavigation(() => render()), 'quiet'),
     el('button', { type: 'submit', class: 'button primary', 'data-focus': 'save-settings' }, icon('save'), 'Salvar configurações'));
   const data = el('section', { class: 'settings-section' }, el('div', { class: 'section-heading' }, icon('folder'), el('div', {}, el('h2', {}, 'Dados e backups'), el('p', {}, 'Suas camadas e ações ficam salvas neste computador.'))),
-    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Levar a configuração para outro computador'), el('p', {}, 'Exporte uma cópia antes de importar ou substituir suas camadas.')),
-      el('div', { class: 'button-row' }, button('Exportar', () => void perform(() => api.exportConfig()), '', { symbol: 'download' }),
+    el('div', { class: 'storage-protection', role: 'status' }, el('h3', { id: 'storage-protection' }), el('p', { id: 'storage-message', class: 'hint' })),
+    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Levar a configuração para outro computador'), el('p', {}, 'A cópia portátil remove todos os headers HTTP, inclusive nas sequências. Reinsira as credenciais após importar.')),
+      el('div', { class: 'button-row' }, button('Exportar', () => void perform(() => api.exportConfig()), '', { symbol: 'download', 'data-focus': 'export-config' }),
         button('Importar', () => void guardNavigation(() => void importConfiguration()), '', { symbol: 'upload' }))),
+    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Recuperar backup local'), el('p', { id: 'storage-backup' })), button('Restaurar backup', () => void guardNavigation(() => void restoreConfiguration()), '', { symbol: 'history', 'data-focus': 'restore-backup', disabled: true })),
+    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Diagnóstico para suporte'), el('p', {}, 'Exporta versões, capacidades e tempos. Sem configurações, credenciais, URLs ou dados pessoais. Nada é enviado automaticamente.')), button('Exportar diagnóstico', () => void perform(() => api.exportDiagnostics()), '', { symbol: 'download', 'data-focus': 'export-diagnostics' })),
     el('details', { class: 'storage-details' }, el('summary', {}, 'Locais dos arquivos'),
       el('div', { class: 'path-list' }, [['Dados do aplicativo', state.paths.data], ['Arquivos criados por padrão', defaultFilesPath()], ['Log de execução', state.paths.log]].map(([label, path]) =>
         el('div', { class: 'path-row' }, el('strong', {}, label), el('code', {}, path)))),
       button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), '', { symbol: 'folder' })),
-    el('p', { class: 'hint token-note' }, 'Tokens de API ficam na configuração e na cópia exportada. Guarde o arquivo em um local de confiança.'));
+    el('p', { class: 'hint token-note' }, 'Configurações com headers HTTP exigem proteção nativa do sistema. O backup local mantém a mesma proteção.'));
   const support = el('details', { class: 'settings-section support-details' }, el('summary', {}, 'Captura e permissões'),
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
       el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. Para rastreio global integral, use uma sessão X11. Os atalhos globais dependem do portal do compositor.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'Atalhos ocupados por outro programa são informados na barra de avisos. O rastreio global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
   main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
+}
+
+async function restoreConfiguration() {
+  await perform(async () => {
+    const revision = state.configRevision;
+    state = await api.restoreBackup();
+    editor = null; selectedLayerId = state.activeLayerId; actionQuery = '';
+    render('restore-backup');
+    if (revision !== state.configRevision) toast('Backup restaurado. As ações estão pausadas.');
+  });
 }
 
 async function importConfiguration() {
@@ -1080,7 +1104,7 @@ if (!api) {
       if (layerChanged) toast('Camada em uso: ' + (layerById(next.activeLayerId)?.name || '—'), 'info');
       if (editor?.kind === 'test' && configChanged) { ++previewGeneration; editor.loading = false; editor.preview = null; editor.error = 'A configuração mudou. Atualize a prévia antes de executar.'; updateTestPreview(); }
       if (layerChanged && !editor && selectedLayerId === previous.activeLayerId) { selectedLayerId = next.activeLayerId; actionQuery = ''; }
-      if (view === 'history') updateHistory();
+      if (view === 'history' && eventsChanged) updateHistory();
       if (view === 'layers' && !editor && !layerChanged && !configChanged && eventsChanged) updateBindings();
       if (!editor && !isDirty() && !textFocus() && (configChanged || layerChanged || (view === 'tracking' && trackingChanged))) render();
     });

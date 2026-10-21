@@ -82,13 +82,25 @@ são registrados. Query/corpo/mensagem/conteúdo aceitam variáveis documentadas
 Arquivos usam `wx` para criar sem sobrescrever; acrescentar recusa symlink
 observado antes da escrita. Não é uma sandbox contra alterações concorrentes
 por outros processos no diretório escolhido. Nomes são compatíveis com os três
-SOs e não aceitam caminhos. Configuração pode conter tokens HTTP em texto local;
-arquivos usam permissões restritas onde o SO as aplica.
+SOs e não aceitam caminhos. Configurações com headers HTTP são criptografadas por
+safeStorage assíncrono, inclusive backups. Provider seguro ausente recusa novas
+gravações sensíveis; legado preservado sinaliza migração. Exportação portátil
+redige headers. Campos comuns de corpo/query/URL não substituem o cofre quando
+não há headers. Arquivos usam permissões restritas onde o SO as aplica.
 
 Histórico em memória: até 100 resultados/eventos da sessão. Resultados de ações
 e mensagens configuradas são salvos em JSONL; 1 MiB por arquivo, com uma cópia
 rotacionada. Falhas de execução e de persistência aparecem separadamente na UI.
-Sem telemetria. Configuração inválida no startup é preservada e reportada.
+Sem telemetria. Configuração inválida no startup oferece recuperação explícita
+por backup/importação, com cópia preservada. Writes serializados sincronizam um
+arquivo temporário antes do rename e mantêm o último backup válido. Diagnóstico
+usa allowlist de versões, capacidades, contagens e tempos, sem copiar State.
+
+Cada execução tem AbortController e metadados de progresso, até quatro vagas.
+Cancelamento aborta intervalos/HTTP e impede próxima etapa; mantém a vaga até uma
+operação nativa em andamento terminar. Cancelar todas também pausa e cancela
+gestos; dispose aborta. Histórico distingue cancelled e efeitos já concluídos
+permanecem. Publicação de progresso acontece nas transições, sem timer de polling.
 
 Renderer sandboxed com contextIsolation, CSP self e connect-src none. Somente
 janela/frame local esperado pode chamar IPC. Navegação externa é bloqueada.
