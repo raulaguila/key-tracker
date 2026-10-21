@@ -84,7 +84,10 @@ test('Tracker usa backend Wayland para ações/rastreio; reset não fabrica solt
   const tracker = new Tracker({ engine, wayland: input, fork: () => { throw new Error('Wayland não usa libuiohook'); } });
   t.after(async () => { await tracker.dispose(); engine.dispose(); });
   engine.setEnabled(true); assert.equal(engine.input.mode, 'unavailable');
-  const child = await connect('global'); assert.equal(engine.input.mode, 'global');
+  const authorization = tracker.setLinuxEnabled(true);
+  const child = await connect('global'); await authorization; assert.equal(engine.input.mode, 'global');
+  assert.equal(engine.enabled, false, 'autorizar entrada não retoma ações armadas antes da autorização');
+  engine.setEnabled(true);
   assert.equal(engine.tracking.enabled, false);
   child.frame({ type: 'key', code: 30, down: true, modifiers: 0 }); await tick(); assert.equal(calls.length, 1);
   child.frame({ type: 'reset', held: [30] });

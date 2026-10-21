@@ -39,7 +39,10 @@ class Tracker {
 
   async setLinuxEnabled(enabled) {
     if (typeof enabled !== 'boolean' || !this.wayland || this.disposed) throw new Error('Integração Linux indisponível.');
-    if (enabled) await this.wayland.enable();
+    if (enabled) {
+      if (!this.wayland.state().enabled && this.engine.enabled) this.engine.setEnabled(false);
+      await this.wayland.enable();
+    }
     else { if (this.engine.enabled) this.engine.setEnabled(false); await this.wayland.disable(); }
     return this.state();
   }
