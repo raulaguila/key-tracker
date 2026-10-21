@@ -80,7 +80,7 @@ module.exports = async function keyMomentsUI({ cdp, evaluate, click, fill, selec
     await close();
     await evaluate('document.activeElement.blur();await window.dobra.setEnabled(true);');
     await until('document.querySelector("#input-status").dataset.mode === "unavailable"', 'Wayland reports unavailable global input');
-    assert.match(await evaluate('return document.querySelector("#input-status").textContent'), /Wayland|indispon|suport/i);
+    assert.match(await evaluate('return document.querySelector("#input-status").textContent'), /Wayland|Integração Linux desabilitada|indispon|suport/i);
     await evaluate('await window.dobra.setEnabled(false);');
     await edit('release');
     await select('#field-type', 'sequence');
