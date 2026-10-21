@@ -507,12 +507,15 @@ async function main() {
     await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: '1', code: 'Numpad1', windowsVirtualKeyCode: 97 });
     assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 2);
     assert.equal(await evaluate('return document.querySelectorAll(".pressed-chip").length'), 2, 'Pressed keys are DOM chips, not stringified elements');
+    assert.equal(await evaluate('return document.querySelector("#pressed-label").getBoundingClientRect().width'), 1, 'Combination text is visually hidden while outlined key chips are shown');
+    assert.ok(await evaluate('return document.querySelector("#pressed-label[role=status]").textContent.toLocaleLowerCase("pt-BR").includes("a")'), 'The live region still announces pressed keys');
     assert.ok(!await evaluate('return document.querySelector("#pressed-keys").textContent.includes("[object")'));
     await delay(180);
     await shot('tracking');
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65 });
     await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: '1', code: 'Numpad1', windowsVirtualKeyCode: 97 });
     assert.equal(await evaluate('return document.querySelectorAll(".keycap.pressed").length'), 0);
+    assert.ok(await evaluate('return document.querySelector("#pressed-label").getBoundingClientRect().width > 1'), 'Empty-state message becomes visible again after release');
     await click('input[role="switch"]');
     assert.equal((await nativeState()).tracking.enabled, false);
 

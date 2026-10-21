@@ -848,7 +848,10 @@ function keyEvent(event) {
 function updateKeys() {
   for (const [code, node] of keyNodes) node.classList.toggle('pressed', pressed.has(code));
   const label = document.querySelector('#pressed-label');
-  if (label) label.textContent = pressed.size ? [...pressed.values()].join(' + ') : state?.tracking.enabled ? 'Nenhuma tecla pressionada' : 'O rastreio está desligado';
+  if (label) {
+    label.textContent = pressed.size ? [...pressed.values()].join(' + ') : state?.tracking.enabled ? 'Nenhuma tecla pressionada' : 'O rastreio está desligado';
+    label.classList.toggle('sr-only', pressed.size > 0);
+  }
   const keys = document.querySelector('#pressed-keys');
   if (keys) keys.replaceChildren(...[...pressed.values()].map(key => el('kbd', { class: 'pressed-chip' }, key)));
 }
