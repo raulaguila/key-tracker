@@ -117,6 +117,7 @@ module.exports = async function productivityUI({ cdp, evaluate, click, fill, sel
 
     await click('[data-focus="new-binding"]');
     await fill('#field-name', 'Sequência QA'); await fill('#field-key', 'F'); await select('#field-type', 'sequence');
+    assert.equal(await evaluate('return Boolean(document.querySelector("[data-sequence-step] option[value=log]"))'), false, 'Log is not offered in sequence steps');
     assert.equal(await evaluate('return document.querySelector("#field-stepDelayMs").value'), '0', 'New sequences start without an inter-step delay');
     await stepField(0, 'text', 'Primeira etapa {{key}}');
     for (const invalidDelay of ['-1', '60001']) {

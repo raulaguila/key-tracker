@@ -174,7 +174,9 @@ troca manual. Erros/permissões também aparecem em Configurações.
 | --- | --- |
 | Request HTTP | GET, POST, PUT, PATCH, DELETE ou HEAD; URL; headers e query como objetos JSON de strings; corpo opcional |
 | Arquivo | Pasta (vazia usa Documentos/Dobra), nome, conteúdo e modo criar/acrescentar |
-| Log | Mensagem gravada no log local do aplicativo |
+
+Registro em log não é oferecido no cadastro de ações ou nas etapas de sequência.
+O Histórico registra automaticamente os resultados das execuções.
 
 Exemplo de request: URL `http://localhost:3000/event`, método `POST`, headers
 `{"Content-Type":"application/json"}`, query `{"origem":"teclado"}` e corpo

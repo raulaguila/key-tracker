@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 
-module.exports = async function rendererPerformanceUI({ evaluate, click, fill, until, nativeState }) {
+module.exports = async function rendererPerformanceUI({ evaluate, click, fill, until, nativeState, data }) {
   const before = await nativeState();
   const server = http.createServer((_req, res) => { res.writeHead(503); res.end('fixture unavailable'); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -13,7 +13,8 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
   const fixture = { ...structuredClone(before.config), settings: { ...before.config.settings, autoSwitchLayers: false }, layers: [{
     id: layerId, name: 'Renderer QA', description: '', applications: [], bindings: Array.from({ length: 100 }, (_, index) => ({
       id: 'renderer-performance-' + index, name: 'Ação ' + String(index).padStart(3, '0'), key: keys[index], enabled: true,
-      action: index === 1 ? { type: 'http', method: 'GET', url: endpoint, headers: {}, query: {}, body: '' } : { type: 'log', message: 'Renderer QA' }
+      action: index === 1 ? { type: 'http', method: 'GET', url: endpoint, headers: {}, query: {}, body: '' }
+        : { type: 'file', directory: data, filename: 'renderer-performance.txt', mode: 'append', content: 'Renderer QA' }
     }))
   }] };
   try {
@@ -52,7 +53,7 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     assert.equal(await evaluate('return window.rendererFirstRow === document.querySelector("[data-binding-id=renderer-performance-0]") && window.rendererFirstResult === document.querySelector("[data-binding-id=renderer-performance-0] .binding-result")'), true, 'A different result preserves existing row and feedback identities');
     const renamed = structuredClone(fixture);
     renamed.layers[0].bindings[0].name = 'Renomeada QA';
-    renamed.layers[0].bindings[0].action.message = 'Modelo atualizado';
+    renamed.layers[0].bindings[0].action.content = 'Modelo atualizado';
     await evaluate('document.activeElement.blur();await window.dobra.saveConfig(' + JSON.stringify(renamed) + ');');
     await until('document.querySelector("[data-binding-id=renderer-performance-0] strong").textContent === "Renomeada QA"', 'Revision updates row content');
     assert.ok((await nativeState()).configRevision > revision, 'Saving advances configuration revision');
@@ -60,7 +61,7 @@ module.exports = async function rendererPerformanceUI({ evaluate, click, fill, u
     await click('[data-focus="more-renderer-performance-0"]');
     await click('[data-focus="duplicate-renderer-performance-0"]');
     assert.equal(await evaluate('return document.querySelector("#field-name").value'), 'Renomeada QA · cópia');
-    assert.equal(await evaluate('return document.querySelector("#field-message").value'), 'Modelo atualizado', 'Lazy handlers use the current binding model');
+    assert.equal(await evaluate('return document.querySelector("#field-content").value'), 'Modelo atualizado', 'Lazy handlers use the current binding model');
     await click('[data-drawer-close]');
     await click('[data-focus="view-keyboard"]');
     await evaluate('window.rendererVisualRow=document.querySelector(".visual-binding-item");window.rendererVisualKey=document.querySelector("[data-focus=visual-key-KeyA]");');

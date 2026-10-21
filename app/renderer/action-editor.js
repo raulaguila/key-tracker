@@ -12,8 +12,9 @@ export const sequenceDelayLabel = value => (value ?? 0) + ' ms entre etapas';
 export function createActionEditor({ initial = { type: 'clipboard', text: '' }, prefix = '', layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence = true }) {
   const name = value => prefix + value;
   const makeField = (key, label, value = '', options = {}) => field(name(key), label, value, options);
-  const type = makeField('type', allowSequence ? 'O que esta tecla deve fazer?' : 'O que esta etapa deve fazer?', initial.type, {
-    choices: Object.entries(actionLabels).filter(([key]) => allowSequence || key !== 'sequence')
+  const legacyLog = initial.type === 'log';
+  const type = makeField('type', allowSequence ? 'O que esta tecla deve fazer?' : 'O que esta etapa deve fazer?', legacyLog ? '' : initial.type, {
+    choices: [...(legacyLog ? [['', 'Manter ação existente']] : []), ...Object.entries(actionLabels).filter(([key]) => key !== 'log' && (allowSequence || key !== 'sequence'))]
   });
   const host = el('div', { class: 'action-fields' });
   const node = el('section', { class: 'action-configuration', 'data-action-editor': '', 'data-action-prefix': prefix }, type.wrapper, host);
@@ -127,9 +128,10 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       const contents = makeField('content', 'Conteúdo do arquivo', value.content || '', { multiline: true, placeholder: 'Criado pela tecla {{key}} em {{date}}.' });
       content.append(directory.wrapper, el('div', { class: 'form-grid' }, filename.wrapper, mode.wrapper), contents.wrapper);
       read = () => ({ type: kind, directory: directory.input.value.trim(), filename: filename.input.value.trim(), mode: mode.input.value, content: contents.input.value });
-    } else if (kind === 'log') {
-      const message = makeField('message', 'Mensagem do log', value.message || '', { required: true, multiline: true, placeholder: 'A tecla {{key}} foi acionada na camada {{layer}}.', hint: 'Compatibilidade com ações existentes. O histórico de execução já é registrado automaticamente.' });
-      content.append(message.wrapper); read = () => ({ type: kind, message: message.input.value });
+    } else if (!kind && legacyLog) {
+      // Imported configurations remain intact unless another action is chosen.
+      content.append(el('p', { class: 'context-note' }, 'Esta ação antiga de log está disponível apenas para leitura. Escolha outro tipo para substituí-la. O histórico das execuções é registrado automaticamente.'));
+      read = () => ({ ...initial });
     } else if (kind === 'sequence' && allowSequence) {
       const delay = makeField('stepDelayMs', 'Delay entre etapas (ms)', value.stepDelayMs ?? 0, { type: 'number', min: 0, max: 60000, step: 1, required: true, hint: 'Após cada etapa terminar, antes da próxima. Zero executa sem espera.' });
       delay.wrapper.classList.add('sequence-delay');
@@ -212,10 +214,9 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       case 'layer': return layers.find(layer => layer.id === value('layerId'))?.name || 'Escolha a camada';
       case 'http': return value('method') + ' · ' + destination(value('url'));
       case 'file': return (value('mode') === 'append' ? 'Acrescentar · ' : 'Criar · ') + (value('filename') || 'Defina o nome');
-      case 'log': return value('message') ? 'Mensagem configurada' : 'Defina a mensagem';
       case 'sequence': return sequenceDelayLabel(value('stepDelayMs') || 0);
-      default: return 'Configure as etapas';
+      default: return legacyLog ? 'Ação existente · somente leitura' : 'Configure as etapas';
     }
   }
-  return { node, read: () => cache.get(type.input.value).read(), describe, get type() { return type.input.value; } };
+  return { node, read: () => cache.get(type.input.value).read(), describe, get type() { return type.input.value || initial.type; } };
 }

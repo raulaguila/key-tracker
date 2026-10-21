@@ -12,7 +12,8 @@ Aplicativo desktop distribuível para Windows, macOS e Linux. Permite cadastrar
 camadas de funções por tecla, alterná-las por atalho e executar requests HTTP,
 criar arquivos, copiar texto, abrir destinos, mostrar notificações, escolher uma
 camada ou executar sequências. Logs automáticos registram resultados; mensagens
-em log legadas permanecem compatíveis. Tela adicional mostra teclas sendo
+em log legadas permanecem legíveis, sem opção de criar ou configurar log no editor.
+Tela adicional mostra teclas sendo
 pressionadas e soltas em um teclado visual.
 
 ## Critérios de aceite
@@ -21,7 +22,7 @@ pressionadas e soltas em um teclado visual.
 - Camadas e ações podem ser criadas, editadas e removidas pela interface.
 - Atalhos globais, alternância de camada, pausa e conflitos têm estado visível.
 - HTTP aceita método, URL, query, headers e corpo; arquivos aceitam pasta,
-  nome e conteúdo; log aceita mensagem. Erros aparecem no histórico.
+  nome e conteúdo. Resultados e erros aparecem automaticamente no histórico.
 - Configuração persiste entre sessões. Ações iniciam pausadas.
 - Cadastro estruturado dos cinco novos tipos, prévia sem efeitos, execução
   explícita e resultado no Histórico. Sequências de até dez etapas, sem nesting,
