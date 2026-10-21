@@ -164,16 +164,16 @@ function syncEditing() {
 
 function updateStatus() {
   const toggle = document.querySelector('#engine-toggle');
-  toggle.disabled = !state || (!state.enabled && state.editing);
+  toggle.disabled = !state || state.stopping || (!state.enabled && state.editing);
   if (!state) return;
   const suspended = state.enabled && state.editing;
   const inputLimited = state.input?.mode === 'unavailable';
   const editingForm = Boolean(editor || isDirty());
   const navigatingKeyboard = Boolean(document.activeElement?.closest('.keyboard-interactive'));
-  document.querySelector('.engine-status').dataset.status = suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'limited' : 'active' : 'paused';
-  document.querySelector('#engine-status').textContent = suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
-  document.querySelector('#engine-detail').textContent = suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? inputLimited ? 'Alguns momentos da tecla estão indisponíveis. Confira a entrada global.' : 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
-  document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing);
+  document.querySelector('.engine-status').dataset.status = state.stopping ? 'starting' : suspended ? 'suspended' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'limited' : 'active' : 'paused';
+  document.querySelector('#engine-status').textContent = state.stopping ? 'Parando…' : suspended ? navigatingKeyboard ? 'Suspenso · teclado visual' : editingForm ? 'Suspenso · edição' : 'Suspenso · digitação' : state.enabled ? state.shortcuts.failed.length || inputLimited ? 'Ativo · com restrições' : 'Ativo' : 'Pausado';
+  document.querySelector('#engine-detail').textContent = state.stopping ? 'Aguardando as ações e o histórico terminarem. Novos disparos estão bloqueados.' : suspended ? navigatingKeyboard ? 'Saia do teclado visual para retomar os atalhos.' : editingForm ? 'Salve ou feche o editor para continuar.' : 'Clique fora do campo para retomar os atalhos.' : state.enabled ? inputLimited ? 'Alguns momentos da tecla estão indisponíveis. Confira a entrada global.' : 'Atalhos funcionando em outros aplicativos.' : state.editing ? editingForm ? 'Finalize a edição para ativar os atalhos.' : 'Clique fora do campo para ativar os atalhos.' : 'Ative quando estiver pronto para usar os atalhos.';
+  document.querySelector('#engine-detail').classList.toggle('sr-only', !state.editing && !state.stopping);
   document.querySelector('#control-shortcuts').hidden = state.editing;
   document.querySelector('#control-shortcuts').textContent = state.config.settings.layerShortcut + ' alternar · ' + state.config.settings.pauseShortcut.replace('CommandOrControl', state.platform === 'darwin' ? '⌘' : 'Ctrl') + ' pausar';
   toggle.replaceChildren(icon(state.enabled ? 'pause' : 'play'), el('span', {}, state.enabled ? 'Pausar ações' : 'Ativar ações'));
@@ -184,6 +184,7 @@ function updateStatus() {
   if (picker) {
     const revision = String(state.configRevision);
     if (picker.dataset.revision !== revision) { picker.replaceChildren(...state.config.layers.map(layer => el('option', { value: layer.id }, layer.name))); picker.dataset.revision = revision; }
+    picker.disabled = Boolean(state.stopping);
     picker.value = state.activeLayerId;
   }
   updateApplicationStatus();
@@ -842,7 +843,7 @@ function keyEvent(event) {
   if (event.direction === 'up' && !pressed.has(event.code)) return;
   if (event.direction === 'down') pressed.set(event.code, keyboardEventLabel(currentKeyboardLayout(), event));
   else pressed.delete(event.code);
-  updateKeys();
+  if (!document.hidden) updateKeys();
 }
 
 function updateKeys() {
@@ -1034,7 +1035,10 @@ document.addEventListener('keyup', event => {
   if (state?.tracking.enabled && state.tracking.mode === 'local') keyEvent({ code: event.code, direction: 'up' });
 }, true);
 window.addEventListener('blur', () => { if (state?.tracking.mode !== 'global') clearPressed(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state?.tracking.mode !== 'global') clearPressed(); });
+document.addEventListener('visibilitychange', () => {
+  if (state?.tracking.mode !== 'global') clearPressed();
+  else if (!document.hidden) updateKeys();
+});
 window.addEventListener('beforeunload', event => {
   if (!closingAllowed && isDirty()) {
     event.preventDefault();
@@ -1082,6 +1086,7 @@ if (!api) {
 } else {
   try {
     state = await api.getState();
+    for (const item of document.querySelectorAll('#navigation button')) item.disabled = false;
     api.onCloseRequested?.(async ({ toTray }) => {
       if (isDirty() && !await confirmDialog({ title: toTray ? 'Ocultar sem salvar?' : 'Sair sem salvar?', message: 'Você tem alterações que ainda não foram salvas.', confirmLabel: toTray ? 'Descartar e ocultar' : 'Descartar e sair', cancelLabel: 'Continuar editando', danger: true })) { await api.cancelClose(); return; }
       editor = null;

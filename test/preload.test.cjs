@@ -80,3 +80,14 @@ test('controles de produção reconstituem State e exportação de diagnóstico 
   assert.equal(await api.exportDiagnostics(), undefined);
   assert.deepEqual(calls.slice(1), [['dobra:cancel-execution', 'binding'], ['dobra:cancel-all-executions'], ['dobra:restore-backup'], ['dobra:export-diagnostics']]);
 });
+
+
+test('pedido de fechamento durante carregamento é entregue quando a interface assina', () => {
+  const { api, ipc } = fixture(async () => {});
+  ipc.emit('dobra:close-requested', {}, { toTray: false });
+  const seen = [];
+  const stop = api.onCloseRequested(value => seen.push(value));
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].toTray, false);
+  stop();
+});

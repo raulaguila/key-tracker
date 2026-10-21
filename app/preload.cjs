@@ -3,6 +3,12 @@ let latestState;
 let hydration;
 let notifiedRevision = -1;
 const stateListeners = new Set();
+const closeListeners = new Set();
+let pendingClose;
+ipcRenderer.on('dobra:close-requested', (_event, value) => {
+  if (!closeListeners.size) { pendingClose = value; return; }
+  for (const callback of closeListeners) callback(value);
+});
 
 function mergeState(value) {
   if (latestState && value.stateRevision < latestState.stateRevision) return latestState;
@@ -66,6 +72,11 @@ contextBridge.exposeInMainWorld('dobra', {
     stateListeners.add(callback);
     return () => stateListeners.delete(callback);
   },
-  onCloseRequested: callback => subscribe('dobra:close-requested', callback),
+  onCloseRequested: callback => {
+    if (typeof callback !== 'function') throw new Error('Callback inválido.');
+    closeListeners.add(callback);
+    if (pendingClose) { const value = pendingClose; pendingClose = undefined; callback(value); }
+    return () => closeListeners.delete(callback);
+  },
   onKey: callback => subscribe('dobra:key', callback)
 });

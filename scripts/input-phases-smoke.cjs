@@ -171,6 +171,25 @@ async function main() {
   assert.equal(counts().release, editing.release, 'perda do hook não cria soltura artificial');
   assert.equal(forks, 1, 'falha não deve reiniciar worker em loop');
   evidence.workerCrashCancelledGesture = true;
+  engine.setEnabled(false); engine.setEnabled(true);
+  await until(() => engine.input.mode === 'global', 'reativação explícita deve iniciar novo hook');
+  await keys([{ key: 'a', down: true }, { wait: 150 }]);
+  engine.requestStop(); await engine.stopPromise;
+  const stopped = counts();
+  await delay(200); await keys([{ key: 'a', down: false }]); await delay(100);
+  assert.deepEqual(counts(), stopped, 'parar todas com tecla mantida não deixa hold nem release tardio');
+  evidence.stopAllCancelledHeldGesture = true;
+  engine.setEnabled(true);
+  await keys([{ key: 'a', down: true }, { wait: 150 }]);
+  const workerExit = new Promise(resolve => tracker.worker.once('exit', resolve));
+  await require(path.join(root, 'app/shutdown.cjs')).drainServices({ engine, tracker, storage });
+  await Promise.race([workerExit, delay(1500).then(() => { throw new Error('Hook permaneceu vivo após shutdown'); })]);
+  const closed = counts();
+  await keys([{ key: 'a', down: false }]); await delay(100);
+  assert.deepEqual(counts(), closed);
+  assert.equal(engine.inFlight.size, 0);
+  evidence.shutdownCancelledHeldGesture = true;
+
   evidence.forks = forks;
   evidence.passed = true;
 }

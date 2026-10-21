@@ -21,7 +21,9 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/actions.cjs`: preparação pura e execução das ações simples e sequências.
 - `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
   notificações; injetada pelo main, sem exposição arbitrária no preload.
-- `app/storage.cjs`: configuração atômica, backup, cofre e log serializado com rotação.
+- `app/storage.cjs`: configuração atômica, backup diferido, cofre, flush de filas e log serializado com rotação.
+- `app/shutdown.cjs`: cancela serviços e aguarda execuções e operações aceitas; prazo global de espera.
+- `app/state-delivery.cjs`: agrupa progresso visual em até 16 ms e retém um estado enquanto a janela está oculta.
 - `app/safe-export.cjs`: identidade de arquivos por caminho canônico/inode, compartilhada
   por exportações e pela proteção de destinos das ações de arquivo.
 - `app/key-gestures.cjs`: pressionar/manter/soltar, delays e cancelamento de gestos.
@@ -194,3 +196,43 @@ O lockfile e o override de tar são verificados pelo workflow de segurança.
 Resultados de vulnerabilidades são datados; consulte a execução atual e não
 interprete um relatório antigo como garantia do estado das dependências.
 Não há shell arbitrário ou serviço remoto próprio.
+
+
+## Inicialização, estado e parada
+
+A janela local abre com skeleton, texto de carregamento e ações/navegação
+indisponíveis antes de consultar o cofre. `getState` aguarda a preparação;
+nenhuma ação é habilitada nesse intervalo. Falhas mantêm a recuperação explícita.
+É possível fechar durante a preparação; verificações após awaits impedem que
+serviços sejam criados depois da solicitação de saída. Pedidos de fechamento
+recebidos pelo preload antes da assinatura da UI são entregues posteriormente.
+
+O caminho normal carrega a configuração principal antes da checagem de backup.
+`storage.backupChecking` informa a verificação diferida, serializada com writes;
+restauração fica indisponível até terminar. A recuperação de configuração inválida
+continua consultando o backup antes de oferecer a escolha.
+
+`Engine.state()` mantém cópia independente. Publicações internas reutilizam uma
+cópia profundamente imutável da configuração por `configRevision`, clonando só o
+estado transitório. O preload continua entregando State completo ao renderer.
+Progresso visual é agrupado pelo transporte; mudanças de ativação/edição/parada,
+camada, configuração, início/fim de execução e novos eventos são enviadas de
+imediato quando a janela está visível. Oculta, conserva-se apenas o último estado,
+sincronizado ao mostrar/restaurar. Eventos de tecla seguem imediatos: o renderer
+mantém o mapa transitório, mas só redesenha realces quando visível. Input, pausa e
+cancelamento do motor não dependem do agendamento visual.
+
+`requestStop` bloqueia novos disparos e reativação até `whenIdle`, inclusive os
+registros finais das ações. O State usa `stopping` e a UI mostra “Parando…”. Pausar
+continua imediato e não implica cancelar efeitos já iniciados.
+
+Na saída, o coordenador cancela ações/hook/serviços, aguarda configuração e
+exportações já aceitas pelo IPC, execuções e suas filas de histórico/configuração.
+Novas operações e enfileiramentos posteriores à saída são recusados. Há um prazo
+global de espera de 10 s; ao expirar, o diálogo oferece continuar aguardando ou
+sair explicitamente com pendências. Não há promessa de rollback de efeitos
+externos nem cancelamento de uma escrita nativa já iniciada.
+
+Salvar configuração canônica idêntica não troca o inode nem gira o backup. O
+arquivo atual continua sendo validado; formatos antigos/indentados e migração de
+headers ainda passam pela gravação segura, sem atalhos de criptografia.

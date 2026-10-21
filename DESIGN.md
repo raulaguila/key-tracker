@@ -54,6 +54,7 @@ compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mes
   O tema salvo é lido antes do CSS; mudanças do sistema só afetam a opção Sistema.
   O botão de sol/lua no rodapé do menu alterna claro/escuro, acompanha o tema
   aplicado e sincroniza o seletor sem recriar formulários ou descartar rascunhos.
+- Carregamento inicial mantém skeleton e mensagem de preparação, com navegação e ativação indisponíveis. “Parando…” usa o indicador azul de transição e bloqueia reativação até concluir.
 - Testes têm estado de execução, resultado inline e confirmação visível. Falhas
   retornadas pelo motor são exibidas como erro, mesmo quando a chamada IPC resolve.
 - Novas ações começam em Copiar texto; log legado permanece identificável.

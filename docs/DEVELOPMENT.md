@@ -41,6 +41,7 @@ isolados e não devem ser apontados para um perfil pessoal.
 | `npm test` | Configuração, motor, ações, armazenamento e integrações controladas |
 | `npm run test:soak` | Carga limitada com arquivos temporários e HTTP em loopback |
 | `npm run test:ui` | Smoke da interface Electron com CDP e axe |
+| `npm run test:lifecycle` | Electron real: cofre pendente, fechar durante carga, gravação/HTTP na saída, ocultação e reabertura; Xvfb no Linux |
 | `npm run test:input` | Teclas sintéticas XTest no Electron/Linux X11 |
 | `npm run pack` | Empacota para o sistema atual sem gerar instalador |
 | `node scripts/platform-audit.cjs` | Sonda de integração nativa no source |
@@ -109,3 +110,9 @@ O override de `global-agent` 4.1.3 mantém o `bootstrap` CommonJS usado pelo
 downloader do Electron e remove a cadeia de logger com `sprintf-js`. O teste
 `test/build-proxy.test.cjs` valida o encaminhamento por proxy HTTP em loopback;
 instalação e empacotamento são conferidos na matriz nativa.
+
+O CI Desktop executa lifecycle nos quatro destinos e publica JSONs como artifacts.
+A fixture altera provedores apenas na entrada de teste, fora do pacote; não há
+flags de bypass de cofre no produto. `platform-audit`/`performance-audit` distinguem
+a interface utilizável (`interfaceMs`) da medição que inclui a leitura explícita
+de State (`startupMs`); nenhuma das duas é tempo físico de primeiro paint.

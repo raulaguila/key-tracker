@@ -5,6 +5,13 @@ const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, validateFileTargets } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const PAUSE_RESUME_DEBOUNCE_MS = 400;
+function freezeTree(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) freezeTree(child);
+    Object.freeze(value);
+  }
+  return value;
+}
 const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400, holdDelayMs: binding.holdDelayMs ?? binding.repeatMs ?? 400 } : {}) });
 
 class Engine extends EventEmitter {
@@ -37,6 +44,8 @@ class Engine extends EventEmitter {
     this.inFlight = new Set();
     this.executions = new Map();
     this.disposed = false;
+    this.stopping = false;
+    this.snapshotConfig = null;
     this.lastRun = new Map();
     this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
@@ -51,13 +60,16 @@ class Engine extends EventEmitter {
 
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
-  state() {
-    return structuredClone({ config: this.config, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
+  state({ sharedConfig = false } = {}) {
+    const snapshot = structuredClone({ stopping: this.stopping, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
+    if (sharedConfig && this.snapshotConfig?.revision !== this.configRevision) this.snapshotConfig = { revision: this.configRevision, value: freezeTree(structuredClone(this.config)) };
+    snapshot.config = sharedConfig ? this.snapshotConfig.value : structuredClone(this.config);
+    return snapshot;
   }
 
   publish() {
     this.stateRevision++;
-    const snapshot = this.state();
+    const snapshot = this.state({ sharedConfig: true });
     this.emit('state', snapshot);
     return snapshot;
   }
@@ -71,6 +83,7 @@ class Engine extends EventEmitter {
 
   setEnabled(enabled) {
     if (typeof enabled !== 'boolean') throw new Error('Estado de ativação inválido.');
+    if (enabled && (this.stopping || this.disposed)) throw new Error('Aguarde a parada das execuções.');
     if (this.enabled === enabled) return this.state();
     this.resetInput();
     if (enabled) this.armed = true;
@@ -222,6 +235,7 @@ class Engine extends EventEmitter {
     const settings = this.config.settings;
     const isPause = effective === effectiveShortcut(settings.pauseShortcut, this.platform);
     if (isPause) {
+      if (this.stopping || this.disposed) return;
       const now = this.now();
       // Pausing is immediate; rapid repeats must not resume a newly paused engine.
       if (!this.enabled && now - this.lastPauseControlAt < PAUSE_RESUME_DEBOUNCE_MS) return;
@@ -326,6 +340,7 @@ class Engine extends EventEmitter {
 
   async runBinding(layerId, bindingId, previewId) {
     if (this.disposed) throw new Error('O aplicativo está encerrando.');
+    if (this.stopping) throw new Error('Aguarde a parada das execuções.');
     const { layer, binding } = this.findBinding(layerId, bindingId);
     if (this.inFlight.has(binding.id)) throw new Error('Esta ação ainda está em execução.');
     if (this.inFlight.size >= 4) throw new Error('Limite de quatro ações simultâneas atingido.');
@@ -341,6 +356,7 @@ class Engine extends EventEmitter {
     const started = this.now();
     const controller = new AbortController();
     const execution = { controller, state: { bindingId, layerId, name: binding.name, key: binding.key, startedAt: new Date(started).toISOString(), stepIndex: 1, stepCount: binding.action.type === 'sequence' ? binding.action.steps.length : 1, phase: 'running' } };
+    execution.done = new Promise(resolve => { execution.resolveDone = resolve; });
     this.executions.set(binding.id, execution);
     const progress = next => {
       if (controller.signal.aborted || this.disposed || Object.entries(next).every(([key, value]) => execution.state[key] === value)) return;
@@ -373,7 +389,7 @@ class Engine extends EventEmitter {
       const event = this.record(cancelled ? 'cancelled' : 'error', `${binding.name}: ${message}`, details());
       try { await this.storage.appendLog(event); }
       catch { this.record('error', 'Não foi possível salvar o histórico em disco.'); }
-    } finally { this.inFlight.delete(binding.id); this.executions.delete(binding.id); }
+    } finally { this.inFlight.delete(binding.id); this.executions.delete(binding.id); execution.resolveDone(); }
     return this.publish();
   }
 
@@ -396,6 +412,21 @@ class Engine extends EventEmitter {
       execution.controller.abort();
     }
     return this.publish();
+  }
+
+  whenIdle() {
+    return Promise.allSettled([...this.executions.values()].map(execution => execution.done));
+  }
+
+  requestStop() {
+    if (this.stopping || this.disposed) return this.state();
+    this.stopping = true;
+    const snapshot = this.cancelAllExecutions();
+    this.stopPromise = this.whenIdle().then(() => {
+      this.stopping = false;
+      if (!this.disposed) this.publish();
+    });
+    return snapshot;
   }
 
   dispose() {

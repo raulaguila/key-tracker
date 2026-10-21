@@ -61,7 +61,7 @@ export function updateStorageStatus(storage = {}) {
   title.dataset.protection = storage.protection || 'unavailable';
   for (const [selector, value] of [
     ['#storage-message', storage.message || 'A disponibilidade depende do provedor seguro deste sistema.'],
-    ['#storage-backup', storage.backupAvailable ? 'Última versão válida disponível neste computador.' : 'O backup será criado após uma gravação válida da configuração.']
+    ['#storage-backup', storage.backupChecking ? 'Verificando o backup em segundo plano…' : storage.backupAvailable ? 'Última versão válida disponível neste computador.' : 'O backup será criado após uma gravação válida da configuração.']
   ]) { const node = document.querySelector(selector); if (node.textContent !== value) node.textContent = value; }
-  document.querySelector('[data-focus="restore-backup"]').disabled = !storage.backupAvailable;
+  document.querySelector('[data-focus="restore-backup"]').disabled = Boolean(storage.backupChecking || !storage.backupAvailable);
 }

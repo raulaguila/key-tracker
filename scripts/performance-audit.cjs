@@ -76,12 +76,13 @@ async function launch(base, index) {
   let ready=false;
   for(let i=0;i<400;i++){if(await page.evaluate('return Boolean(document.querySelector("[data-focus=new-layer]"))')){ready=true;break;}await delay(10);}
   if(!ready)throw new Error('Initial interface did not become ready');
-  const startupMs=performance.now()-started;
+  const interfaceMs=performance.now()-started;
   if(!inspector)throw new Error('Native inspector unavailable: '+output);
   native=await connect(inspector);
   const state=await page.evaluate('return await window.dobra.getState()');
+  const startupMs=performance.now()-started;
   if(!state.paths.data.startsWith(directory+path.sep))throw new Error('Refuse non-temporary profile');
-  return {page,native,child,startupMs,state,stop:async()=>{
+  return {page,native,child,startupMs,interfaceMs,state,stop:async()=>{
     page.close();native.close();await stopChild();
   }};
   } catch(error) { page?.close();native?.close();await stopChild();throw error; }
@@ -138,10 +139,10 @@ async function configurationIpc(page) {
 async function main() {
   if(process.platform!=='linux'||!process.env.DISPLAY)throw new Error('Use an isolated Xvfb display on Linux.');
   const base=await fs.mkdtemp(path.join(os.tmpdir(),'keyboard-performance-'));
-  const report={version:1,date:new Date().toISOString(),commit:require('node:child_process').execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),environment:{cpu:os.cpus()[0].model,logicalCpus:os.availableParallelism(),ramGiB:os.totalmem()/2**30,node:process.version,electron:require('electron/package.json').version,platform:process.platform,release:os.release(),display:'Xvfb',gpu:'disabled',package:'linux-unpacked',notes:['Lab on a fast desktop; shared machine and OS file caches are not isolated.','CDP instrumentation has overhead. Synchronous DOM costs are not INP or physical-key latency.','Summed RSS includes shared pages; not unique physical memory.']},startups:[],steady:{},interactions:{}};
+  const report={version:1,date:new Date().toISOString(),commit:require('node:child_process').execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),environment:{cpu:os.cpus()[0].model,logicalCpus:os.availableParallelism(),ramGiB:os.totalmem()/2**30,node:process.version,electron:require('electron/package.json').version,platform:process.platform,release:os.release(),display:'Xvfb',gpu:'disabled',package:'linux-unpacked',notes:['Lab on a fast desktop; shared machine and OS file caches are not isolated.','CDP instrumentation has overhead. Synchronous DOM costs are not INP or physical-key latency.','Summed RSS includes shared pages; not unique physical memory.']},startups:[],interfaces:[],steady:{},interactions:{}};
   let instance;
   try {
-    for(let i=0;i<5;i++) {instance=await launch(base,i);report.startups.push(instance.startupMs);console.log('startup',i,Math.round(instance.startupMs));if(i<4){await instance.stop();instance=null;}}
+    for(let i=0;i<5;i++) {instance=await launch(base,i);report.startups.push(instance.startupMs);report.interfaces.push(instance.interfaceMs);console.log('startup',i,Math.round(instance.startupMs));if(i<4){await instance.stop();instance=null;}}
     report.startupMs=distribution(report.startups);
     const {page,native}=instance;
     await page.call('Performance.enable');

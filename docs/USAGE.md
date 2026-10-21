@@ -140,3 +140,10 @@ arquivo problemático. Não edite um envelope criptografado como se fosse JSON c
 Para experimentar a estrutura de importação, baixe o
 [exemplo sem credenciais](examples/quick-start.json). Ele usa duas camadas com `A`
 e inicia pausado, como toda configuração importada.
+
+Ao abrir, o Dobra mostra a preparação das camadas e mantém as ações indisponíveis
+até terminar. O backup pode aparecer como “Verificando” por um breve período.
+“Parar todas” bloqueia novos disparos e mostra “Parando…” até as ações e o
+histórico terminarem. Ao sair, o aplicativo aguarda gravações pendentes; se a
+espera exceder dez segundos, você pode continuar aguardando ou sair com o aviso
+de que operações ainda não concluídas podem não ser persistidas.

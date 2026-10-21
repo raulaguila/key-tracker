@@ -110,16 +110,17 @@ async function launch(profile) {
       await delay(25);
     }
     if (!ready || !inspector) throw new Error('Initial UI or main inspector unavailable');
-    const startupMs = performance.now() - started;
+    const interfaceMs = performance.now() - started;
     native = await cdp(inspector);
     const state = await page.evaluate('return await window.dobra.getState();');
+    const startupMs = performance.now() - started;
     const normalize = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
     if (!packaged && normalize(state.paths.data) !== normalize(profile)) throw new Error('Profile isolation failed');
     if (packaged) {
       const relative = path.relative(normalize(os.homedir()), normalize(state.paths.data));
       if (!relative || relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw new Error('Packaged profile must belong to the disposable CI account.');
     }
-    return { page, native, state, startupMs, stop };
+    return { page, native, state, startupMs, interfaceMs, stop };
   } catch (error) { await stop(); throw error; }
 }
 function largeFixture() {
@@ -139,19 +140,20 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/shutdown.cjs', 'app/state-delivery.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/index.html', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
   return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: packaged ? 'Runtime uses the packaged executable in a disposable CI account.' : 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-platform-audit-'));
-  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Key registration is tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [], shutdowns: [] };
+  const result = { version: 1, date: new Date().toISOString(), commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), environment: { platform: process.platform, arch: process.arch, release: os.release(), cpu: os.cpus()[0]?.model, logicalCpus: os.availableParallelism(), ramGiB: os.totalmem() / 2 ** 30, node: process.version, electron: require('electron/package.json').version, ci: process.env.GITHUB_ACTIONS === 'true', gpu: 'disabled' }, notes: ['Runtime is real Electron loading production source, not the packaged executable.', 'CI machines differ; values are not a controlled OS-to-OS comparison.', 'Startup includes CDP connection and readiness checks; OS caches are not flushed.', 'Key registration is tested; physical-key delivery and user permissions are not certified.'], probes: {}, startupsMs: [], interfaceMs: [], shutdowns: [] };
   let instance, originalClipboard;
   try {
     result.package = await inspectPackage();
     for (let i = 0; i < 3; i++) {
       instance = await launch(path.join(directory, 'profile-' + i));
       result.startupsMs.push(instance.startupMs);
+      result.interfaceMs.push(instance.interfaceMs);
       if (i < 2) { result.shutdowns.push(await instance.stop()); instance = null; }
     }
     result.startup = stats(result.startupsMs);

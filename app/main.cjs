@@ -6,6 +6,8 @@ const { createConfigProtection } = require('./config-protection.cjs');
 const { loadWithRecovery } = require('./recovery.cjs');
 const { createDiagnostics } = require('./diagnostics.cjs');
 const { Engine } = require('./engine.cjs');
+const { drainServices, waitForShutdown } = require('./shutdown.cjs');
+const { StateDelivery } = require('./state-delivery.cjs');
 const { Tracker } = require('./tracking.cjs');
 const { encodeConfig } = require('./config.cjs');
 const { writeExport } = require('./safe-export.cjs');
@@ -24,6 +26,10 @@ if (!gotLock) app.quit();
 else {
   let window;
   let engine;
+  let storage;
+  let resolveStartup, rejectStartup;
+  const startup = new Promise((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
+  void startup.catch(() => {});
   let tracker;
   let monitor;
   let tray;
@@ -40,7 +46,10 @@ else {
   }
   const session = process.platform === 'linux' ? (process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY ? 'wayland' : 'x11') : 'native';
   let configWrite = Promise.resolve();
+  const pendingOperations = new Set();
+  const drainChannels = new Set(['save-config', 'import-config', 'restore-backup', 'export-config', 'export-history', 'export-diagnostics']);
   const serialConfig = operation => {
+    if (servicesStopping) return Promise.reject(new Error('O aplicativo está encerrando.'));
     const result = configWrite.catch(() => {}).then(operation);
     configWrite = result;
     return result;
@@ -49,7 +58,11 @@ else {
   function handle(channel, callback) {
     ipcMain.handle(`dobra:${channel}`, async (event, ...args) => {
       if (event.sender !== window?.webContents || event.senderFrame !== window.webContents.mainFrame || !isAppURL(event.senderFrame.url)) throw new Error('Origem não autorizada.');
-      return callback(...args);
+      if (servicesStopping) throw new Error('O aplicativo está encerrando.');
+      const result = Promise.resolve(callback(...args));
+      if (!drainChannels.has(channel)) return result;
+      pendingOperations.add(result);
+      try { return await result; } finally { pendingOperations.delete(result); }
     });
   }
 
@@ -65,6 +78,7 @@ else {
     const { config, ...update } = state;
     return update;
   }
+  const visualState = new StateDelivery({ send: state => send('state', statePayload(state)), visible: () => Boolean(window && !window.isDestroyed() && window.isVisible() && !window.isMinimized()) });
   const stateResult = operation => async (...args) => statePayload(await operation(...args));
 
   function showWindow() {
@@ -85,12 +99,14 @@ else {
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     window.webContents.on('will-navigate', (event, url) => { if (!isAppURL(url)) event.preventDefault(); });
     lifecycle = new WindowLifecycle({ window,
-      shouldHide: () => engine.config.settings.closeToTray ? tray?.revalidate() ?? false : false,
-      requestConfirmation: payload => send('close-requested', payload),
-      beforeHide: () => engine.setEditing(false), quit: () => app.quit() });
-    window.webContents.on('render-process-gone', () => { engine.dispose(); tracker.set(false); lifecycle.forceQuit(); });
-    window.webContents.on('did-start-loading', () => { sentConfigRevision = null; engine.setEnabled(false); engine.setEditing(false); });
-    window.once('ready-to-show', () => window.show());
+      shouldHide: () => engine?.config.settings.closeToTray ? tray?.revalidate() ?? false : false,
+      requestConfirmation: payload => { if (engine) send('close-requested', payload); else { lifecycle.allowClose = true; window.close(); } },
+      beforeHide: () => engine?.setEditing(false), quit: () => app.quit() });
+    window.webContents.on('render-process-gone', () => { engine?.dispose(); tracker?.set(false); lifecycle.forceQuit(); });
+    window.webContents.on('did-start-loading', () => { sentConfigRevision = null; engine?.setEnabled(false); engine?.setEditing(false); });
+    window.once('ready-to-show', () => { if (!window?.isDestroyed()) window?.show(); });
+    window.on('show', () => visualState.flush());
+    window.on('restore', () => visualState.flush());
     window.on('closed', () => {
       window = null;
       // Closing the only window stops all hooks, including on macOS.
@@ -108,23 +124,32 @@ else {
     event.preventDefault();
     if (servicesStopping) return;
     servicesStopping = true;
-    tray?.dispose(); tracker?.stop(); desktopActions?.dispose(); engine?.dispose();
-    // The reader owns native helper processes; let it reap them before Electron
-    // terminates the worker thread during shutdown.
-    Promise.resolve(monitor?.dispose()).catch(() => {}).finally(() => {
+    rejectStartup(new Error('Inicialização cancelada.'));
+    visualState.dispose();
+    const draining = drainServices({ engine, tracker, desktopActions, tray, monitor, storage, configuration: Promise.allSettled([configWrite, ...pendingOperations]) });
+    void (async () => {
+      while (!await waitForShutdown(draining)) {
+        const answer = await dialog.showMessageBox({ type: 'warning', title: 'Encerramento em andamento',
+          message: 'Ainda há operações sendo finalizadas.',
+          detail: 'A última configuração concluída permanece preservada. Sair agora pode impedir a conclusão de gravações e do histórico pendentes.',
+          buttons: ['Continuar aguardando', 'Sair mesmo assim'], defaultId: 0, cancelId: 0, noLink: true });
+        if (answer.response === 1) break;
+      }
       servicesStopped = true;
-      // A resolved cleanup can finish before Electron resets its cancelled quit
-      // cycle. Resume on the next turn rather than inside that event's microtask.
       setImmediate(() => app.quit());
-    });
+    })();
   });
   app.on('window-all-closed', () => app.quit());
 
   app.whenReady().then(async () => {
     app.setAboutPanelOptions({ applicationName: 'Dobra', applicationVersion: app.getVersion(), iconPath: path.join(__dirname, 'assets', 'icon.png') });
+    handle('get-state', async () => { await startup; return statePayload(engine.state(), true); });
+    createWindow();
     const protection = await createConfigProtection({ safeStorage, platform: process.platform });
-    const storage = new Storage(app.getPath('userData'), { protection });
-    const config = await loadWithRecovery({ storage, dialog });
+    if (servicesStopping) return;
+    storage = new Storage(app.getPath('userData'), { protection });
+    const config = await loadWithRecovery({ storage, dialog, loadOptions: { deferBackup: true }, isCancelled: () => servicesStopping });
+    if (servicesStopping) return;
     if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, shortcuts: globalShortcut, storage, documents: app.getPath('documents'), session, desktopActions });
@@ -141,10 +166,9 @@ else {
     powerMonitor.on('lock-screen', suspendActions);
     powerMonitor.on('resume', () => engine.resetInput());
     powerMonitor.on('unlock-screen', () => engine.resetInput());
-    engine.on('state', state => send('state', statePayload(state)));
+    engine.on('state', state => visualState.push(state));
     engine.on('key', key => send('key', key));
 
-    handle('get-state', () => statePayload(engine.state(), true));
     handle('save-config', stateResult(config => serialConfig(() => engine.saveConfig(config))));
     handle('set-enabled', stateResult(enabled => engine.setEnabled(enabled)));
     handle('set-layer', stateResult(id => engine.setLayer(id)));
@@ -152,7 +176,7 @@ else {
     handle('preview-binding', (layerId, bindingId) => engine.previewBinding(layerId, bindingId));
     handle('run-binding', stateResult((layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId)));
     handle('cancel-execution', stateResult(bindingId => engine.cancelExecution(bindingId)));
-    handle('cancel-all-executions', stateResult(() => engine.cancelAllExecutions()));
+    handle('cancel-all-executions', stateResult(() => engine.requestStop()));
     handle('show-window', showWindow);
     handle('confirm-close', () => lifecycle?.confirm());
     handle('cancel-close', () => lifecycle?.cancel());
@@ -211,18 +235,25 @@ else {
     const template = [
       ...(process.platform === 'darwin' ? [{ label: 'Dobra', submenu: [{ role: 'about', label: 'Sobre Dobra' }, { type: 'separator' }, { role: 'quit', label: 'Sair de Dobra' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => engine.cancelAllExecutions() }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
+      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => engine.requestStop() }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-    createWindow();
+    resolveStartup();
+    setImmediate(() => {
+      if (servicesStopping) return;
+      void storage.refreshBackup().then(() => { if (!servicesStopping) engine.publish(); });
+    });
     const { Tray, nativeImage } = require('electron');
     const hostAvailable = await trayHostAvailable();
+    if (servicesStopping) return;
     tray = new DesktopTray({ Tray, Menu, nativeImage, engine, tracker, showWindow, quit: requestQuit, platform: process.platform, hostAvailable });
     engine.desktop = { trayAvailable: tray.available };
     monitor = new ApplicationMonitor({ engine, platform: process.platform, session });
     monitor.configure();
     engine.publish();
   }).catch(error => {
+    rejectStartup(error);
+    if (servicesStopping) return;
     dialog.showErrorBox('Não foi possível iniciar o Dobra', error.message);
     app.quit();
   });

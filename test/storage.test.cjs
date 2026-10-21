@@ -123,7 +123,7 @@ test('headers inside sequences encrypt entire v1 configuration and previous back
   }
   assert.deepEqual(await storage.load(), second);
   assert.deepEqual(await storage.readBackup(), first);
-  assert.deepEqual(storage.status(), { encryptionAvailable: true, protection: 'encrypted', backupAvailable: true, message: 'Configuração protegida pelo cofre do sistema.' });
+  assert.deepEqual(storage.status(), { encryptionAvailable: true, protection: 'encrypted', backupAvailable: true, backupChecking: false, message: 'Configuração protegida pelo cofre do sistema.' });
   const portable = exportConfigSafe(first);
   assert.deepEqual(portable.layers[0].bindings[0].action.steps.map(step => step.headers), [{}, {}]);
   assert.equal(portable.layers[0].bindings[0].action.stepDelayMs, 23);

@@ -25,7 +25,9 @@ sem escrever scripts ou editar JSON. A interface é em português.
 - Apresentar prévia sem efeitos antes do teste manual, que é uma execução real.
 - Executar sequências ordenadas, com até dez etapas, interrompendo na primeira falha.
 - Mostrar resultados/erros, progresso e cancelamento no Histórico, sem ocultar falhas.
+- Mostrar a janela durante a preparação, com ações indisponíveis; permitir sair sem ativar serviços tardiamente.
 - Iniciar pausado, suspender ações durante edição e manter um controle de pausa disponível.
+- Mostrar a conclusão real de “Parar todas”, bloqueando reativação enquanto houver efeitos/registros pendentes.
 - Persistir configuração, preservar backup e permitir importação/exportação explícitas.
 - Proteger headers com o cofre do sistema, limitar suas operações e recusar gravação desprotegida quando indisponível.
 - Impedir que ações de arquivo alterem o perfil interno, configuração ou backup.

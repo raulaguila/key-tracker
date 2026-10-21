@@ -142,10 +142,10 @@ a UI deve consultar o evento de resultado correspondente.
 
 `app/engine.cjs` produz um clone serializável com:
 
-- `config`, `configRevision`, `stateRevision`, `activeLayerId`, `enabled`, `editing`;
+- `config`, `configRevision`, `stateRevision`, `activeLayerId`, `enabled`, `stopping`, `editing`;
 - `platform`, `session`, `paths: {data, documents, log}`;
 - `shortcuts: {registered, failed}`, `tracking`, `input`, `application`, `desktop`;
-- `storage: {encryptionAvailable, protection, backupAvailable, message}`;
+- `storage: {encryptionAvailable, protection, backupAvailable, backupChecking?, message}`;
 - `running`: até quatro execuções com `bindingId`, `layerId`, `name`, `key`,
   `startedAt`, `stepIndex`, `stepCount`, `phase`;
 - `events`: últimos 100 eventos da sessão, mais recentes primeiro.
@@ -158,7 +158,10 @@ não deve ser copiado para logs, diagnósticos ou serviços externos.
 No transporte, atualizações podem omitir `config` quando a revisão é a mesma.
 O preload reidrata e descarta respostas antigas; consumidores de `window.dobra`
 recebem `State` completo, não patches. Atualizações de progresso são por transição,
-sem polling periódico da interface.
+sem polling periódico da interface. O transporte pode agrupar progresso visual
+por 16 ms e sincroniza apenas o último estado ao mostrar uma janela oculta.
+Controle de entrada e cancelamento não são agrupados. `getState` durante o início
+aguarda a preparação; a janela exibe carregamento e não habilita ações.
 
 ### Eventos e resultados
 
@@ -183,7 +186,10 @@ ilimitada. Ticks ocupados são descartados.
 
 Pausar não cancela trabalho iniciado. Cancelar aborta esperas/HTTP e impede
 etapas futuras; operações nativas em andamento podem terminar. Encerrar cancela
-trabalho pendente e remove hooks, monitores e atalhos. Gestos interrompidos não
+trabalho pendente e remove hooks, monitores e atalhos. Parar todas informa
+`stopping` até as ações e seus registros terminarem, bloqueando novos disparos e
+reativação. Encerramento aguarda operações aceitas e filas; após 10 s, continuar
+aguardando ou sair com pendências é escolha explícita do usuário. Gestos interrompidos não
 produzem uma soltura fictícia. Bloquear/suspender deixa o motor pausado.
 
 Perfis por aplicativo são opt-in, com identidade exata de processo, sem títulos
@@ -198,7 +204,10 @@ A identidade é Dobra: `io.dobra.app`, perfil `Dobra`, `dobra:*`, preferências
 e é ignorado no executável empacotado. Não há aliases de identidade anteriores.
 
 Gravações são atômicas e serializadas; backup preserva a configuração válida
-anterior. Havendo headers HTTP, config e backup usam cofre seguro assíncrono,
+anterior. Salvar conteúdo canônico idêntico preserva arquivo e backup;
+normalização de legado e migração segura continuam sendo realizadas. Verificação
+de backup pode ocorrer depois da carga principal, com `backupChecking` explícito.
+Havendo headers HTTP, config e backup usam cofre seguro assíncrono,
 sem fallback desprotegido. Disponibilidade, encrypt e decrypt têm timeout de 5 s
 por operação; resultados tardios não escrevem e o arquivo anterior é preservado.
 Exportação portátil remove todos os headers; recuperação

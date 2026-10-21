@@ -193,3 +193,19 @@ test('dispose remove assinatura, mata workers e não religa com estados posterio
   engine.publish(); tracker.set(true); tracker.stop();
   assert.equal(workers.length, 1);
 });
+
+
+test('stop devolve a mesma espera de dispose e aguarda o exit do worker', async () => {
+  const { tracker, workers } = fixture({ demand: true });
+  const worker = workers[0];
+  worker.kill = () => { worker.killed++; };
+  let done = false;
+  const stopping = tracker.stop();
+  stopping.then(() => { done = true; });
+  await Promise.resolve();
+  assert.equal(done, false);
+  assert.equal(tracker.dispose(), stopping);
+  worker.emit('exit', 0);
+  await stopping;
+  assert.equal(done, true);
+});

@@ -22,6 +22,12 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 
 ### Ajustes recentes
 
+- Janela inicial visível durante a preparação, com ações protegidas e backup diferido.
+- Parada coordenada das ações e gravações, estado “Parando…” e aviso ao exceder a espera de saída.
+- Configuração imutável reutilizada por revisão, progresso visual agrupado e atualizações suspensas quando oculto.
+- Salvamento idêntico preserva arquivo/backup; migração e normalização de legado permanecem.
+- Provas de lifecycle nos quatro destinos e parada com tecla mantida no Linux.
+
 - Ações de arquivo recusam destinos no perfil interno e aliases de configuração,
   backup e logs, com validação na prévia e novamente na execução.
 - Consultas e operações do cofre têm prazo de cinco segundos; falhas preservam

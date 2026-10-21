@@ -99,10 +99,11 @@ class Storage {
         throw error;
       }
       const decrypted = await this.protection.decrypt(Buffer.from(document.data, 'base64'));
-      return { config: decodeConfig(decrypted, this.platform), mode: 'encrypted' };
+      const config = decodeConfig(decrypted, this.platform);
+      return { config, mode: 'encrypted', canonical: decrypted === encodeConfig(config, this.platform) };
     }
     const config = decodeConfig(source, this.platform);
-    return { config, mode: hasHeaders(config) ? 'legacy' : 'plain' };
+    return { config, mode: hasHeaders(config) ? 'legacy' : 'plain', canonical: source.equals(Buffer.from(encodeConfig(config, this.platform))) };
   }
 
   async _serialize(config) {
@@ -134,9 +135,10 @@ class Storage {
     catch { this.storageStatus.backupAvailable = false; }
   }
 
-  async load() {
+  async load({ deferBackup = false } = {}) {
     return this._queue(async () => {
-      await this._refreshBackup();
+      this.storageStatus.backupChecking = deferBackup;
+      if (!deferBackup) await this._refreshBackup();
       let current;
       try { current = await this._read(this.configPath); }
       catch (error) {
@@ -154,7 +156,6 @@ class Storage {
   }
 
   async _save(config, { recover = false } = {}) {
-    const serialized = await this._serialize(config);
     await fs.mkdir(this.directory, { recursive: true, mode: 0o700 });
     let previous;
     let invalid = false;
@@ -165,6 +166,12 @@ class Storage {
         invalid = true;
       }
     }
+    const desiredMode = hasHeaders(config) ? 'encrypted' : 'plain';
+    if (previous?.canonical && previous.mode === desiredMode && encodeConfig(previous.config, this.platform) === encodeConfig(config, this.platform)) {
+      this._setProtection(previous.mode);
+      return config;
+    }
+    const serialized = await this._serialize(config);
     // Encrypt the previous valid configuration too; never copy legacy headers into a plaintext backup.
     if (previous) {
       const backup = await this._serialize(previous.config);
@@ -217,6 +224,16 @@ class Storage {
       return this._save(backup.config, { recover: true });
     });
   }
+
+  refreshBackup() {
+    return this._queue(async () => {
+      this.storageStatus.backupChecking = true;
+      try { await this._refreshBackup(); }
+      finally { this.storageStatus.backupChecking = false; }
+    });
+  }
+
+  flush() { return Promise.allSettled([this.writeQueue, this.logQueue]); }
 
   appendLog(event) {
     const operation = this.logQueue.catch(() => {}).then(async () => {

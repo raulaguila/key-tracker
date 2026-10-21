@@ -140,11 +140,17 @@ class Tracker {
     try { worker.postMessage('stop'); } catch { /* It may have exited between messages. */ }
   }
 
-  stop() { this.dispose(); }
+  stop() { return this.dispose(); }
 
   dispose() {
-    if (this.disposed) return;
+    if (this.disposed) return this.disposePromise;
     this.disposed = true;
+    const owned = [...new Set([this.worker, ...this.retiring.keys()].filter(Boolean))];
+    this.disposePromise = Promise.all(owned.map(worker => new Promise(resolve => {
+      const finish = () => { clearTimeout(timer); worker.off('exit', finish); resolve(); };
+      const timer = setTimeout(finish, 1000);
+      worker.once('exit', finish);
+    })));
     this.engine.off('state', this.onState);
     this.visualEnabled = false;
     this.inputDemand = false;
@@ -155,6 +161,7 @@ class Tracker {
     }
     this.retiring.clear();
     this.report();
+    return this.disposePromise;
   }
 }
 

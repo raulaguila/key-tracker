@@ -144,3 +144,13 @@ há certificação de instalação/hardware.
 
 Estado inicial desse roteiro: **pendente em hardware real**, incluindo Windows,
 Mac Intel e Apple Silicon. Provas virtuais/automatizadas são registradas à parte.
+
+
+O gate `test:lifecycle` prova, com provedores de teste e Electron real, janela
+visível antes do cofre resolver, saída durante preparação, sincronização ao
+ocultar/mostrar, HTTP cancelado sem próxima etapa, gravação aceita antes de sair
+e reabertura com configuração/backup legíveis e histórico final. O teste nativo
+Linux também para/encerra com uma tecla mantida e aguarda a saída do worker.
+Essas provas não substituem testes em disco cheio, logout/encerramento do SO ou
+hardware físico. O prazo de shutdown limita a espera, sem garantir rollback de
+uma operação nativa em andamento.
