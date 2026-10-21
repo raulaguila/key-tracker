@@ -1,6 +1,7 @@
 // Passive IOHID keyboard listener; requires Input Monitoring, never seizes devices.
 #include <IOKit/hid/IOHIDManager.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <iostream>
 #include <string>
