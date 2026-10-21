@@ -33,6 +33,9 @@ nem inicia o serviço no boot. AppImage requer esse componente instalado.
   tentativa, mensagens legíveis, temas, Rastreio e pausa na perda da sessão.
 - Axe: 14 estados, zero violações WCAG A/AA. 112 combinações responsivas e
   90 combinações de geometria do teclado.
+- O primeiro CI detectou overflow de 4 px a 390 px em Configurações. O botão
+  de permissão passa a quebrar linha dentro da largura disponível; prova adicional
+  usa um contêiner de 180 px para cobrir diferenças de fontes entre ambientes.
 - Hook X11 real em Xvfb: outro processo recebeu texto, modificadores e solturas
   enquanto as ações foram executadas; sem registro exclusivo.
 - Ciclo de vida: encerramento e drenagem passaram. Auditoria de runtime: completa,

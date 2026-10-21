@@ -998,6 +998,8 @@ async function toggleLinuxInput() {
   try {
     state = await api.setLinuxInputEnabled(!state.linuxInput.enabled);
   } catch {
+    // The invoke rejection may arrive before the coalesced status event.
+    try { state = await api.getState(); } catch { /* Closing; use the last known state. */ }
     toast(state.linuxInput.message, 'error');
   } finally {
     linuxInputPending = false;

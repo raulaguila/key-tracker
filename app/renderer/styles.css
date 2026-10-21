@@ -338,6 +338,7 @@ summary > span { font-size: 12px; color: var(--muted); font-weight: 400; margin-
 .keyboard-caption { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: 11px; color: var(--muted); }
 .settings-form, .settings-section { max-width: 1080px; padding-bottom: var(--space-8); margin-bottom: var(--space-8); border-bottom: 1px solid var(--line); }
 .support-details > summary { font-size: 16px; padding-top: 0; }
+#linux-input-toggle { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .storage-details { margin-top: var(--space-4); }
 .settings-form .form-footer { padding-bottom: var(--space-2); }
 .section-heading { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-6); }

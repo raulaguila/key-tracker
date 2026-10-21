@@ -20,11 +20,13 @@ module.exports = async ({ evaluate, click, until, nativeState, nativeEvaluate, s
     await click('[data-view="settings"]');
     await until('Boolean(document.querySelector("#linux-input-toggle"))', 'Wayland setup visible');
     assert.match(await evaluate('return document.querySelector("#linux-input-status").textContent'), /desabilitada/);
+    assert.equal(await evaluate('const toggle=document.querySelector("#linux-input-toggle");const section=toggle.closest("details");const previous=section.style.width;section.style.width="180px";const fits=toggle.getBoundingClientRect().right<=section.getBoundingClientRect().right;section.style.width=previous;return fits;'), true, 'Permission button wraps inside narrow settings independently of installed fonts');
     await click('#linux-input-toggle');
     await until('document.querySelector("#linux-input-toggle").disabled', 'Permission progress prevents duplicate requests');
     await nativeEvaluate('globalThis.__waylandAnswer(false)');
     await until('document.querySelector("#linux-input-status").dataset.status==="denied" && !document.querySelector("#linux-input-toggle").disabled', 'Permission denial stays actionable');
     assert.doesNotMatch(await evaluate('return document.querySelector("#toast").textContent'), /Error invoking|dobra:/);
+    assert.match(await evaluate('return document.querySelector("#toast").textContent'), /cancelada|negada/);
     assert.equal(await evaluate('return document.querySelector("#linux-input-toggle").disabled'), false);
     await evaluate('document.querySelector("#linux-input-toggle").scrollIntoView({block:"center"});');
     await shot('wayland-permission-denied');
