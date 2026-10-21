@@ -1,7 +1,7 @@
 const { EventEmitter } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
-const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity } = require('./config.cjs');
+const { validateConfig, effectiveShortcut, electronShortcut, applicationIdentity, DEFAULT_PANEL_SHORTCUT } = require('./config.cjs');
 const { executeAction, prepareAction, previewAction, freezePreparedAction, actionErrorMessage, validateFileTargets } = require('./actions.cjs');
 const { KeyGestures, shortcutModifiers, matchesModifiers } = require('./key-gestures.cjs');
 const { PassiveShortcuts } = require('./passive-shortcuts.cjs');
@@ -38,6 +38,10 @@ class Engine extends EventEmitter {
     this.previews = new Map();
     this.enabled = false;
     this.armed = false;
+    this.panelArmed = false;
+    this.momentary = null;
+    this.undoStack = [];
+    this.redoStack = [];
     this.editing = false;
     this.registrations = new Map();
     this.failed = [];
@@ -51,6 +55,7 @@ class Engine extends EventEmitter {
     this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
     this.input = { mode: 'off', message: '' };
+    this.inputDevices = { supported: false, devices: [], selectedId: this.config.settings.inputDeviceId ?? null, status: 'unavailable', message: 'Seleção de teclado indisponível.' };
     this.linuxInput = { supported: platform === 'linux' && session === 'wayland', enabled: false, status: 'disabled', message: '' };
     this.inputGroupCache = new Map();
     this.gestures = new KeyGestures({
@@ -63,7 +68,7 @@ class Engine extends EventEmitter {
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state({ sharedConfig = false } = {}) {
-    const snapshot = structuredClone({ stopping: this.stopping, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
+    const snapshot = structuredClone({ stopping: this.stopping, configHistory: { canUndo: this.undoStack.length > 0, canRedo: this.redoStack.length > 0 }, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, inputDevices: this.inputDevices, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
     if (sharedConfig && this.snapshotConfig?.revision !== this.configRevision) this.snapshotConfig = { revision: this.configRevision, value: freezeTree(structuredClone(this.config)) };
     snapshot.config = sharedConfig ? this.snapshotConfig.value : structuredClone(this.config);
     return snapshot;
@@ -118,7 +123,7 @@ class Engine extends EventEmitter {
 
   setLayer(id) {
     if (!this.config.layers.some(layer => layer.id === id)) throw new Error('Camada não encontrada.');
-    if (id !== this.activeLayerId) this.resetInput();
+    if (this.momentary || id !== this.activeLayerId) this.resetInput();
     this.activeLayerId = id;
     this.manualLayerId = id;
     this.pendingApplication = false;
@@ -139,6 +144,7 @@ class Engine extends EventEmitter {
     const changed = JSON.stringify(next.current) !== JSON.stringify(this.application.current) || next.status !== this.application.status;
     this.application = structuredClone(next);
     if (changed) {
+      if (this.momentary) this.resetInput();
       if (this.editing) this.pendingApplication = true;
       else { this.applyApplication(); this.syncShortcuts(); }
     }
@@ -165,10 +171,18 @@ class Engine extends EventEmitter {
     }
   }
 
-  async saveConfig(config) {
+  async saveConfig(config, { history = 'edit' } = {}) {
     const valid = validateConfig(config, this.platform);
     const serialized = JSON.stringify(valid);
     await this.storage.save(valid);
+    if (serialized !== this.serializedConfig) {
+      if (history === 'undo') { this.undoStack.pop(); this.redoStack.push(structuredClone(this.config)); }
+      else if (history === 'redo') { this.redoStack.pop(); this.undoStack.push(structuredClone(this.config)); }
+      else { this.undoStack.push(structuredClone(this.config)); this.redoStack.length = 0; }
+      this.undoStack = this.undoStack.slice(-10);
+      this.redoStack = this.redoStack.slice(-10);
+    }
+    if (history !== 'edit') this.cancelAllExecutions();
     this.resetInput();
     const contextRules = value => JSON.stringify([value.settings.autoSwitchLayers, value.layers.map(layer => [layer.id, layer.applications])]);
     const contextChanged = contextRules(this.config) !== contextRules(valid);
@@ -198,13 +212,23 @@ class Engine extends EventEmitter {
     return this.publish();
   }
 
+  undoConfig() { return this.undoStack.length ? this.saveConfig(this.undoStack.at(-1), { history: 'undo' }) : Promise.resolve(this.state()); }
+
+  redoConfig() { return this.redoStack.length ? this.saveConfig(this.redoStack.at(-1), { history: 'redo' }) : Promise.resolve(this.state()); }
+
   syncShortcuts() {
     const desired = new Map();
     const unavailable = new Map();
+    if (this.armed || this.panelArmed) {
+      const panel = this.config.settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT;
+      desired.set(effectiveShortcut(panel, this.platform), panel);
+    }
     if (this.armed) {
       const pause = this.config.settings.pauseShortcut;
       desired.set(effectiveShortcut(pause, this.platform), pause);
       if (this.enabled && !this.editing) {
+        const momentary = this.config.settings.momentaryShortcut;
+        if (momentary) desired.set(effectiveShortcut(momentary, this.platform), momentary);
         const cycle = this.config.settings.layerShortcut;
         desired.set(effectiveShortcut(cycle, this.platform), cycle);
         const inputGroups = new Set(this.inputGroups().map(group => group.effective));
@@ -235,6 +259,10 @@ class Engine extends EventEmitter {
 
   handleShortcut(effective) {
     const settings = this.config.settings;
+    if (effective === effectiveShortcut(settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, this.platform)) {
+      if (!this.disposed && !this.stopping && this.input.mode === 'global' && (this.armed || this.panelArmed)) this.emit('quick-panel');
+      return;
+    }
     const isPause = effective === effectiveShortcut(settings.pauseShortcut, this.platform);
     if (isPause) {
       if (this.stopping || this.disposed) return;
@@ -269,7 +297,7 @@ class Engine extends EventEmitter {
   needsInput() {
     // Keep observing releases and the pause/resume control after activation,
     // including press-only configurations. Visual tracking is independent.
-    return this.armed && !this.disposed;
+    return (this.armed || this.panelArmed) && !this.disposed;
   }
 
   inputGroups() {
@@ -291,25 +319,49 @@ class Engine extends EventEmitter {
 
   updateInput({ mode, message = '' }) {
     if (!['off', 'starting', 'global', 'unavailable'].includes(mode)) throw new Error('Estado de entrada inválido.');
-    if (mode === this.input.mode && message === this.input.message) return this.state();
+    const panelArmedNow = this.tracking.enabled && !this.panelArmed;
+    if (panelArmedNow) this.panelArmed = true;
+    if (!panelArmedNow && mode === this.input.mode && message === this.input.message) return this.state();
     if (mode !== 'global') this.resetInput();
     const modeChanged = mode !== this.input.mode;
     this.input = { mode, message: String(message).slice(0, 500) };
-    if (modeChanged) this.syncShortcuts();
+    if (modeChanged || panelArmedNow) this.syncShortcuts();
     return this.publish();
   }
 
   handleInput(event) {
+    if (this.momentary && (event?.direction === 'up' && event.code === this.momentary.code || [...this.momentary.modifiers].some(flag => !event?.[flag]))) {
+      this.resetInput();
+      this.publish();
+    }
     const shortcut = !this.disposed && this.input.mode === 'global' ? this.shortcutsAPI.observe?.(event) : null;
-    const control = shortcut && [this.config.settings.pauseShortcut, this.config.settings.layerShortcut].some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
+    const settings = this.config.settings;
+    const momentary = shortcut && settings.momentaryShortcut && effectiveShortcut(settings.momentaryShortcut, this.platform) === shortcut.effective;
+    const control = shortcut && [settings.pauseShortcut, settings.layerShortcut, settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, ...(settings.momentaryShortcut ? [settings.momentaryShortcut] : [])].some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
     // Controls take priority even over a conflicting imported physical position.
     // Resolve the shortcut before a gesture can change layers on this same event.
-    if (control) shortcut.callback();
+    if (momentary) {
+      if (this.enabled && !this.editing && !this.stopping) {
+        this.resetInput();
+        this.momentary = { previousLayerId: this.activeLayerId, code: event.code, modifiers: shortcutModifiers(shortcut.effective) };
+        this.activeLayerId = settings.momentaryLayerId;
+        this.syncShortcuts();
+        this.publish();
+      }
+    } else if (control) shortcut.callback();
     const captured = this.gestures.handle(event, { dispatch: !control });
     if (!control && !captured) shortcut?.callback();
   }
 
-  resetInput() { this.gestures.reset(); }
+  resetInput() {
+    this.gestures.reset();
+    if (this.momentary) {
+      const previous = this.momentary.previousLayerId;
+      this.momentary = null;
+      if (this.config.layers.some(layer => layer.id === previous)) this.activeLayerId = previous;
+      this.syncShortcuts();
+    }
+  }
 
   synchronizeInput(pressed) {
     this.resetInput();
@@ -449,7 +501,7 @@ class Engine extends EventEmitter {
 
   dispose() {
     this.disposed = true;
-    this.resetInput(); this.enabled = false; this.armed = false;
+    this.resetInput(); this.enabled = false; this.armed = false; this.panelArmed = false;
     for (const execution of this.executions.values()) if (!execution.finished) { execution.state.phase = 'cancelling'; execution.controller.abort(); }
     this.previews.clear(); this.shortcutsAPI.unregisterAll(); this.registrations.clear();
   }

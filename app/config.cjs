@@ -1,5 +1,8 @@
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
+const { validResultName, parseResultPath, resultReferences } = require('./sequence-data.cjs');
+const DEFAULT_PANEL_SHORTCUT = 'CommandOrControl+Shift+Space';
+const NUMPAD_KEYS = ['NumpadAdd', 'NumpadSubtract', 'NumpadMultiply', 'NumpadDivide', 'NumpadDecimal', 'NumpadEnter', 'NumpadEqual', 'NumpadComma', ...Array.from({ length: 10 }, (_, i) => 'Numpad' + i)];
 
 const MAX_CONFIG_BYTES = 256 * 1024;
 const MAX_CONFIG_FILE_BYTES = 2 * 1024 * 1024;
@@ -9,6 +12,7 @@ const ALIASES = { ctrl: 'Control', control: 'Control', cmd: 'Command', command: 
 const PUNCTUATION = { '=': 'Equal', '-': 'Minus', ',': 'Comma', '.': 'Period', '/': 'Slash', '\\': 'Backslash', ';': 'Semicolon', "'": 'Quote', '`': 'Backquote', '[': 'BracketLeft', ']': 'BracketRight' };
 const ELECTRON_KEYS = { Equal: '=', Minus: '-', Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Semicolon: ';', Quote: "'", Backquote: '`', BracketLeft: '[', BracketRight: ']' };
 const PHYSICAL_KEYS = new Set(['Space', 'Tab', 'Enter', 'Escape', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Equal', 'Minus', 'Comma', 'Period', 'Slash', 'Backslash', 'Semicolon', 'Quote', 'Backquote', 'BracketLeft', 'BracketRight', 'IntlBackslash', 'IntlRo', 'IntlYen', ...Array.from({ length: 26 }, (_, i) => 'Key' + String.fromCharCode(65 + i)), ...Array.from({ length: 10 }, (_, i) => 'Digit' + i), ...Array.from({ length: 24 }, (_, i) => 'F' + (i + 1))]);
+for (const key of NUMPAD_KEYS) { KEYS.add(key); PHYSICAL_KEYS.add(key); ALIASES[key.toLowerCase().replace('numpad', 'num')] = key; }
 
 function text(value, label, max = 200, allowEmpty = false) {
   if (typeof value !== 'string' || value.length > max || (!allowEmpty && !value.trim())) throw new Error(`${label} inválido (máximo ${max} caracteres).`);
@@ -70,19 +74,31 @@ function validateOpenTarget(kind, target, platform = process.platform) {
   return target;
 }
 
-function validateAction(action, platform = process.platform, nested = false) {
+function validateActionBase(action, platform, nested) {
   if (!action || typeof action !== 'object') throw new Error('Configure uma ação.');
   switch (action.type) {
     case 'log': return { type: 'log', message: text(action.message, 'Mensagem', 16000) };
     case 'clipboard': return { type: 'clipboard', text: text(action.text, 'Texto para copiar', 64000) };
-    case 'open': return { type: 'open', kind: action.kind, target: validateOpenTarget(action.kind, action.target, platform) };
+    case 'open': return { type: 'open', kind: action.kind, target: nested && resultReferences(action.target).length ? text(action.target, 'Destino', 4000) : validateOpenTarget(action.kind, action.target, platform) };
     case 'notification': return { type: 'notification', title: text(action.title, 'Título da notificação', 120), message: text(action.message ?? '', 'Mensagem da notificação', 4000, true) };
     case 'layer': return { type: 'layer', layerId: text(action.layerId, 'Camada de destino', 100) };
     case 'sequence': {
       if (nested) throw new Error('Sequências não podem conter outras sequências.');
       if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 10) throw new Error('Configure entre 1 e 10 etapas na sequência.');
       if (action.stepDelayMs !== undefined && (!Number.isInteger(action.stepDelayMs) || action.stepDelayMs < 0 || action.stepDelayMs > 60000)) throw new Error('Delay entre etapas deve ser um inteiro entre 0 e 60000 ms.');
-      return { type: 'sequence', ...(action.stepDelayMs === undefined ? {} : { stepDelayMs: action.stepDelayMs }), steps: action.steps.map(step => validateAction(step, platform, true)) };
+      const names = new Set();
+      const steps = action.steps.map(step => {
+        const normalized = validateAction(step, platform, true);
+        if (normalized.type === 'log' && resultReferences(normalized.message).length) throw new Error('Resultados HTTP não podem ser gravados no histórico por uma ação de log. Use uma ação de arquivo.');
+        const references = [...resultReferences(normalized), ...(normalized.condition ? [normalized.condition.path] : [])];
+        for (const reference of references) if (!names.has(parseResultPath(reference)[1])) throw new Error('Use somente resultados de etapas HTTP anteriores.');
+        if (normalized.resultName) {
+          if (names.has(normalized.resultName)) throw new Error('Nomes de resultado devem ser únicos na sequência.');
+          names.add(normalized.resultName);
+        }
+        return normalized;
+      });
+      return { type: 'sequence', ...(action.stepDelayMs === undefined ? {} : { stepDelayMs: action.stepDelayMs }), steps };
     }
     case 'file': {
       const filename = text(action.filename, 'Nome do arquivo', 200);
@@ -93,8 +109,10 @@ function validateAction(action, platform = process.platform, nested = false) {
     case 'http': {
       const url = text(action.url, 'URL', 4000);
       let parsed;
-      try { parsed = new URL(url); } catch { throw new Error('Informe uma URL HTTP ou HTTPS completa.'); }
-      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Use HTTP/HTTPS sem credenciais embutidas na URL.');
+      if (!(nested && resultReferences(url).length)) {
+        try { parsed = new URL(url); } catch { throw new Error('Informe uma URL HTTP ou HTTPS completa.'); }
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Use HTTP/HTTPS sem credenciais embutidas na URL.');
+      }
       if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].includes(action.method)) throw new Error('Método HTTP inválido.');
       const headers = stringMap(action.headers ?? {}, 'Headers');
       try { new Headers(headers); } catch { throw new Error('Headers HTTP inválidos.'); }
@@ -106,20 +124,53 @@ function validateAction(action, platform = process.platform, nested = false) {
   }
 }
 
+function validateAction(action, platform = process.platform, nested = false) {
+  const result = validateActionBase(action, platform, nested);
+  if (result.type === 'open' && !['url', 'path', 'application'].includes(result.kind)) throw new Error('Tipo de destino inválido.');
+  if (!nested) {
+    if (result.type !== 'sequence' && resultReferences(result).length) throw new Error('Resultados anteriores só podem ser usados em sequências.');
+    return result;
+  }
+  if (action.delayBeforeMs !== undefined) {
+    if (!Number.isInteger(action.delayBeforeMs) || action.delayBeforeMs < 0 || action.delayBeforeMs > 60000) throw new Error('Delay da etapa deve ser um inteiro entre 0 e 60000 ms.');
+    result.delayBeforeMs = action.delayBeforeMs;
+  }
+  if (action.resultName !== undefined) {
+    if (action.type !== 'http' || !validResultName(action.resultName)) throw new Error('Nome de resultado HTTP inválido (até 32 caracteres).');
+    result.resultName = action.resultName;
+  }
+  if (action.condition !== undefined) {
+    const condition = action.condition;
+    if (!condition || typeof condition !== 'object' || !['equals', 'notEquals', 'contains', 'exists'].includes(condition.operator)) throw new Error('Condição da etapa inválida.');
+    parseResultPath(condition.path);
+    result.condition = { path: condition.path, operator: condition.operator,
+      ...(condition.value === undefined && condition.operator === 'exists' ? {} : { value: text(condition.value, 'Valor da condição', 4000, true) }) };
+  }
+  return result;
+}
+
 function validateConfig(value, platform = process.platform) {
   if (!value || Buffer.byteLength(JSON.stringify(value)) > MAX_CONFIG_FILE_BYTES) throw new Error('Configuração de entrada deve ter até 2 MiB.');
   if (value.version !== 1) throw new Error('Versão de configuração não suportada.');
   if (!Array.isArray(value.layers) || !value.layers.length || value.layers.length > 30) throw new Error('Cadastre entre 1 e 30 camadas.');
   const settings = value.settings || {};
+  const hasMomentary = settings.momentaryShortcut !== undefined || settings.momentaryLayerId !== undefined;
   const result = {
     version: 1,
     settings: { layerShortcut: normalizeShortcut(settings.layerShortcut), pauseShortcut: normalizeShortcut(settings.pauseShortcut), cooldownMs: settings.cooldownMs,
       autoSwitchLayers: optionalBoolean(settings.autoSwitchLayers, 'Troca por aplicativo', false), closeToTray: optionalBoolean(settings.closeToTray, 'Minimizar na bandeja', false) },
     layers: []
   };
+  if (hasMomentary) Object.assign(result.settings, { momentaryShortcut: normalizeShortcut(settings.momentaryShortcut), momentaryLayerId: text(settings.momentaryLayerId, 'Camada temporária', 100) });
+  if (settings.panelShortcut !== undefined) result.settings.panelShortcut = normalizeShortcut(settings.panelShortcut);
+  if (settings.inputDeviceId !== undefined) {
+    const deviceId = text(settings.inputDeviceId, 'Teclado', 160);
+    if (/[\x00-\x1f\x7f]/.test(deviceId)) throw new Error('Identificador de teclado inválido.');
+    result.settings.inputDeviceId = deviceId;
+  }
   if (!Number.isInteger(settings.cooldownMs) || settings.cooldownMs < 100 || settings.cooldownMs > 10000) throw new Error('Intervalo entre ações deve ser de 100 a 10000 ms.');
-  const reserved = [result.settings.layerShortcut, result.settings.pauseShortcut].map(k => effectiveShortcut(k, platform));
-  if (reserved[0] === reserved[1]) throw new Error('Os atalhos de camada e pausa devem ser diferentes.');
+  const reserved = [result.settings.layerShortcut, result.settings.pauseShortcut, result.settings.panelShortcut ?? DEFAULT_PANEL_SHORTCUT, ...(hasMomentary ? [result.settings.momentaryShortcut] : [])].map(k => effectiveShortcut(k, platform));
+  if (new Set(reserved).size !== reserved.length) throw new Error('Os atalhos de camada, pausa, painel e temporária devem ser diferentes.');
   const ids = new Set();
   const associations = new Set();
   const id = value => { text(value, 'ID', 100); if (ids.has(value)) throw new Error('IDs duplicados na configuração.'); ids.add(value); return value; };
@@ -164,6 +215,7 @@ function validateConfig(value, platform = process.platform) {
     result.layers.push({ id: id(layer.id), name: text(layer.name, 'Nome da camada', 80), description: text(layer.description ?? '', 'Descrição', 240, true), applications: normalizedApplications, bindings });
   }
   const layerIds = new Set(result.layers.map(layer => layer.id));
+  if (hasMomentary && !layerIds.has(result.settings.momentaryLayerId)) throw new Error('A camada temporária não existe.');
   for (const layer of result.layers) for (const binding of layer.bindings) {
     const actions = binding.action.type === 'sequence' ? binding.action.steps : [binding.action];
     if (actions.some(action => action.type === 'layer' && !layerIds.has(action.layerId))) throw new Error(`A ação “${binding.name}” aponta para uma camada inexistente. Altere ou remova essa referência antes de remover a camada de destino.`);
@@ -201,4 +253,4 @@ function defaultConfig() {
   };
 }
 
-module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES };
+module.exports = { validateConfig, validateAction, validateOpenTarget, normalizeShortcut, effectiveShortcut, electronShortcut, applicationIdentity, defaultConfig, encodeConfig, decodeConfig, MAX_CONFIG_BYTES, MAX_CONFIG_FILE_BYTES, DEFAULT_PANEL_SHORTCUT };

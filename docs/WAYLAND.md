@@ -11,7 +11,7 @@ não bloqueia e não reinjeta eventos.
 
 1. Instale o pacote `.deb` desta versão pelo gerenciador de pacotes, para instalar
    também o componente e suas dependências. Exemplo: `sudo apt install ./Dobra-0.1.0-linux-amd64.deb`.
-2. Abra **Configurações → Captura e permissões → Habilitar integração com Wayland**.
+2. Abra **Configurações → Captura e permissões** e habilite a integração Linux.
 3. Confira e autorize a solicitação do Polkit. As ações continuam pausadas.
 4. Ative as ações ou o Rastreio. O status mostra quando a entrada está global.
 
@@ -23,6 +23,13 @@ O AppImage contém o cliente, mas precisa do componente instalado no sistema;
 instalar o `.deb` do Dobra também fornece esse componente. Não copie políticas
 ou conceda acesso geral ao grupo `input`. A instalação empacotada atual é Debian/
 Ubuntu; outras distribuições precisam de empacotamento equivalente.
+
+A mesma integração pode ser habilitada no X11 para selecionar um teclado físico.
+O X11 mantém o observador legado como padrão quando ela está desligada. Na
+expansão de dispositivos o protocolo passou à versão 2: atualize também o `.deb`
+instalado ao usar um cliente novo. Cliente/serviço incompatíveis recusam a captura.
+Em Configurações, **Todos os teclados** agrega o seat ou escolha um dispositivo;
+modificadores de outro teclado não entram nas ações do teclado selecionado.
 
 ## Sessão e privacidade
 

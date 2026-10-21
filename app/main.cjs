@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage, nativeTheme } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Storage, readConfigFile, exportConfigSafe } = require('./storage.cjs');
@@ -9,7 +9,10 @@ const { Engine } = require('./engine.cjs');
 const { drainServices, waitForShutdown } = require('./shutdown.cjs');
 const { StateDelivery } = require('./state-delivery.cjs');
 const { Tracker } = require('./tracking.cjs');
+const { QuickPanel } = require('./quick-panel.cjs');
+const { registerProductServices } = require('./product-services.cjs');
 const { WaylandInput } = require('./wayland-input.cjs');
+const { NativeInput } = require('./input-devices.cjs');
 const { encodeConfig } = require('./config.cjs');
 const { writeExport } = require('./safe-export.cjs');
 const { ApplicationMonitor } = require('./application-monitor.cjs');
@@ -32,6 +35,9 @@ else {
   const startup = new Promise((resolve, reject) => { resolveStartup = resolve; rejectStartup = reject; });
   void startup.catch(() => {});
   let tracker;
+  let quickPanel;
+  let quickPanelTheme = 'system';
+  let productServices;
   let monitor;
   let tray;
   let lifecycle;
@@ -48,7 +54,7 @@ else {
   const session = process.platform === 'linux' ? (process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY ? 'wayland' : 'x11') : 'native';
   let configWrite = Promise.resolve();
   const pendingOperations = new Set();
-  const drainChannels = new Set(['save-config', 'import-config', 'restore-backup', 'export-config', 'export-history', 'export-diagnostics']);
+  const drainChannels = new Set(['save-config', 'import-config', 'restore-backup', 'export-config', 'export-history', 'export-diagnostics', 'undo-config', 'redo-config', 'apply-layer-import', 'export-layer']);
   const serialConfig = operation => {
     if (servicesStopping) return Promise.reject(new Error('O aplicativo está encerrando.'));
     const result = configWrite.catch(() => {}).then(operation);
@@ -127,6 +133,7 @@ else {
     servicesStopping = true;
     rejectStartup(new Error('Inicialização cancelada.'));
     visualState.dispose();
+    quickPanel?.dispose(); productServices?.dispose();
     const draining = drainServices({ engine, tracker, desktopActions, tray, monitor, storage, configuration: Promise.allSettled([configWrite, ...pendingOperations]) });
     void (async () => {
       while (!await waitForShutdown(draining)) {
@@ -145,6 +152,10 @@ else {
   app.whenReady().then(async () => {
     app.setAboutPanelOptions({ applicationName: 'Dobra', applicationVersion: app.getVersion(), iconPath: path.join(__dirname, 'assets', 'icon.png') });
     handle('get-state', async () => { await startup; return statePayload(engine.state(), true); });
+    handle('set-quick-panel-theme', theme => {
+      if (!['light', 'dark', 'system'].includes(theme)) throw new Error('Tema inválido.');
+      quickPanelTheme = theme; quickPanel?.setTheme(theme);
+    });
     createWindow();
     const protection = await createConfigProtection({ safeStorage, platform: process.platform });
     if (servicesStopping) return;
@@ -155,7 +166,8 @@ else {
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true),
-      wayland: process.platform === 'linux' && session === 'wayland' ? new WaylandInput() : undefined });
+      wayland: process.platform === 'linux' ? new WaylandInput() : undefined,
+      nativeInput: ['win32', 'darwin'].includes(process.platform) ? new NativeInput() : undefined });
     const suspendActions = () => {
       const wasEnabled = engine.enabled;
       tracker.suspend();
@@ -181,6 +193,11 @@ else {
     handle('run-binding', stateResult((layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId)));
     handle('cancel-execution', stateResult(bindingId => engine.cancelExecution(bindingId)));
     handle('cancel-all-executions', stateResult(() => engine.requestStop()));
+    productServices = registerProductServices({ engine, storage, handle, stateResult, serialConfig, dialog, getWindow: () => window });
+    quickPanel = new QuickPanel({ BrowserWindow, ipcMain, nativeTheme, engine, showMain: showWindow });
+    handle('show-quick-panel', () => quickPanel.show());
+    handle('hide-quick-panel', () => quickPanel.hide());
+    quickPanel.setTheme(quickPanelTheme);
     handle('show-window', showWindow);
     handle('confirm-close', () => lifecycle?.confirm());
     handle('cancel-close', () => lifecycle?.cancel());

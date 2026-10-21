@@ -232,3 +232,54 @@ preserva o arquivo inválido. O diagnóstico usa uma allowlist independente de S
 O CI cobre Windows x64, Linux x64, macOS ARM64 e macOS Intel x64. Builds de teste,
 candidatos assinados e releases públicas são etapas diferentes. Contratos de
 assinatura e QA instalado estão no guia de produção; não há atualização automática.
+
+## Expansão de produtividade — aceita em 21/10/2026
+
+O usuário autorizou implementar os oito recursos propostos. São adições opcionais
+à configuração v1; configurações existentes continuam válidas. Nenhum recurso
+ativa ações automaticamente nem desfaz efeitos já executados.
+
+- `settings.momentaryShortcut` e `momentaryLayerId`: ambos opcionais e presentes
+  juntos. Segurar ativa a camada temporária; soltar restaura a anterior. Pausa,
+  edição, troca manual/aplicativo, perda da entrada e saída cancelam a temporária.
+- `settings.panelShortcut`: opcional, padrão efetivo `CommandOrControl+Shift+Space`;
+  reservado quando configurado/padrão, controlado pelo observador passivo após
+  primeira ativação/Rastreio. Engine emite `quick-panel` ao acioná-lo. Painel também
+  abre por botão, não toma o lugar da janela principal e não executa ações.
+- `settings.inputDeviceId`: string opcional, até 160 caracteres; ausente = todos.
+  Captura por dispositivo exige identificação real. Backend informa capacidade,
+  dispositivos disponíveis e seleção ausente; não simula suporte ou mistura
+  teclado não selecionado. Perda/troca do dispositivo cancela gestos e pausa ações.
+- Etapas de sequência aceitam `delayBeforeMs` (0–60000), `resultName` somente HTTP
+  (identificador simples único de até 32 caracteres) e `condition` opcional:
+  `{path:"steps.nome.status"|"steps.nome.body"|"steps.nome.json.campo",operator:
+  "equals"|"notEquals"|"contains"|"exists",value?:string}`. Só resultados de etapas
+  anteriores. Conteúdo aceita `{{steps.nome.json.campo}}` e equivalentes. JSON paths
+  limitados, sem eval/protótipos. Resposta capturada até 64 KiB, timeout e cancelamento
+  também cobrem leitura. Resultados são efêmeros, não entram em histórico/diagnóstico.
+  Prévia identifica valores dependentes de execução sem fazer requisições.
+- Engine fornece `configHistory:{canUndo,canRedo}` e métodos `undoConfig()` /
+  `redoConfig()`: até dez configurações anteriores em memória, persistência antes
+  de aplicar, pausa/cancelamento ao reverter. Nova edição elimina redo. Não desfaz
+  arquivos/requisições. Main serializa as mutações como os salvamentos atuais.
+
+API adicional (IPC autorizado e allowlist no preload):
+
+- `getTemplates()` → `{id,name,description}[]`, catálogo local de três modelos.
+- `previewLayerImport(templateId?)` → `{token,layers:[{id,name,count,keys,dependencies}],removedHeaders,removedApplications}`;
+  sem argumento abre diálogo nativo. Origem normalizada e limitada; headers e
+  associações por aplicativo são removidos da cópia portátil.
+- `planLayerImport(token,{layers:[{id,targetId?:string}],resolution:"skip"|"replace"})`
+  → `{planId,summary,conflicts}`; target ausente cria camada, presente mescla na
+  existente. Dependências de troca de camada exigem seleção e IDs são remapeados.
+- `applyLayerImport(planId)` → State, consome prévia uma vez, verifica revisão,
+  mantém pausado e persiste antes de aplicar. Prévia expira em cinco minutos,
+  máximo dez. `exportLayer(layerId)` inclui dependências e remove headers.
+- `undoConfig()`, `redoConfig()` → State.
+- `showQuickPanel()`, `hideQuickPanel()` → sem executar ações.
+
+State inclui `inputDevices:{supported,devices:[{id,name}],selectedId,status,message}`
+e `configHistory`. Wizard e paleta Ctrl/Cmd+K são locais ao renderer; o assistente
+é retomável por Configurações, testa entrada com ações pausadas e usa a biblioteca
+para criar a primeira ação. O painel usa projeção sem headers/conteúdos/caminhos,
+com camada/status e nomes/atalhos. Não há novas dependências de serviço/nuvem.

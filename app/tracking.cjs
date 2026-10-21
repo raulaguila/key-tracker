@@ -1,8 +1,10 @@
 const path = require('node:path');
 
 class Tracker {
-  constructor({ engine, fork, accessibility = () => true, startupMs = 5000, wayland }) {
-    Object.assign(this, { engine, fork, accessibility, startupMs, wayland });
+  constructor({ engine, fork, accessibility = () => true, startupMs = 5000, wayland, nativeInput }) {
+    Object.assign(this, { engine, fork, accessibility, startupMs, wayland, nativeInput });
+    this.linuxRequested = engine.session === 'wayland';
+    this.lastDeviceId = engine.config.settings.inputDeviceId || '';
     this.worker = null;
     this.workerMode = 'off';
     this.timer = null;
@@ -15,13 +17,14 @@ class Tracker {
     this.retiring = new Map();
     this.onState = () => this.configure();
     engine.on('state', this.onState);
-    if (wayland) {
+    const integration = nativeInput || wayland;
+    if (integration) {
       this.onLinuxState = () => this.configure();
       this.onLinuxKey = event => { if (this.disposed) return; engine.handleInput?.(event); if (this.visualEnabled) engine.emit('key', event); };
       this.onLinuxReset = pressed => { engine.synchronizeInput?.(pressed); if (this.visualEnabled) engine.emit('key', { reset: true, pressed }); };
-      this.onLinuxInterrupted = () => { engine.resetInput?.(); if (engine.enabled) engine.setEnabled(false); };
-      wayland.on('state', this.onLinuxState); wayland.on('key', this.onLinuxKey);
-      wayland.on('reset', this.onLinuxReset); wayland.on('interrupted', this.onLinuxInterrupted);
+      this.onLinuxInterrupted = () => { engine.resetInput?.(); engine.synchronizeInput?.([]); if (engine.enabled) engine.setEnabled(false); };
+      integration.on('state', this.onLinuxState); integration.on('key', this.onLinuxKey);
+      integration.on('reset', this.onLinuxReset); integration.on('interrupted', this.onLinuxInterrupted);
     }
     this.configure();
   }
@@ -32,25 +35,33 @@ class Tracker {
     if (typeof enabled !== 'boolean') throw new Error('Estado de rastreio inválido.');
     if (this.disposed) return this.state();
     this.visualEnabled = enabled;
-    if (enabled) this.failure = '';
+    if (enabled) { this.failure = ''; this.nativeInput?.retry(); }
     this.configure();
     return this.state();
   }
 
   async setLinuxEnabled(enabled) {
     if (typeof enabled !== 'boolean' || !this.wayland || this.disposed) throw new Error('Integração Linux indisponível.');
+    this.linuxRequested = enabled || this.engine.session === 'wayland';
+    this.engine.resetInput?.(); this.engine.synchronizeInput?.([]);
+    if (this.engine.enabled) this.engine.setEnabled(false);
+    this.stopWorker();
+    this.wayland.update({ config: this.engine.config, observe: this.inputDemand || this.visualEnabled, visual: this.visualEnabled });
     if (enabled) {
       if (!this.wayland.state().enabled && this.engine.enabled) this.engine.setEnabled(false);
       await this.wayland.enable();
     }
     else { if (this.engine.enabled) this.engine.setEnabled(false); await this.wayland.disable(); }
+    this.configure();
     return this.state();
   }
+
+  integration() { return this.nativeInput || (this.wayland && this.linuxRequested ? this.wayland : undefined); }
 
   suspend() {
     this.engine.resetInput?.();
     if (this.engine.enabled) this.engine.setEnabled(false);
-    this.wayland?.suspend();
+    this.integration()?.suspend();
   }
 
   configure() {
@@ -58,17 +69,27 @@ class Tracker {
     this.configuring = true;
     try {
       const needed = Boolean(this.engine.needsInput?.());
-      if ((needed && !this.inputDemand) || (this.engine.enabled && !this.lastEnabled)) this.failure = '';
+      if ((needed && !this.inputDemand) || (this.engine.enabled && !this.lastEnabled)) { this.failure = ''; this.nativeInput?.retry(); }
       this.lastEnabled = Boolean(this.engine.enabled);
       this.inputDemand = needed;
-      if (this.wayland) {
-        this.wayland.update({ config: this.engine.config, observe: needed || this.visualEnabled, visual: this.visualEnabled });
+      const selectedId = this.engine.config.settings.inputDeviceId || '';
+      if (selectedId !== this.lastDeviceId) {
+        this.lastDeviceId = selectedId; this.engine.resetInput?.(); this.engine.synchronizeInput?.([]);
+        if (this.engine.enabled) this.engine.setEnabled(false);
+      }
+      const integration = this.integration();
+      if (integration) {
+        this.stopWorker();
+        integration.update({ config: this.engine.config, observe: needed || this.visualEnabled, visual: this.visualEnabled });
         this.report();
         return;
       }
       if (!needed && !this.visualEnabled) {
         this.failure = '';
         this.stopWorker();
+      } else if (selectedId) {
+        this.stopWorker();
+        this.failure = 'Seleção de teclado exige habilitar a integração Linux por dispositivo. O backend X11 padrão observa todos os teclados.';
       } else if (this.engine.session === 'wayland') {
         this.stopWorker();
         this.failure = 'No Wayland, a observação global de teclas está indisponível. As ações por tecla não serão executadas. Use uma sessão X11 no Linux.';
@@ -81,11 +102,18 @@ class Tracker {
         else this.startWorker();
       }
       this.report();
-    } finally { this.configuring = false; }
+    } finally {
+      this.configuring = false;
+      // Enabling visualization can arm the panel control during updateInput.
+      if (!this.disposed && Boolean(this.engine.needsInput?.()) !== this.inputDemand) this.configure();
+    }
   }
 
   report() {
-    const integration = this.wayland?.state();
+    const integration = this.integration()?.state();
+    const deviceState = this.integration()?.deviceState?.() || { supported: false, devices: [], selectedId: this.engine.config.settings.inputDeviceId || '', status: 'unsupported', message: 'O backend X11 padrão observa todos os teclados. Habilite a integração Linux para selecionar um dispositivo.' };
+    const devicesChanged = JSON.stringify(this.engine.inputDevices) !== JSON.stringify(deviceState);
+    this.engine.inputDevices = deviceState;
     const nativeMode = integration ? integration.status === 'global' ? 'global' : integration.status === 'authorizing' ? 'starting' : 'local' : this.worker ? this.workerMode : 'local';
     const visualMode = !this.visualEnabled ? 'off' : nativeMode;
     const tracking = {
@@ -108,11 +136,17 @@ class Tracker {
     };
     const trackingChanged = JSON.stringify(this.engine.tracking) !== JSON.stringify(tracking);
     const inputChanged = JSON.stringify(this.engine.input) !== JSON.stringify(input);
-    const integrationChanged = integration && JSON.stringify(this.engine.linuxInput) !== JSON.stringify(integration);
-    if (integration) this.engine.linuxInput = integration;
+    const linuxState = this.wayland?.state();
+    const integrationChanged = linuxState && JSON.stringify(this.engine.linuxInput) !== JSON.stringify(linuxState);
+    if (linuxState) this.engine.linuxInput = linuxState;
     this.engine.tracking = tracking;
-    if (inputChanged && this.engine.updateInput) this.engine.updateInput(input);
-    else if (trackingChanged || integrationChanged) this.engine.publish();
+    if ((inputChanged || trackingChanged && this.visualEnabled) && this.engine.updateInput) {
+      const revision = this.engine.stateRevision;
+      this.engine.updateInput(input);
+      // Input availability may stay identical while visualization or device
+      // metadata changes. Deliver that state before the next reset/key frame.
+      if (this.engine.stateRevision === revision && (trackingChanged || integrationChanged || devicesChanged)) this.engine.publish();
+    } else if (trackingChanged || integrationChanged || devicesChanged) this.engine.publish();
   }
 
   startWorker() {
@@ -187,10 +221,11 @@ class Tracker {
       worker.once('exit', finish);
     })));
     this.engine.off('state', this.onState);
-    if (this.wayland) {
-      this.wayland.off('state', this.onLinuxState); this.wayland.off('key', this.onLinuxKey);
-      this.wayland.off('reset', this.onLinuxReset); this.wayland.off('interrupted', this.onLinuxInterrupted);
-      this.disposePromise = Promise.all([this.disposePromise, this.wayland.dispose()]);
+    const integration = this.nativeInput || this.wayland;
+    if (integration) {
+      integration.off('state', this.onLinuxState); integration.off('key', this.onLinuxKey);
+      integration.off('reset', this.onLinuxReset); integration.off('interrupted', this.onLinuxInterrupted);
+      this.disposePromise = Promise.all([this.disposePromise, integration.dispose()]);
     }
     this.visualEnabled = false;
     this.inputDemand = false;

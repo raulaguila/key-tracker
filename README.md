@@ -35,7 +35,11 @@ real fazem parte do [processo de distribuição](docs/PRODUCTION.md).
 - Organizar atalhos em camadas e alternar entre elas por tecla ou pelo aplicativo.
 - Copiar texto, abrir URLs/arquivos/aplicativos, mostrar notificações, enviar
   requisições HTTP e criar ou acrescentar conteúdo em arquivos.
-- Executar sequências com até dez etapas e configurar o delay entre elas.
+- Executar sequências com até dez etapas, esperas individuais, condições e dados
+  de respostas HTTP entre etapas.
+- Manter uma tecla para usar uma camada temporária e consultar um painel rápido.
+- Começar por modelos locais, importar/mesclar camadas com prévia e desfazer alterações.
+- Localizar ações com Ctrl/Cmd+K e selecionar o teclado físico em backends compatíveis.
 - Disparar ações ao pressionar, enquanto mantém a tecla ou ao soltá-la, com
   delay inicial e intervalo de repetição separados.
 - Conferir teclas pressionadas num teclado visual, com layouts e formatos ajustáveis.

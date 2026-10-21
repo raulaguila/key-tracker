@@ -15,8 +15,8 @@ from evdev import Devices, MODIFIERS
 NAME, PATH, INTERFACE = "io.dobra.Input1", "/io/dobra/Input1", "io.dobra.Input1"
 XML = '''<node><interface name="io.dobra.Input1">
 <method name="Version"><arg type="u" direction="out"/></method>
-<method name="Start"><arg type="s" direction="in"/><arg type="aq" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="h" direction="out"/></method>
-<method name="Configure"><arg type="aq" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/></method>
+<method name="Start"><arg type="s" direction="in"/><arg type="aq" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="s" direction="in"/><arg type="h" direction="out"/></method>
+<method name="Configure"><arg type="aq" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="s" direction="in"/></method>
 <method name="Ping"/><method name="Stop"/>
 </interface></node>'''
 
@@ -31,6 +31,12 @@ def filter_keys(keys, visual, observe):
     if len(keys) > 256 or any(type(code) is not int or not 0 < code <= 255 for code in keys):
         raise ValueError("Invalid key filter")
     return set(keys), bool(visual), bool(observe)
+
+
+def filter_device(identifier):
+    if not isinstance(identifier, str) or len(identifier) > 160 or re.search(r"[\x00-\x1f\x7f]", identifier):
+        raise ValueError("Invalid device selection")
+    return identifier
 
 
 class Authority:
@@ -83,9 +89,10 @@ class Authority:
 
 
 class Session:
-    def __init__(self, service, owner, identity, stream, keys, visual, observe):
+    def __init__(self, service, owner, identity, stream, keys, visual, observe, selected_id=""):
         self.service, self.owner, self.identity, self.stream = service, owner, identity, stream
         self.devices, self.closed = None, False
+        self.selected_id = filter_device(selected_id)
         self.last_ping = time.monotonic()
         self.keys, self.visual, self.observe = filter_keys(keys, visual, observe)
 
@@ -105,17 +112,21 @@ class Session:
         except OSError:
             self.service.end(self.owner, "connection-lost")
 
-    def configure(self, keys, visual, observe):
+    def configure(self, keys, visual, observe, selected_id=""):
+        self.selected_id = filter_device(selected_id)
         self.keys, self.visual, self.observe = filter_keys(keys, visual, observe)
         if not observe:
             if self.devices:
                 self.devices.close()
                 self.devices = None
+            self.send({"type": "devices", "devices": [], "selectedId": self.selected_id})
             self.send({"type": "reset", "held": []})
             self.send({"type": "status", "mode": "idle", "keyboards": 0})
             return
         if not self.devices:
             self.devices = self.service.devices_factory(self.identity["seat"], self.send, lambda reason: self.service.end(self.owner, reason))
+        if hasattr(self.devices, "select"):
+            self.devices.select(self.selected_id)
         self.devices.snapshot()
 
     def close(self, reason):
@@ -157,7 +168,7 @@ class Service:
             return
         try:
             if method == "Version":
-                invocation.return_value(GLib.Variant("(u)", (1,)))
+                invocation.return_value(GLib.Variant("(u)", (2,)))
             elif method == "Start":
                 self.start(owner, parameters.unpack(), invocation)
             elif method == "Stop":
@@ -181,7 +192,8 @@ class Service:
             self.error(invocation, "Unavailable")
 
     def start(self, owner, parameters, invocation):
-        requested, keys, visual, observe = parameters
+        requested, keys, visual, observe, *selection = parameters
+        selected_id = filter_device(selection[0] if selection else "")
         filter_keys(keys, visual, observe)
         if owner in self.pending or owner in self.sessions or len(self.pending) + len(self.sessions) >= 16:
             self.error(invocation, "Busy")
@@ -206,10 +218,10 @@ class Service:
                 server, client = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET | socket.SOCK_CLOEXEC)
                 server.setblocking(False)
                 server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 16384)
-                session = Session(self, owner, identity, server, keys, visual, observe)
+                session = Session(self, owner, identity, server, keys, visual, observe, selected_id)
                 self.sessions[owner] = session
                 try:
-                    session.configure(keys, visual, observe)
+                    session.configure(keys, visual, observe, selected_id)
                     if session.closed:
                         raise OSError("Input unavailable")
                     descriptors = Gio.UnixFDList.new()

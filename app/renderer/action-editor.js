@@ -130,7 +130,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       read = () => ({ type: kind, directory: directory.input.value.trim(), filename: filename.input.value.trim(), mode: mode.input.value, content: contents.input.value });
     } else if (!kind && legacyLog) {
       // Imported configurations remain intact unless another action is chosen.
-      content.append(el('p', { class: 'context-note' }, 'Esta ação antiga de log está disponível apenas para leitura. Escolha outro tipo para substituí-la. O histórico das execuções é registrado automaticamente.'));
+      content.append(el('p', { class: 'context-note' }, 'Esta ação antiga de log está disponível apenas para leitura. Escolha outro tipo para substituí-la. O histórico das execuções é registrado automaticamente. Resultados HTTP anteriores não podem ser gravados em logs legados.'));
       read = () => ({ ...initial });
     } else if (kind === 'sequence' && allowSequence) {
       const delay = makeField('stepDelayMs', 'Delay entre etapas (ms)', value.stepDelayMs ?? 0, { type: 'number', min: 0, max: 60000, step: 1, required: true, hint: 'Após cada etapa terminar, antes da próxima. Zero executa sem espera.' });
@@ -170,6 +170,36 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         const step = {};
         const id = 'step-' + crypto.randomUUID() + '-';
         step.editor = createActionEditor({ initial: action, prefix: id, layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence: false });
+        const stepField = (key, label, initialValue, options = {}) => field(id + key, label, initialValue, options);
+        const before = stepField('delayBeforeMs', 'Espera antes desta etapa (ms)', action.delayBeforeMs ?? 0, { type: 'number', min: 0, max: 60000, step: 1, required: true, hint: 'Soma ao intervalo entre etapas. Zero não acrescenta espera.' });
+        const result = stepField('resultName', 'Nome do resultado HTTP', action.resultName || '', { maxlength: 32, placeholder: 'consulta', hint: 'Opcional. Use nas próximas etapas: {{steps.consulta.status}} ou {{steps.consulta.json.nome}}.' });
+        const conditionEnabled = el('input', { type: 'checkbox', name: id + 'conditionEnabled', checked: Boolean(action.condition) });
+        const path = stepField('conditionPath', 'Valor de uma etapa anterior', action.condition?.path || '', { placeholder: 'steps.consulta.status', maxlength: 320 });
+        const operator = stepField('conditionOperator', 'Condição', action.condition?.operator || 'equals', { choices: [['equals', 'É igual a'], ['notEquals', 'É diferente de'], ['contains', 'Contém'], ['exists', 'Existe']] });
+        const expected = stepField('conditionValue', 'Valor esperado', action.condition?.value || '', { maxlength: 4000, placeholder: '200' });
+        const conditionFields = el('div', { class: 'step-condition-fields' }, path.wrapper, operator.wrapper, expected.wrapper);
+        function updateAdvanced() { result.wrapper.hidden = step.editor.type !== 'http'; conditionFields.hidden = !conditionEnabled.checked; path.input.required = conditionEnabled.checked; path.input.disabled = !conditionEnabled.checked; operator.input.disabled = !conditionEnabled.checked; expected.wrapper.hidden = operator.input.value === 'exists'; expected.input.disabled = !conditionEnabled.checked || operator.input.value === 'exists'; }
+        conditionEnabled.addEventListener('change', updateAdvanced); operator.input.addEventListener('change', updateAdvanced);
+        step.read = previousNames => {
+          const actionValue = step.editor.read(); const delayBeforeMs = Number(before.input.value);
+          if (!before.input.value.trim() || !Number.isInteger(delayBeforeMs) || delayBeforeMs < 0 || delayBeforeMs > 60000) invalid('Use uma espera inteira entre 0 e 60000 ms.', id + 'delayBeforeMs');
+          const metadata = { delayBeforeMs };
+          if (actionValue.type === 'http' && result.input.value.trim()) {
+            const resultName = result.input.value.trim();
+            if (!/^[A-Za-z_][A-Za-z0-9_]{0,31}$/.test(resultName) || ['__proto__', 'prototype', 'constructor'].includes(resultName) || previousNames.has(resultName)) invalid('Use um nome único, começando com uma letra ou sublinhado, com até 32 letras, números ou sublinhados.', id + 'resultName');
+            metadata.resultName = resultName;
+          }
+          if (conditionEnabled.checked) {
+            const conditionPath = path.input.value.trim(); const match = /^steps\.([A-Za-z_][A-Za-z0-9_]{0,31})\.(status|body|json(?:\.[A-Za-z0-9_]+)+)$/.exec(conditionPath);
+            if (!match || !previousNames.has(match[1])) invalid('Use um resultado HTTP de uma etapa anterior: steps.nome.status, steps.nome.body ou steps.nome.json.campo.', id + 'conditionPath');
+            metadata.condition = { path: conditionPath, operator: operator.input.value, ...(operator.input.value === 'exists' ? {} : { value: expected.input.value }) };
+          }
+          return { ...actionValue, ...metadata };
+        };
+        const advanced = el('details', { class: 'advanced-fields step-advanced', open: Boolean(action.delayBeforeMs || action.resultName || action.condition) }, el('summary', {}, 'Espera, resultado e condição'), before.wrapper, result.wrapper,
+          el('label', { class: 'trigger-enabled' }, conditionEnabled, 'Executar somente se uma condição for atendida'), conditionFields,
+          el('p', { class: 'hint' }, 'Condição falsa ignora esta etapa. Respostas ficam apenas na execução e não são salvas no histórico.'));
+        updateAdvanced();
         step.summary = el('summary', { tabindex: '0' });
         step.up = button('Mover etapa para cima', () => move(step, -1), 'quiet', { symbol: 'up', iconOnly: true, 'data-step-up': '' });
         step.down = button('Mover etapa para baixo', () => move(step, 1), 'quiet', { symbol: 'down', iconOnly: true, 'data-step-down': '' });
@@ -178,19 +208,21 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
           steps.splice(index, 1); updateSteps(); const target = steps[Math.min(index, steps.length - 1)]; if (!steps.some(item => item.node.open)) openStep(target); target.summary.focus(); onDirty();
         }, 'quiet danger', { symbol: 'trash', iconOnly: true, 'data-step-remove': '' });
         step.node = el('details', { class: 'sequence-step', name: accordionName, 'data-sequence-step': '', open: focus || steps.length === 0 }, step.summary,
-          el('div', { class: 'sequence-step-toolbar' }, el('span', { class: 'hint' }, 'Ordem da execução'), el('div', { class: 'button-row' }, step.up, step.down, step.remove)), step.editor.node);
-        step.editor.node.addEventListener('change', () => describeStep(step, steps.indexOf(step)));
+          el('div', { class: 'sequence-step-toolbar' }, el('span', { class: 'hint' }, 'Ordem da execução'), el('div', { class: 'button-row' }, step.up, step.down, step.remove)), step.editor.node, advanced);
+        step.editor.node.addEventListener('change', () => { updateAdvanced(); describeStep(step, steps.indexOf(step)); });
         step.editor.node.addEventListener('input', () => describeStep(step, steps.indexOf(step)));
         steps.push(step); updateSteps();
         if (focus) { openStep(step); step.editor.node.querySelector('select')?.focus(); onDirty(); }
       }
       content.append(delay.wrapper, el('p', { class: 'context-note' }, 'A primeira falha interrompe as próximas etapas. Efeitos concluídos não são desfeitos.'), list, el('div', { class: 'sequence-add-row' }, add, count),
-        el('p', { class: 'hint sequence-limit' }, 'As variáveis usam a tecla e a camada que iniciaram a sequência.'));
+        el('p', { class: 'hint sequence-limit' }, 'Use {{steps.nome.status}}, {{steps.nome.body}} ou {{steps.nome.json.campo}} para aproveitar respostas HTTP anteriores. Valores dependem da execução.'));
       (value.steps?.length ? value.steps : [{ type: 'clipboard', text: '' }]).forEach(action => addStep(action));
       read = () => {
         const stepDelayMs = Number(delay.input.value);
         if (!delay.input.value.trim() || !Number.isInteger(stepDelayMs) || stepDelayMs < 0 || stepDelayMs > 60000) fail('Use um delay entre etapas inteiro entre 0 e 60000 ms.', 'stepDelayMs');
-        return { type: kind, stepDelayMs, steps: steps.map(step => step.editor.read()) };
+        const names = new Set();
+        const values = steps.map(step => { const action = step.read(names); if (action.resultName) names.add(action.resultName); return action; });
+        return { type: kind, stepDelayMs, steps: values };
       };
     }
     return { node: content, read };

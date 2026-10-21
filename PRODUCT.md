@@ -34,6 +34,13 @@ sem escrever scripts ou editar JSON. A interface é em português.
 - Oferecer rastreio opt-in sem registrar a digitação e informar o modo global/local.
 - Suportar temas claro/escuro/sistema, sidebar recolhível e formulários sobrepostos.
 - Informar conflitos, falta de permissões e limitações de plataforma no contexto de uso.
+- Assistente retomável de configuração, diagnóstico de entrada e primeira ação por modelo.
+- Camada temporária enquanto um controle está mantido, com retorno seguro à camada anterior.
+- Painel rápido separado e busca Ctrl/Cmd+K para localizar ações e camadas sem executar efeitos.
+- Biblioteca local e importação por camada com revisão, mescla e resolução de conflitos.
+- Escolha de teclado por identidade real em backends compatíveis, sem misturar o dispositivo não selecionado.
+- Sequências com condições, resultados HTTP efêmeros e espera individual por etapa.
+- Desfazer/refazer até dez alterações de configuração na sessão, sem reverter efeitos externos.
 
 ## Distribuição e qualidade
 

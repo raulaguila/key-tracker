@@ -1,6 +1,7 @@
 """Read-only evdev input. No grabs, injection, text conversion or persistence."""
 import ctypes as C
 import errno
+import hashlib
 import os
 import re
 from gi.repository import GLib
@@ -81,20 +82,28 @@ class KeyState:
     """Aggregate devices: releasing one keyboard never releases another's key."""
     def __init__(self):
         self.devices = {}
+        self.selection = None
+
+    def active(self):
+        return {name: held for name, held in self.devices.items() if self.selection is None or name in self.selection}
 
     def held(self):
-        return set().union(*self.devices.values()) if self.devices else set()
+        devices = self.active()
+        return set().union(*devices.values()) if devices else set()
 
     def event(self, device, code, down):
         keys = self.devices[device]
         if (code in keys) == down:
             return None
         keys.add(code) if down else keys.discard(code)
-        if any(code in held for name, held in self.devices.items() if name != device):
+        if self.selection is not None and device not in self.selection:
+            return None
+        active = self.active()
+        if any(code in held for name, held in active.items() if name != device):
             return None
         flags = 0
         for modifier, flag in MODIFIERS.items():
-            if any(modifier in held for held in self.devices.values()):
+            if any(modifier in held for held in active.values()):
                 flags |= flag
         return {"type": "key", "code": code, "down": down, "modifiers": flags}
 
@@ -103,6 +112,8 @@ class Devices:
     def __init__(self, seat, emit, ended, keyboard_factory=Keyboard):
         self.seat, self.emit, self.ended = seat, emit, ended
         self.keyboard_factory = keyboard_factory
+        self.identities = {}
+        self.selected_id = ""
         self.devices, self.sources, self.drains, self.state = {}, {}, {}, KeyState()
         self.lib = library("libudev.so.1", {
             "udev_new": (C.c_void_p, []), "udev_unref": (C.c_void_p, [C.c_void_p]),
@@ -115,6 +126,7 @@ class Devices:
             "udev_list_entry_get_next": (C.c_void_p, [C.c_void_p]),
             "udev_device_new_from_syspath": (C.c_void_p, [C.c_void_p, C.c_char_p]),
             "udev_device_get_devnode": (C.c_char_p, [C.c_void_p]),
+            "udev_device_get_syspath": (C.c_char_p, [C.c_void_p]),
             "udev_device_get_property_value": (C.c_char_p, [C.c_void_p, C.c_char_p]),
             "udev_device_get_action": (C.c_char_p, [C.c_void_p]),
             "udev_device_unref": (C.c_void_p, [C.c_void_p]),
@@ -163,7 +175,20 @@ class Devices:
             return False
         if len(self.devices) >= MAX_DEVICES:
             raise OSError("Keyboard limit exceeded")
+        # ID_PATH identifies a real physical port/interface; serial is included when
+        # available. Fall back to the real sysfs parent, stripping volatile inputN.
+        physical = prop(device, b"ID_PATH") or re.sub(rb"/input/input[0-9]+(?:/event[0-9]+)?$", b"", self.lib.udev_device_get_syspath(device) or b"")
+        if not physical:
+            return False
+        serial = prop(device, b"ID_SERIAL") or b""
+        identifier = "linux:" + hashlib.sha256(self.seat.encode() + b":" + physical + b":" + serial).hexdigest()[:40]
+        if any(info["id"] == identifier for info in self.identities.values()):
+            raise OSError("Ambiguous keyboard identity")
+        name = prop(device, b"ID_MODEL_FROM_DATABASE") or prop(device, b"ID_MODEL") or b"Teclado"
+        name = re.sub(r"[\x00-\x1f\x7f]", "", name.decode("utf-8", "replace"))[:120]
         keyboard = self.keyboard_factory(path)
+        self.identities[path] = {"id": identifier, "name": name}
+
         self.devices[path] = keyboard
         self.state.devices[path] = keyboard.held()
         self.sources[path] = GLib.io_add_watch(keyboard.fd, GLib.IO_IN | GLib.IO_ERR | GLib.IO_HUP, self.read, path)
@@ -199,10 +224,16 @@ class Devices:
             self.read(None, GLib.IO_IN, path)
         return False
 
+    def select(self, selected_id):
+        self.selected_id = selected_id
+        self.state.selection = None if not selected_id else {path for path, info in self.identities.items() if info["id"] == selected_id}
+
     def snapshot(self):
+        self.select(self.selected_id)
+        self.emit({"type": "devices", "devices": list(self.identities.values()), "selectedId": self.selected_id})
         # Publish the source mode before its held keys so the renderer can apply
         # the first snapshot even when tracking was enabled before authorization.
-        self.emit({"type": "status", "mode": "global" if self.devices else "waiting", "keyboards": len(self.devices)})
+        self.emit({"type": "status", "mode": "global" if self.state.active() else "waiting", "keyboards": len(self.devices)})
         self.emit({"type": "reset", "held": sorted(self.state.held())})
 
     def remove(self, path):
@@ -216,6 +247,7 @@ class Devices:
         if keyboard:
             keyboard.close()
         self.state.devices.pop(path, None)
+        self.identities.pop(path, None)
         return keyboard is not None
 
     def hotplug(self, _fd, condition):

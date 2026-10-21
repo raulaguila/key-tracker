@@ -140,9 +140,9 @@ async function inspectPackage() {
   }
   if (!archive) throw new Error('Run npm run pack before the platform audit');
   const matches = {};
-  for (const file of ['app/main.cjs', 'app/shutdown.cjs', 'app/state-delivery.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/passive-shortcuts.cjs', 'app/wayland-input.cjs', 'app/linux-keycodes.cjs', 'app/linux-input/client.py', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/index.html', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
+  for (const file of ['app/main.cjs', 'app/shutdown.cjs', 'app/state-delivery.cjs', 'app/preload.cjs', 'app/config.cjs', 'app/storage.cjs', 'app/config-protection.cjs', 'app/recovery.cjs', 'app/diagnostics.cjs', 'app/engine.cjs', 'app/passive-shortcuts.cjs', 'app/wayland-input.cjs', 'app/linux-keycodes.cjs', 'app/linux-input/client.py', 'app/key-gestures.cjs', 'app/tracking.cjs', 'app/tracker-worker.cjs', 'app/actions.cjs', 'app/sequence-data.cjs', 'app/layer-library.cjs', 'app/product-services.cjs', 'app/input-devices.cjs', 'app/native-keycodes.cjs', 'app/quick-panel.cjs', 'app/quick-panel-preload.cjs', 'app/desktop-actions.cjs', 'app/safe-export.cjs', 'app/application-monitor.cjs', 'app/application-reader.cjs', 'app/native-process-scope.cjs', 'app/desktop-tray.cjs', 'app/window-lifecycle.cjs', 'app/renderer/index.html', 'app/renderer/app.js', 'app/renderer/production.js', 'app/renderer/action-editor.js', 'app/renderer/key-moments.js', 'app/renderer/binding-table.js', 'app/renderer/styles.css', 'app/renderer/productivity.js', 'app/renderer/quick-panel.html', 'app/renderer/quick-panel.js', 'app/renderer/quick-panel.css']) matches[file] = (await fs.readFile(path.join(root, file))).equals(asar.extractFile(archive, file.split('/').join(path.sep)));
   const files = asar.listPackage(archive);
-  return { archive: path.relative(root, archive), sourceMatches: matches, nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$/.test(file)), note: packaged ? 'Runtime uses the packaged executable in a disposable CI account.' : 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
+  return { archive: path.relative(root, archive), sourceMatches: matches, inputHelperPresent: process.platform === 'linux' || files.some(file => /[\\/]app[\\/]native-input[\\/]dobra-input(?:\.exe)?$/.test(file)), nativeFiles: files.filter(file => /uiohook.*\.node$|get-windows.*(?:\.node|\/main)$|dobra-input(?:\.exe)?$/.test(file)), note: packaged ? 'Runtime uses the packaged executable in a disposable CI account.' : 'Package inspected; runtime below uses the same source in Electron development mode with an isolated profile.' };
 }
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'keyboard-platform-audit-'));
@@ -212,27 +212,35 @@ async function main() {
     const opened = await run('audit-app'); result.probes.applicationLaunch = { status: opened.status, message: opened.message };
     const notified = await run('audit-notification'); result.probes.notification = { status: notified.status, message: notified.message, note: 'A show event confirms native API acknowledgement, not that a person saw it.' };
     result.probes.accessibilityTrusted = process.platform === 'darwin' ? await native.evaluate('return process.mainModule.require("electron").systemPreferences.isTrustedAccessibilityClient(false);') : null;
-    if (process.platform !== 'darwin' || result.probes.accessibilityTrusted) {
+    if (process.platform === 'darwin') {
+      const helper = path.join(path.dirname(path.resolve(root, result.package.archive)), 'app.asar.unpacked', 'app', 'native-input', 'dobra-input');
+      const permission = JSON.parse(execFileSync(helper, ['--check-permission'], { encoding: 'utf8', timeout: 5000, maxBuffer: 16384 }));
+      if (typeof permission.granted !== 'boolean') throw new Error('Invalid native Input Monitoring permission response.');
+      result.probes.inputMonitoring = permission;
+    }
+    if (process.platform !== 'darwin' || result.probes.inputMonitoring.granted) {
       await page.evaluate('await window.dobra.setEnabled(true);');
       let activated;
       for (let i = 0; i < 120; i++) { activated = await page.evaluate('return await window.dobra.getState();'); if (activated.input.mode !== 'starting') break; await delay(50); }
       const noExclusiveRegistrations = await native.evaluate('return ["A","B","C","F8","CommandOrControl+Shift+F12"].every(key=>!process.mainModule.require("electron").globalShortcut.isRegistered(key));');
-      result.probes.passiveObservation = { attempted: true, mode: activated.input.mode, enabled: activated.enabled, subscriptions: activated.shortcuts.registered, failed: activated.shortcuts.failed, noExclusiveRegistrations, passed: activated.enabled && activated.input.mode === 'global' && noExclusiveRegistrations };
+      const noPhysicalKeyboard = activated.inputDevices?.supported === true && activated.inputDevices.status === 'waiting' && activated.inputDevices.devices.length === 0;
+      result.probes.passiveObservation = { attempted: !noPhysicalKeyboard, mode: activated.input.mode, enabled: activated.enabled, subscriptions: activated.shortcuts.registered, failed: activated.shortcuts.failed, noExclusiveRegistrations, passed: activated.enabled && activated.input.mode === 'global' && noExclusiveRegistrations,
+        ...(noPhysicalKeyboard ? { reason: 'Native backend is available, but this runner has no physical keyboard; event delivery is not validated.' } : {}) };
       await page.evaluate('await window.dobra.setEnabled(false);');
       await page.evaluate('await window.dobra.setTracking(true);');
       for (let i = 0; i < 120; i++) { const tracking = await page.evaluate('return (await window.dobra.getState()).tracking;'); if (tracking.mode !== 'starting') { result.probes.tracking = tracking; break; } await delay(50); }
       await page.evaluate('await window.dobra.setTracking(false);');
     } else {
-      result.probes.passiveObservation = { attempted: false, reason: 'macOS Accessibility not authorized; no OS permission prompt triggered by the audit.' };
-      result.probes.tracking = { mode: 'not_attempted', message: 'macOS Accessibility not authorized; avoid triggering an OS permission prompt.' };
+      result.probes.passiveObservation = { attempted: false, reason: 'macOS Input Monitoring not authorized; read-only native check, no OS permission prompt triggered by the audit.' };
+      result.probes.tracking = { mode: 'not_attempted', message: 'macOS Input Monitoring not authorized; event delivery is not validated.' };
     }
     fixture.settings.autoSwitchLayers = true;
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(fixture) + ');'); await delay(3200);
     result.probes.applicationMonitor = await page.evaluate('const app=(await window.dobra.getState()).application;return {status:app.status,message:app.message,identified:Boolean(app.current)};');
     result.probes.tray = await page.evaluate('return (await window.dobra.getState()).desktop;');
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(original) + ');');
-    if (process.platform === 'darwin' && !result.probes.accessibilityTrusted) {
-      result.probes.keyMoments = { attempted: false, reason: 'Accessibility not authorized; no OS permission prompt triggered by the audit.' };
+    if (!result.probes.passiveObservation.attempted) {
+      result.probes.keyMoments = { attempted: false, reason: result.probes.passiveObservation.reason || result.probes.passiveObservation.note };
     } else {
       const moments = structuredClone(original);
       moments.layers[0].bindings = [
@@ -285,7 +293,7 @@ async function main() {
     result.probes.stateTransport = await page.evaluate('const api=window.dobra;const a=await api.getState();const b=await api.setEditing(true);const c=await api.setEditing(false);return {complete:Boolean(a.config&&b.config&&c.config),sameConfigRevision:a.configRevision===c.configRevision,ordered:a.stateRevision<=b.stateRevision&&b.stateRevision<=c.stateRevision};');
     await page.evaluate('await window.dobra.saveConfig(' + JSON.stringify(original) + ');');
     result.complete = true;
-    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.storage.present && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.cancellation.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.passiveObservation.attempted || result.probes.passiveObservation.passed) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
+    result.corePassed = result.probes.initialPaused && result.probes.preload && result.probes.storage.present && result.probes.persistence && result.probes.clipboard.matched && result.probes.sequenceDelay.passed && result.probes.cancellation.passed && result.probes.applicationLaunch.status === 'success' && Object.values(result.package.sourceMatches).every(Boolean) && result.package.inputHelperPresent && result.probes.canonicalPersistence.canonicalMatches && result.probes.canonicalPersistence.legacyReadable && result.probes.canonicalPersistence.rendererReloaded && Object.values(result.probes.stateTransport).every(Boolean) && (!result.probes.passiveObservation.attempted || result.probes.passiveObservation.passed) && (!result.probes.keyMoments.attempted || result.probes.keyMoments.passed);
     if (!result.corePassed) process.exitCode = 1;
   } catch (error) {
     result.complete = false; result.error = error.message; process.exitCode = 1;

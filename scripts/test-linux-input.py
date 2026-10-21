@@ -93,6 +93,7 @@ class NativeStateTests(unittest.TestCase):
         path = b'/dev/input/event7'; closed = []; events = []
         devices = Devices.__new__(Devices); devices.seat = 'seat0'; devices.monitor = object()
         devices.devices = {path:SimpleNamespace(close=lambda: closed.append(True))}
+        devices.identities = {path:{'id':'linux:'+'a'*40,'name':'Fixture'}}; devices.selected_id = ''
         devices.sources = {}; devices.drains = {}; devices.state = KeyState(); devices.state.devices = {path:{30}}
         devices.emit = events.append; devices.ended = lambda reason: self.fail(reason)
         devices.lib = SimpleNamespace(udev_monitor_receive_device=lambda _: object(), udev_device_get_devnode=lambda _: path,
@@ -100,7 +101,7 @@ class NativeStateTests(unittest.TestCase):
             udev_device_get_property_value=lambda _, key: b'1' if key == b'ID_INPUT_KEYBOARD' else b'seat1')
         self.assertTrue(devices.hotplug(None, GLib.IO_IN))
         self.assertEqual(closed, [True]); self.assertEqual(devices.devices, {})
-        self.assertEqual(events, [{'type':'status','mode':'waiting','keyboards':0},{'type':'reset','held':[]}])
+        self.assertEqual(events, [{'type':'devices','devices':[],'selectedId':''},{'type':'status','mode':'waiting','keyboards':0},{'type':'reset','held':[]}])
 
 
 class BusTests(unittest.TestCase):
@@ -147,8 +148,8 @@ class BusTests(unittest.TestCase):
         variants = {key: GLib.Variant('b' if type(value) is bool else 'u' if type(value) is int else 's',value) for key,value in values.items()}
         self.control_call('Authority','Set',params=GLib.Variant('(a{sv})',(variants,)))
 
-    def start(self, keys=(30,), visual=False, observe=True):
-        reply, descriptors = self.actor.call_with_unix_fd_list_sync(service.NAME,service.PATH,service.INTERFACE,'Start',GLib.Variant('(saqbb)',('test',list(keys),visual,observe)),GLib.VariantType.new('(h)'),Gio.DBusCallFlags.NONE,5000,None,None)
+    def start(self, keys=(30,), visual=False, observe=True, selected_id=""):
+        reply, descriptors = self.actor.call_with_unix_fd_list_sync(service.NAME,service.PATH,service.INTERFACE,'Start',GLib.Variant('(saqbbs)',('test',list(keys),visual,observe,selected_id)),GLib.VariantType.new('(h)'),Gio.DBusCallFlags.NONE,5000,None,None)
         stream = socket.socket(fileno=descriptors.get(reply.unpack()[0])); stream.settimeout(3); self.streams.append(stream)
         return stream
 
@@ -162,7 +163,7 @@ class BusTests(unittest.TestCase):
 
     def test_private_stream_filter_and_normal_key_events(self):
         stream = self.start()
-        first = json.loads(stream.recv(4096)); self.assertEqual(first['type'],'status'); self.assertEqual(first['mode'],'global')
+        first = self.receive(stream,'status'); self.assertEqual(first['type'],'status'); self.assertEqual(first['mode'],'global')
         self.assertEqual(json.loads(stream.recv(4096)), {'type':'reset','held':[]})
         self.emit(31,True); self.emit(30,True)
         event = self.receive(stream,'key'); self.assertGreaterEqual(event.pop('monotonicMs'),0)
@@ -174,7 +175,7 @@ class BusTests(unittest.TestCase):
     def test_unauthorized_peer_cannot_configure_or_stop_owner(self):
         stream = self.start(); self.receive(stream,'status')
         with self.assertRaises(GLib.Error):
-            service.call(self.control,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([31],True,True)))
+            service.call(self.control,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([31],True,True,'')))
         service.call(self.control,service.NAME,service.PATH,service.INTERFACE,'Stop')
         self.emit(30,True); self.assertEqual(self.receive(stream,'key')['code'],30)
 
@@ -187,9 +188,9 @@ class BusTests(unittest.TestCase):
     def test_idle_does_not_open_devices_and_configure_is_reversible(self):
         stream = self.start(observe=False); self.assertEqual(self.receive(stream,'status')['mode'],'idle')
         self.assertEqual(self.control_call('Broker','Stats','(u)').unpack()[0],0)
-        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([30],False,True)))
+        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([30],False,True,'')))
         self.assertEqual(self.receive(stream,'status')['mode'],'global')
-        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([],False,False)))
+        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([],False,False,'')))
         self.assertEqual(self.receive(stream,'status')['mode'],'idle')
         self.assertEqual(self.control_call('Broker','Stats','(u)').unpack()[0],0)
 
@@ -256,10 +257,25 @@ class BusTests(unittest.TestCase):
 
     def test_visual_tracking_is_explicit_and_reversible(self):
         stream = self.start(); self.receive(stream,'status'); self.receive(stream,'reset'); self.emit(31,True)
-        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([30],True,True)))
+        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([30],True,True,'')))
         self.receive(stream,'status'); self.assertIn(31,self.receive(stream,'reset')['held'])
         self.emit(32,True); self.assertEqual(self.receive(stream,'key')['code'],32)
-        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbb)',([30],False,True)))
+        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([30],False,True,'')))
+        self.assertEqual(self.receive(stream,'reset')['held'],[])
+
+    def test_device_selection_is_transported_and_excludes_other_keyboard_modifiers(self):
+        selected = 'linux:'+'2'*40
+        stream = self.start(selected_id=selected)
+        catalog = self.receive(stream,'devices')
+        self.assertEqual(catalog['selectedId'], selected)
+        self.assertEqual(len(catalog['devices']),2)
+        self.receive(stream,'status'); self.receive(stream,'reset')
+        self.emit(29,True,keyboard='one'); self.emit(30,True,keyboard='one')
+        self.emit(30,True,keyboard='two')
+        event = self.receive(stream,'key')
+        self.assertEqual(event['code'],30); self.assertEqual(event['modifiers'],0)
+        service.call(self.actor,service.NAME,service.PATH,service.INTERFACE,'Configure',GLib.Variant('(aqbbs)',([30],False,True,'linux:'+'3'*40)))
+        self.assertEqual(self.receive(stream,'status')['mode'],'waiting')
         self.assertEqual(self.receive(stream,'reset')['held'],[])
 
     def test_slow_reader_is_disconnected_instead_of_losing_keyups(self):

@@ -257,3 +257,40 @@ externos nem cancelamento de uma escrita nativa já iniciada.
 Salvar configuração canônica idêntica não troca o inode nem gira o backup. O
 arquivo atual continua sendo validado; formatos antigos/indentados e migração de
 headers ainda passam pela gravação segura, sem atalhos de criptografia.
+
+## Expansão de produtividade
+
+`layer-library.cjs` é dono dos modelos locais, seleção/dependências, remapeamento
+ de IDs, conflito físico/lógico e exportação portátil por camada. Não faz I/O.
+`product-services.cjs` registra IPC pela mesma autorização de origem do main e
+mantém até dez fontes/planos de importação por cinco minutos. O plano é ligado à
+revisão da configuração, consumido uma vez, e aplicado pela fila serial existente;
+a importação pausa, cancela, aguarda efeitos pendentes e persiste antes de trocar.
+Falha preserva a configuração; headers e associações de aplicativos são removidos
+da cópia portátil. Não há novo banco ou serviço remoto.
+
+Engine mantém até dez snapshots anteriores e posteriores para undo/redo. Somente
+salvamentos efetivos entram nas pilhas; revisão, prévias e cache são atualizados
+pelo mesmo caminho da configuração. A autorização de entrada não é restaurada.
+Camada temporária pertence ao controle de entrada; interrupções cancelam o gesto
+e restauram a camada de base sem fabricar ações ao soltar.
+
+`sequence-data.cjs` valida referências de etapas anteriores e navega JSON por
+propriedades próprias, sem eval ou protótipos. Resultados HTTP capturados têm
+limite de 64 KiB, prazo/cancelamento de leitura e vida restrita à execução. Prévia
+retém templates e identifica dependências; não consulta serviços. Conteúdos de
+resposta não entram no histórico nem diagnóstico. Arquivos dinâmicos mantêm as
+verificações de destino interno antes de gravar. Condições falsas são `skipped`.
+
+`quick-panel.cjs` possui janela e preload isolados com origem própria autorizada.
+Somente uma projeção da camada/status/nomes/teclas é transmitida; não recebe
+configuração inteira, headers, resultados ou API de execução. Main encerra o
+painel junto dos demais serviços. O tema acompanha a preferência da janela principal.
+`renderer/productivity.js` implementa paleta, biblioteca e assistente em diálogos
+nativos, com retorno de foco, Escape e opções avançadas sob demanda.
+
+A identificação física usa helpers sem privilégios Raw Input no Windows e IOHID
+no macOS, compilados no sistema de destino por `prepare-native-input.cjs`. Linux
+reutiliza o serviço evdev autorizado e filtra dispositivos dentro do seat. O
+backend informa sua capacidade; a seleção ausente cancela gestos e pausa ações.
+Não há interceptação exclusiva, reinjeção ou persistência de digitação.

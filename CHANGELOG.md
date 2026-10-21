@@ -7,6 +7,13 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 
 ### Recursos
 
+- Camadas temporárias ao manter um controle, com restauração ao soltar ou interromper.
+- Painel rápido separado, busca Ctrl/Cmd+K e assistente retomável de configuração.
+- Modelos locais, importação/mescla por camada com prévia de conflitos e exportação com dependências.
+- Identificação física de teclado por Raw Input (Windows), IOHID (macOS) e evdev autorizado (Linux).
+- Sequências com espera por etapa, condições e dados HTTP efêmeros para etapas posteriores.
+- Desfazer/refazer até dez alterações de configuração da sessão.
+
 - Identidade Dobra, instaladores e identificador `io.dobra.app`.
 - Camadas de teclado, ativação individual, duplicação e editor por tabela/teclado.
 - Ações de clipboard, abertura de destino, notificação, troca de camada,

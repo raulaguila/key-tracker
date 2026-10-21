@@ -46,6 +46,9 @@ module.exports = async ({ evaluate, click, until, nativeState, nativeEvaluate, s
     await evaluate('document.activeElement.blur();await window.dobra.setEnabled(true);');
     await nativeEvaluate("globalThis.__waylandBackend.publish('global')");
     await until('document.querySelector(".engine-status").dataset.status==="active"', 'Authorized Wayland backend activates real engine state');
+    // Re-enter after arming the panel: unchanged global input must still publish
+    // the new visual state before its first held-key snapshot.
+    await evaluate('await window.dobra.setTracking(true);await window.dobra.setTracking(false);');
     await click('[data-view="tracking"]');
     await evaluate('await window.dobra.setTracking(true);');
     await nativeEvaluate("globalThis.__waylandBackend.emit('reset',['KeyA'])");

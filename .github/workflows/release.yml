@@ -44,6 +44,9 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
       - run: npm ci
+      - name: Configure native Windows compiler
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       - run: npm audit --audit-level=moderate
       - run: npm run check
       - run: npm test
@@ -51,6 +54,9 @@ jobs:
       - name: Electron UI and native key delivery
         if: runner.os == 'Linux'
         run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-glib-2.0 libevdev2 libudev1 dbus
+          npm run test:wayland
           xvfb-run -a npm run test:ui
           npm run test:input
         env:
@@ -73,6 +79,7 @@ jobs:
           while IFS= read -r -d '' bundle; do
             found=1
             codesign --verify --deep --strict --verbose=2 "$bundle"
+            codesign --verify --strict --verbose=2 "$bundle/Contents/Resources/app.asar.unpacked/app/native-input/dobra-input"
             spctl --assess --type execute --verbose=2 "$bundle"
             xcrun stapler validate "$bundle"
           done < <(find dist -maxdepth 2 -name '*.app' -type d -print0)
@@ -83,7 +90,9 @@ jobs:
         run: |
           $installers = Get-ChildItem dist -Filter *.exe
           if (!$installers) { throw 'Installer missing' }
-          foreach ($installer in $installers) {
+          $helpers = Get-ChildItem dist -Recurse -Filter dobra-input.exe
+          if (!$helpers) { throw 'Native input helper missing' }
+          foreach ($installer in (@($installers) + @($helpers))) {
             $signature = Get-AuthenticodeSignature $installer.FullName
             if ($signature.Status -ne 'Valid') { throw 'Installer signature is not valid' }
           }

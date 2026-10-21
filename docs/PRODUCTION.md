@@ -154,3 +154,17 @@ Linux também para/encerra com uma tecla mantida e aguarda a saída do worker.
 Essas provas não substituem testes em disco cheio, logout/encerramento do SO ou
 hardware físico. O prazo de shutdown limita a espera, sem garantir rollback de
 uma operação nativa em andamento.
+
+## QA da expansão de produtividade
+
+Além do roteiro anterior, validar instalado: dois teclados simultâneos com mesma
+tecla, seleção/desconexão/reconexão, teclas já mantidas na ativação, troca de seat,
+camada temporária com modificadores e interrupção, retorno do painel sem tomar
+acesso à janela principal, negação/revogação de Monitoramento de Entrada no Mac,
+importação com conflitos/dependências e undo após falha de persistência. Exercitar
+respostas HTTP pequenas/grandes/lentas e condições ignoradas sem vazar conteúdo
+no histórico. Helpers novos também precisam fazer parte da verificação de assinatura.
+
+Nesta implementação, certificados privados não são gerados nem incluídos no
+repositório. A execução de desenvolvimento não substitui a assinatura real via
+secrets do environment production-release ou o roteiro físico instalado.

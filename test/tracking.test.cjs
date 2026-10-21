@@ -9,10 +9,10 @@ function fixture({ session = 'x11', platform = 'linux', demand = false, accessib
   const inputs = [];
   let resets = 0;
   let publishes = 0;
-  Object.assign(engine, { session, platform, demand, enabled: false, editing: false,
+  Object.assign(engine, { config: { settings: {} }, stateRevision: 0, session, platform, demand, enabled: false, editing: false,
     tracking: { enabled: false, mode: 'off', message: '' }, input: { mode: 'off', message: '' },
     state: () => ({ tracking: engine.tracking, input: engine.input, enabled: engine.enabled, editing: engine.editing }),
-    publish: () => { publishes++; engine.emit('state', engine.state()); return engine.state(); },
+    publish: () => { publishes++; engine.stateRevision++; engine.emit('state', engine.state()); return engine.state(); },
     needsInput: () => engine.demand, handleInput: event => inputs.push(event), resetInput: () => { resets++; },
     updateInput: input => { if (JSON.stringify(input) === JSON.stringify(engine.input)) return engine.state(); engine.input = input; if (input.mode !== 'global') engine.resetInput(); return engine.publish(); }
   });
@@ -208,4 +208,31 @@ test('stop devolve a mesma espera de dispose e aguarda o exit do worker', async 
   worker.emit('exit', 0);
   await stopping;
   assert.equal(done, true);
+});
+
+test('visualização reativada com painel já armado publica antes do reset; updateInput deduplicado não engole estado', async t => {
+  const { Engine } = require('../app/engine.cjs');
+  const { defaultConfig } = require('../app/config.cjs');
+  const backend = new EventEmitter();
+  backend.status = 'global';
+  backend.state = () => ({ supported: true, enabled: true, status: backend.status, message: 'Backend de fronteira' });
+  backend.update = () => {}; backend.dispose = async () => {};
+  const engine = new Engine({ config: defaultConfig(), platform: 'linux', session: 'wayland', documents: '/documents',
+    storage: { directory: '/data', logPath: '/data/log', appendLog: async () => {} } });
+  const tracker = new Tracker({ engine, wayland: backend, fork: () => { throw new Error('Não usa worker legado.'); } });
+  t.after(async () => { await tracker.dispose(); engine.dispose(); });
+  tracker.set(true); tracker.set(false);
+  assert.equal(engine.panelArmed, true);
+  assert.equal(engine.input.mode, 'global');
+  const transport = [];
+  engine.on('state', state => transport.push({ type: 'state', enabled: state.tracking.enabled, mode: state.tracking.mode }));
+  engine.on('key', event => transport.push({ type: 'key', ...event }));
+  tracker.set(true);
+  backend.emit('reset', ['KeyA']);
+  assert.deepEqual(transport, [{ type: 'state', enabled: true, mode: 'global' }, { type: 'key', reset: true, pressed: ['KeyA'] }]);
+  transport.length = 0;
+  tracker.set(true);
+  assert.equal(transport.length, 0, 'estado sem mudança continua sem publicação');
+  backend.status = 'waiting'; backend.emit('state');
+  assert.equal(transport.length, 1, 'updateInput que publica não recebe publicação duplicada');
 });

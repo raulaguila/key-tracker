@@ -46,8 +46,9 @@ uma distribuição aprovada pode ser copiada para Aplicativos. O `.zip` contém 
 bundle da arquitetura correspondente. Os builds de desenvolvimento ainda não
 têm assinatura/notarização pública, e o Gatekeeper pode impedir sua abertura.
 
-Para entrada global, confira **Ajustes do Sistema → Privacidade e Segurança →
-Acessibilidade**. O sistema também pode solicitar **Monitoramento de Entrada**.
+O mínimo é macOS 13, conforme o [Electron 44](https://www.electronjs.org/blog/electron-44-0).
+Para entrada global por teclado, confira **Ajustes do Sistema → Privacidade e Segurança →
+Monitoramento de Entrada**. Acessibilidade pode ser necessária para a detecção opcional de aplicativos.
 Negar ou revogar acesso limita as funções; o estado é informado no Dobra.
 Após alterar permissões, reabra o aplicativo se a entrada continuar indisponível.
 Notificações precisam ser validadas na distribuição assinada.
@@ -60,7 +61,7 @@ precisa de permissão de execução e das bibliotecas disponíveis no sistema:
 
 ```bash
 chmod +x Dobra-*.AppImage
-./Dobra-*-linux-x64.AppImage
+./Dobra-*-linux-x86_64.AppImage
 ```
 
 Mantenha apenas um AppImage nessa pasta ao usar o comando com `*`. O AppImage não instala dependências.

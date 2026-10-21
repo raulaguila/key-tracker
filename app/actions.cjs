@@ -1,8 +1,9 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
-const { validateOpenTarget } = require('./config.cjs');
+const { validateOpenTarget, validateAction } = require('./config.cjs');
 const { assertSafeDestination } = require('./safe-export.cjs');
+const { resultReferences, resolveResultTemplates, conditionMatches } = require('./sequence-data.cjs');
 
 function variables(context, now = new Date()) {
   return { key: context.key, layer: context.layer, date: now.toISOString().slice(0, 10), timestamp: now.toISOString().replace(/[:.]/g, '-') };
@@ -13,8 +14,8 @@ function interpolate(value, vars) {
 }
 
 // Preparation is pure: previews and execution share exactly the same expanded values.
-function prepareAction(action, context, { documents, layers = [], platform = process.platform } = {}, now = new Date()) {
-  const vars = variables(context, now);
+function prepareActionBase(action, context, { documents, layers = [], platform = process.platform, literal = false } = {}, now = new Date()) {
+  const vars = literal ? Object.fromEntries(['key', 'layer', 'date', 'timestamp'].map(key => [key, '{{' + key + '}}'])) : variables(context, now);
   switch (action.type) {
     case 'log': return { type: 'log', message: interpolate(action.message, vars) };
     case 'clipboard': return { type: 'clipboard', text: interpolate(action.text, vars) };
@@ -32,7 +33,7 @@ function prepareAction(action, context, { documents, layers = [], platform = pro
       return { type: 'file', directory, filename, target: path.join(directory, filename), content: interpolate(action.content, vars), mode: action.mode };
     }
     case 'http': {
-      const url = new URL(action.url);
+      const url = new URL(validateOpenTarget('url', interpolate(action.url, vars), platform));
       const query = Object.fromEntries(Object.entries(action.query).map(([key, value]) => [key, interpolate(value, vars)]));
       for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
       return { type: 'http', method: action.method, url: url.href, query,
@@ -40,6 +41,38 @@ function prepareAction(action, context, { documents, layers = [], platform = pro
     }
     default: throw new Error('Ação não suportada.');
   }
+}
+
+function mapStrings(value, transform) {
+  if (typeof value === 'string') return transform(value);
+  if (Array.isArray(value)) return value.map(item => mapStrings(item, transform));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, mapStrings(item, transform)]));
+  return value;
+}
+
+function prepareAction(action, context, options = {}, now = new Date()) {
+  const { condition, ...content } = action;
+  const paths = action.type === 'sequence' || options.literal ? [] : resultReferences(content);
+  let prepared;
+  if (paths.length) {
+    const vars = variables(context, now);
+    prepared = mapStrings(action, value => interpolate(value, vars));
+    if (action.type === 'file') {
+      const safe = Object.fromEntries(Object.entries(vars).map(([key, value]) => [key, value.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')]));
+      prepared.filename = interpolate(action.filename, safe);
+      prepared.directory ||= path.join(options.documents, 'Dobra');
+    }
+    prepared.dynamic = true;
+    prepared.dynamicPaths = paths;
+  } else prepared = prepareActionBase(action, context, options, now);
+  for (const key of ['delayBeforeMs', 'resultName', 'condition']) if (action[key] !== undefined) prepared[key] = mapStrings(action[key], value => options.literal ? value : interpolate(value, variables(context, now)));
+  return prepared;
+}
+
+function resolvePreparedStep(prepared, results, context, options) {
+  if (!prepared.dynamic) return prepared;
+  const concrete = mapStrings(prepared, value => resolveResultTemplates(value, results));
+  return { ...prepareAction(validateAction(concrete, options.platform, true), context, { ...options, literal: true }), resultDerived: true };
 }
 
 function previewAction(prepared) {
@@ -60,9 +93,10 @@ function freezePreparedAction(value) {
 
 function actionErrorMessage(type, error, httpStatus) {
   if (type === 'http') {
+    if (/^(A requisição excedeu o limite de 10 segundos\.|Não foi possível conectar ao destino HTTP\.|A resposta HTTP excedeu o limite de 64 KiB\.)$/.test(error.message)) return error.message;
     const status = Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? error.httpStatus : httpStatus;
-    if (status) return `Destino respondeu HTTP ${status}${status >= 300 && status < 400 ? '. Redirecionamentos não são seguidos' : ''}.`;
-    return /^(A requisição excedeu o limite de 10 segundos\.|Não foi possível conectar ao destino HTTP\.)$/.test(error.message) ? error.message : 'Não foi possível concluir a requisição HTTP.';
+    if (status >= 300) return `Destino respondeu HTTP ${status}${status < 400 ? '. Redirecionamentos não são seguidos' : ''}.`;
+    return 'Não foi possível concluir a requisição HTTP.';
   }
   if (type === 'notification') return error.code === 'NOTIFICATION_UNSUPPORTED' ? 'As notificações não são suportadas neste sistema.'
     : error.code === 'NOTIFICATION_REJECTED' ? 'O sistema não confirmou a exibição da notificação.' : 'Não foi possível exibir a notificação.';
@@ -81,14 +115,14 @@ function checkCancellation(signal) {
 }
 
 async function validateFileTargets(prepared, storage) {
-  const files = (prepared.type === 'sequence' ? prepared.steps : [prepared]).filter(step => step.type === 'file');
+  const files = (prepared.type === 'sequence' ? prepared.steps : [prepared]).filter(step => step.type === 'file' && !step.dynamic);
   if (!files.length || !storage?.protectedPaths) return;
   const protectedPaths = await storage.protectedPaths();
   for (const file of files) await assertSafeDestination(file.target, protectedPaths, storage.directory);
 }
 
 async function executeAction(action, context, options = {}) {
-  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, desktopActions = {}, setLayer, now = Date.now, onStep, onProgress, signal } = options;
+  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, onResult, desktopActions = {}, setLayer, now = Date.now, onStep, onProgress, signal } = options;
   checkCancellation(signal);
   const prepared = preparedAction ?? prepareAction(action, context, options);
   switch (prepared.type) {
@@ -113,17 +147,40 @@ async function executeAction(action, context, options = {}) {
       return 'Camada selecionada.';
     }
     case 'sequence': {
+      const results = Object.create(null);
+      let lastCompleted = 0;
       for (let index = 0; index < prepared.steps.length; index++) {
         checkCancellation(signal);
+        const step = prepared.steps[index];
+        let matches;
+        try { matches = conditionMatches(step.condition, results); }
+        catch {
+          onStep?.({ index: index + 1, type: step.type, status: 'error', message: 'Não foi possível avaliar a condição da etapa.', durationMs: 0 });
+          throw new Error('Não foi possível avaliar a condição da etapa.');
+        }
+        if (!matches) {
+          onStep?.({ index: index + 1, type: step.type, status: 'skipped', message: 'Etapa ignorada pela condição.', durationMs: 0 });
+          continue;
+        }
+        if (lastCompleted && prepared.stepDelayMs > 0) {
+          onProgress?.({ stepIndex: lastCompleted, stepCount: prepared.steps.length, phase: 'waiting' });
+          await delay(prepared.stepDelayMs, undefined, { signal });
+        }
+        if (step.delayBeforeMs > 0) {
+          onProgress?.({ stepIndex: index + 1, stepCount: prepared.steps.length, phase: 'waiting' });
+          await delay(step.delayBeforeMs, undefined, { signal });
+        }
         onProgress?.({ stepIndex: index + 1, stepCount: prepared.steps.length, phase: 'running' });
         checkCancellation(signal);
-        const step = prepared.steps[index];
         const started = now();
         let httpStatus;
         const details = (status, message) => ({ index: index + 1, type: step.type, status, message, durationMs: Math.max(0, now() - started), ...(httpStatus === undefined ? {} : { httpStatus }) });
         try {
-          const message = await executeAction(action.steps[index], context, { ...options, preparedAction: step, onStep: undefined, onProgress: undefined, onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
+          const resolved = resolvePreparedStep(step, results, context, options);
+          const message = await executeAction(action.steps[index], context, { ...options, preparedAction: resolved, onStep: undefined, onProgress: undefined,
+            onResult: result => { if (step.resultName) results[step.resultName] = result; }, onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
           onStep?.(details('success', message));
+          lastCompleted = index + 1;
         } catch (error) {
           if (signal?.aborted) {
             onStep?.(details('cancelled', 'Execução cancelada.'));
@@ -135,10 +192,6 @@ async function executeAction(action, context, options = {}) {
           throw new Error(`Sequência interrompida na etapa ${index + 1} de ${prepared.steps.length}: ${message}`);
         }
         checkCancellation(signal);
-        if (index < prepared.steps.length - 1 && prepared.stepDelayMs > 0) {
-          onProgress?.({ stepIndex: index + 1, stepCount: prepared.steps.length, phase: 'waiting' });
-          await delay(prepared.stepDelayMs, undefined, { signal });
-        }
       }
       return `Sequência concluída: ${prepared.steps.length} ${prepared.steps.length === 1 ? 'etapa' : 'etapas'}.`;
     }
@@ -171,21 +224,54 @@ async function executeAction(action, context, options = {}) {
       const options = { method: prepared.method, headers: prepared.headers, signal: signal ? AbortSignal.any([signal, timeout]) : timeout, redirect: 'manual' };
       if (prepared.body && !['GET', 'HEAD'].includes(prepared.method)) options.body = prepared.body;
       let response;
-      try { response = await fetchImpl(url, options); }
+      let captured;
+      try {
+        response = await fetchImpl(url, options);
+        onHttpStatus?.(response.status);
+        if (prepared.resultName && response.ok) captured = await captureResponse(response, options.signal);
+        else await response.body?.cancel();
+      }
       catch (error) {
         checkCancellation(signal);
+        if (error.code === 'HTTP_RESULT_TOO_LARGE') throw error;
+        if (options.signal.aborted) throw new Error('A requisição excedeu o limite de 10 segundos.');
         throw new Error(error.name === 'TimeoutError' || error.name === 'AbortError' ? 'A requisição excedeu o limite de 10 segundos.' : 'Não foi possível conectar ao destino HTTP.');
       }
-      onHttpStatus?.(response.status);
-      await response.body?.cancel();
       if (!response.ok) {
         const error = new Error(`Destino respondeu HTTP ${response.status}${response.status >= 300 && response.status < 400 ? '. Redirecionamentos não são seguidos' : ''}.`);
         error.httpStatus = response.status;
         throw error;
       }
-      return `HTTP ${response.status} · ${url.hostname}`;
+      if (captured) onResult?.({ status: response.status, ...captured });
+      return prepared.resultDerived ? `HTTP ${response.status}.` : `HTTP ${response.status} · ${url.hostname}`;
     }
     default: throw new Error('Ação não suportada.');
+  }
+}
+
+async function captureResponse(response, signal) {
+  if (!response.body) return { body: '', json: null };
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0, aborted;
+  const interrupted = new Promise((_, reject) => { aborted = () => reject(new Error('A requisição excedeu o limite de 10 segundos.')); signal.addEventListener('abort', aborted, { once: true }); });
+  try {
+    if (signal.aborted) throw new Error('A requisição excedeu o limite de 10 segundos.');
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), interrupted]);
+      if (done) break;
+      total += value.byteLength;
+      if (total > 64 * 1024) throw Object.assign(new Error('A resposta HTTP excedeu o limite de 64 KiB.'), { code: 'HTTP_RESULT_TOO_LARGE' });
+      chunks.push(Buffer.from(value));
+    }
+    const body = Buffer.concat(chunks, total).toString('utf8');
+    let json = null;
+    try { json = JSON.parse(body); } catch { /* A body may be plain text. */ }
+    return { body, json };
+  } finally {
+    signal.removeEventListener('abort', aborted);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }
 

@@ -98,3 +98,23 @@ test('Tracker usa backend Wayland para ações/rastreio; reset não fabrica solt
   assert.equal(engine.state().linuxInput.status, 'session-suspended');
   assert.equal(engine.needsInput(), true, 'controle armado não autoriza reconexão silenciosa');
 });
+
+test('seleção requer confirmação de dispositivo antes de entregar teclas; ausência não mistura teclados',async t=>{
+ const {input,connect}=fixture(t);const child=await connect('global');const config=defaultConfig();
+ const id='linux:'+'1'.repeat(40);config.settings.inputDeviceId=id;let interrupted=0;const events=[];
+ input.on('interrupted',()=>interrupted++);input.on('key',event=>events.push(event));
+ input.update({config,observe:true,visual:true});assert.equal(interrupted,1);
+ child.frame({type:'key',code:30,down:true,modifiers:0});assert.equal(events.length,0,'old selection backlog discarded');
+ child.frame({type:'devices',selectedId:id,devices:[{id,name:'Keyboard A'}]});child.frame({type:'status',mode:'global',keyboards:1});
+ child.frame({type:'key',code:30,down:true,modifiers:0});assert.equal(events.length,1);
+ child.frame({type:'devices',selectedId:id,devices:[]});child.frame({type:'status',mode:'waiting',keyboards:0});
+ assert.equal(interrupted,2);assert.equal(input.deviceState().status,'missing');
+});
+
+test('catálogo Linux preserva nomes Unicode divididos entre buffers UTF-8',async t=>{
+ const {input,connect}=fixture(t);const child=await connect('global');const id='linux:'+'1'.repeat(40),name='Teclado 日本 — ação';
+ const frame=Buffer.from(JSON.stringify({type:'devices',selectedId:'',devices:[{id,name}]})+'\n');
+ const split=frame.indexOf(Buffer.from('日'))+1;
+ child.stdout.write(frame.subarray(0,split));child.stdout.write(frame.subarray(split));
+ assert.deepEqual(input.deviceState().devices,[{id,name}]);assert.equal(input.state().status,'global');
+});

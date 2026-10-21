@@ -23,6 +23,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Configure native Windows compiler
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       - run: npm run check
       - run: npm test
       - name: Install Linux input test dependencies

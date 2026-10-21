@@ -1,3 +1,4 @@
+import { createProductivity } from './productivity.js';
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
 import { createActionEditor, actionLabels, actionTypeLabels, sequenceDelayLabel } from './action-editor.js';
@@ -33,6 +34,12 @@ let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
 let linuxInputPending = false;
+const productivity = createProductivity({ api, getState: () => state, applyState: (next, options) => { state = next; editor = null; if (options?.layerId) activateLayerView(options.layerId); render(); },
+  guard: callback => void guardNavigation(() => { editor = null; render(); callback(); }),
+  editBinding: (layerId, bindingId) => { activateLayerView(layerId); startEditor({ kind: 'binding', value: layerById(layerId).bindings.find(item => item.id === bindingId) }); },
+  editLayer: layerId => { activateLayerView(layerId); startEditor({ kind: 'layer', value: layerById(layerId) }); },
+  selectLayer: layerId => void perform(async () => { state = await api.setLayer(layerId); render(); }),
+  onModalChange: () => syncEditing(), notify: toast });
 
 // Visual preferences stay on this computer, separate from exported actions.
 const sidebarPreference = 'dobra.sidebar-collapsed';
@@ -64,6 +71,7 @@ function syncAppearanceControls() {
   themeToggle.setAttribute('aria-label', label);
   themeToggle.title = label;
   themeToggle.replaceChildren(icon(dark ? 'sun' : 'moon'), el('span', { class: 'nav-label' }, label));
+  if (api?.setQuickPanelTheme) void api.setQuickPanelTheme(window.dobraAppearance.preference).catch(() => {});
   const select = document.querySelector('#field-theme');
   if (select) select.value = window.dobraAppearance.preference;
 }
@@ -115,6 +123,11 @@ function refreshKeyboardPreview() {
   updateKeys();
 }
 
+function activateLayerView(layerId) {
+  view = 'layers'; selectedLayerId = layerId; actionQuery = '';
+  for (const item of document.querySelectorAll('#navigation [data-view]')) { if (item.dataset.view === 'layers') item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current'); }
+}
+
 const copyConfig = () => structuredClone(state.config);
 const layerById = (id = selectedLayerId) => state.config.layers.find(layer => layer.id === id);
 const newId = prefix => prefix + '-' + crypto.randomUUID();
@@ -158,7 +171,7 @@ function requestEditing(value) {
 }
 
 function syncEditing() {
-  requestEditing(Boolean(editor || capture || isDirty() || textFocus() || document.activeElement?.closest('.keyboard-interactive')));
+  requestEditing(Boolean(editor || capture || productivity.active || isDirty() || textFocus() || document.activeElement?.closest('.keyboard-interactive')));
   const status = document.querySelector('#draft-status');
   if (status) status.textContent = isDirty() ? 'Alterações não salvas' : 'Nenhuma alteração pendente';
 }
@@ -195,8 +208,10 @@ function updateStatus() {
     linuxInputStatus.textContent = state.linuxInput.message;
     linuxInputStatus.dataset.status = state.linuxInput.status;
     linuxInputToggle.disabled = linuxInputPending || state.linuxInput.status === 'authorizing' || state.stopping;
-    linuxInputToggle.textContent = state.linuxInput.status === 'authorizing' ? 'Aguardando autorização…' : state.linuxInput.enabled ? 'Desabilitar integração' : 'Habilitar integração com Wayland';
+    linuxInputToggle.textContent = state.linuxInput.status === 'authorizing' ? 'Aguardando autorização…' : state.linuxInput.enabled ? 'Desabilitar integração' : 'Habilitar integração Linux';
   }
+  for (const control of document.querySelectorAll('[data-history]')) control.disabled = !state.configHistory?.[control.dataset.history === 'undo' ? 'canUndo' : 'canRedo'];
+  updateDeviceControls();
   editor?.triggerControls?.setInputState(state.input, state.enabled);
   updateInputStatus();
   if (runningPanel?.node.isConnected) runningPanel.update(state.running);
@@ -368,7 +383,7 @@ function renderBindingKeyboard(container, layer, matches) {
     const binding = key && layer.bindings.find(binding => binding.key.split('+').at(-1) === key && shortcutModifiers(binding.key, state.platform) === visualModifiers && triggerFor(binding) === visualTrigger);
     if (!key) { node.disabled = true; node.title = 'Use “Nova ação” para capturar combinações compatíveis.'; node.setAttribute('aria-label', (node.textContent || code) + ': sem atalho simples compatível'); continue; }
     const value = [visualModifiers, key].filter(Boolean).join('+');
-    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut].some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
+    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut, state.config.settings.momentaryShortcut, state.config.settings.panelShortcut ?? 'CommandOrControl+Shift+Space'].filter(Boolean).some(shortcut => shortcut.split('+').at(-1) === key && shortcutModifiers(shortcut, state.platform) === visualModifiers);
     if (reserved) { node.disabled = true; node.title = 'Reservada para controlar as camadas ou pausar as ações.'; node.setAttribute('aria-label', value + ': reservada para controle'); continue; }
     node.classList.toggle('mapped', Boolean(binding));
     node.classList.toggle('mapped-disabled', binding?.enabled === false);
@@ -425,7 +440,8 @@ function renderLayers() {
     layer.id === state.activeLayerId ? el('span', { class: 'live-mark', title: 'Camada em uso', 'aria-label': 'Em uso' }, el('i', { class: 'status-dot enabled', 'aria-hidden': 'true' })) : null,
     el('small', {}, layer.bindings.length + (layer.bindings.length === 1 ? ' ação' : ' ações')))
   ));
-  list.append(choices);
+  list.append(choices, button('Modelos e importação', productivity.openLibrary, 'quiet layer-library', { symbol: 'upload', 'data-focus': 'model-library' }));
+  if (productivity.needsSetup()) list.append(button('Primeiros passos', productivity.openWizard, 'quiet layer-library', { symbol: 'check', 'data-focus': 'setup' }));
   const layer = layerById();
   const current = layer.id === state.activeLayerId;
   const detail = el('section', { class: 'layer-detail', 'aria-label': 'Ações de ' + layer.name });
@@ -434,6 +450,7 @@ function renderLayers() {
       el('span', { class: 'badge ' + (current ? 'success' : '') }, current ? 'Em uso' : 'Visualizando')),
     layer.description ? el('p', {}, layer.description) : null),
     el('div', { class: 'button-row' }, !current ? button('Usar esta camada', () => void perform(async () => { state = await api.setLayer(layer.id); render(); return state; }, 'Camada em uso: ' + layer.name), '', { symbol: 'layers' }) : null,
+      button('Exportar camada', () => void perform(() => api.exportLayer(layer.id)), 'quiet', { symbol: 'download', iconOnly: true, title: 'Exportar camada', 'data-focus': 'export-layer' }),
       button('Duplicar camada', () => duplicateLayer(layer), 'quiet', { symbol: 'copy', iconOnly: true, title: 'Duplicar camada', 'data-focus': 'duplicate-layer' }),
       button('Editar camada', () => startEditor({ kind: 'layer', value: layer }), 'quiet', { symbol: 'edit', iconOnly: true, title: 'Editar camada', 'data-focus': 'edit-layer' }),
       button('Nova ação', () => startEditor({ kind: 'binding', value: null }), 'primary', { symbol: 'plus', 'data-focus': 'new-binding' }))));
@@ -606,7 +623,7 @@ function testPreviewPanel(layer) {
 function actionPreview(action) {
   if (action.type === 'sequence') return el('section', { class: 'sequence-preview' },
     el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem · ' + sequenceDelayLabel(action.stepDelayMs) + '. A primeira falha interrompe as próximas; efeitos concluídos não são desfeitos.'),
-    el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {}, el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.type]), actionPreview(step)))));
+    el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {}, el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.type]), step.delayBeforeMs ? el('p', { class: 'hint' }, 'Espera adicional: ' + step.delayBeforeMs + ' ms') : null, step.condition ? el('p', { class: 'hint' }, 'Condição: ' + step.condition.path + ' · ' + step.condition.operator) : null, step.resultName ? el('p', { class: 'hint' }, 'Resultado disponível como steps.' + step.resultName) : null, step.dynamic ? el('p', { class: 'context-note' }, 'Valores definidos durante a execução a partir de resultados anteriores. Esta prévia não faz requisições.') : null, actionPreview(step)))));
   const entries = action.type === 'http' ? [['Método', action.method], ['URL final', action.url], ['Headers', Object.entries(action.headers || {}).map(([key, value]) => key + ': ' + value).join('\n') || 'Sem headers'], ['Corpo', action.body || 'Sem corpo']]
     : action.type === 'file' ? [['Operação', action.mode === 'append' ? 'Acrescentar ao final' : 'Criar sem sobrescrever'], ['Arquivo', action.target], ['Conteúdo', action.content || 'Arquivo vazio']]
       : action.type === 'clipboard' ? [['Texto a copiar', action.text]]
@@ -621,9 +638,9 @@ function executionSteps(steps, open = false, total, eventId, stepDelayMs) {
   if (!steps?.length) return null;
   const interrupted = steps.some(step => step.status === 'error');
   return el('details', { class: 'execution-steps', open, 'data-event-steps': eventId },
-    el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' iniciadas' : ' registradas') + ' · ' + sequenceDelayLabel(stepDelayMs)),
+    el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' registradas' : ' registradas') + ' · ' + sequenceDelayLabel(stepDelayMs)),
     el('ol', {}, steps.map(step => el('li', { value: step.index, class: 'execution-step ' + step.status },
-      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'cancelled' ? 'close' : step.status === 'error' ? 'alert' : 'check'), step.status === 'cancelled' ? 'Cancelada' : step.status === 'error' ? 'Falhou' : 'Concluída')),
+      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'cancelled' || step.status === 'skipped' ? 'close' : step.status === 'error' ? 'alert' : 'check'), step.status === 'cancelled' ? 'Cancelada' : step.status === 'skipped' ? 'Ignorada' : step.status === 'error' ? 'Falhou' : 'Concluída')),
       el('p', {}, step.message), el('p', { class: 'hint' }, [Number.isFinite(step.durationMs) ? step.durationMs + ' ms' : null, step.httpStatus ? 'HTTP ' + step.httpStatus : null].filter(Boolean).join(' · '))))),
     interrupted || steps.some(step => step.status === 'cancelled') ? el('p', { class: 'hint' }, (interrupted ? 'A sequência parou nesta falha.' : 'A sequência foi cancelada.') + ' As etapas anteriores não foram desfeitas.' + (total && total > steps.length ? ' ' + (total - steps.length) + ' etapa(s) não iniciada(s).' : '')) : null);
 }
@@ -664,9 +681,11 @@ async function removeBinding(layer, binding) {
 }
 
 async function removeLayer(layer) {
-  if (!await confirmDialog({ title: 'Remover a camada “' + layer.name + '”?', message: 'Esta camada e suas ' + layer.bindings.length + ' ações serão removidas da configuração.', confirmLabel: 'Remover camada', danger: true })) return;
+  const temporary = state.config.settings.momentaryLayerId === layer.id;
+  if (!await confirmDialog({ title: 'Remover a camada “' + layer.name + '”?', message: 'Esta camada e suas ' + layer.bindings.length + ' ações serão removidas da configuração.' + (temporary ? ' O atalho de camada temporária também será desabilitado.' : ''), confirmLabel: 'Remover camada', danger: true })) return;
   const config = copyConfig();
   config.layers = config.layers.filter(item => item.id !== layer.id);
+  if (temporary) { delete config.settings.momentaryShortcut; delete config.settings.momentaryLayerId; }
   await perform(() => saveConfiguration(config), 'Camada removida.');
 }
 
@@ -682,7 +701,7 @@ async function saveConfiguration(config, focusKey) {
 }
 
 function shortcutField(name, label, value, hint, options = {}) {
-  const item = field(name, label, value, { required: true, placeholder: 'Ex.: A ou Control+Shift+A', hint });
+  const item = field(name, label, value, { required: options.required !== false, placeholder: 'Ex.: A ou Control+Shift+A', hint });
   const record = button('Capturar tecla', () => {
     if (capture?.input === item.input) { stopCapture(); return; }
     stopCapture();
@@ -940,8 +959,32 @@ function defaultFilesPath() {
   return state.paths.documents.replace(/[\\/]$/, '') + separator + 'Dobra';
 }
 
+function updateDeviceControls() {
+  const node = document.querySelector('#input-device-status'); if (node) node.textContent = state.inputDevices?.message || 'A identificação individual de teclados não está disponível nesta sessão.';
+  const select = document.querySelector('#field-inputDeviceId'); if (!select) return;
+  const current = select.value; const devices = state.inputDevices;
+  const choices = [['', 'Todos os teclados'], ...(devices?.devices || []).map(device => [device.id, device.name])];
+  if (current && !choices.some(([id]) => id === current)) choices.push([current, 'Teclado selecionado · desconectado']);
+  const signature = JSON.stringify(choices);
+  if (select.dataset.devices !== signature) { select.replaceChildren(...choices.map(([id, name]) => el('option', { value: id }, name))); select.value = current; select.dataset.devices = signature; }
+  select.disabled = !devices?.supported && !state.config.settings.inputDeviceId;
+}
+
+function inputDeviceSettings() {
+  const devices = state.inputDevices;
+  const options = [['', 'Todos os teclados'], ...(devices?.devices || []).map(device => [device.id, device.name])];
+  if (state.config.settings.inputDeviceId && !options.some(([id]) => id === state.config.settings.inputDeviceId)) options.push([state.config.settings.inputDeviceId, 'Teclado selecionado · desconectado']);
+  return el('details', { class: 'advanced-fields', open: Boolean(state.config.settings.inputDeviceId) }, el('summary', {}, 'Teclado que dispara ações'),
+    field('inputDeviceId', 'Observar ações neste teclado', state.config.settings.inputDeviceId || '', { choices: options, disabled: !devices?.supported && !state.config.settings.inputDeviceId, hint: 'O rastreio e as ações respeitam esta seleção. A troca pausa ações e cancela gestos pendentes.' }).wrapper,
+    el('p', { id: 'input-device-status', class: 'hint', role: 'status' }, devices?.message || 'A identificação individual de teclados não está disponível nesta sessão.'));
+}
+
+async function undoConfiguration(redo) {
+  void guardNavigation(() => void perform(async () => { state = await api[redo ? 'redoConfig' : 'undoConfig'](); editor = null; render(); }, redo ? 'Alteração refeita. Ações pausadas.' : 'Alteração desfeita. Ações pausadas.'));
+}
+
 function renderSettings() {
-  main.append(heading('Configurações'));
+  main.append(heading('Configurações', undefined, button('Primeiros passos', productivity.openWizard, '', { symbol: 'check' })));
   const theme = field('theme', 'Tema', window.dobraAppearance.preference, { choices: [['system', 'Seguir o sistema'], ['light', 'Claro'], ['dark', 'Escuro']], hint: 'Aplicado na hora e salvo neste computador.' });
   theme.input.addEventListener('change', () => window.dobraAppearance.set(theme.input.value));
   const appearance = el('section', { class: 'settings-section appearance-section' }, el('div', { class: 'section-heading' }, el('h2', {}, 'Aparência')), theme.wrapper);
@@ -949,12 +992,24 @@ function renderSettings() {
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {
     const data = new FormData(form);
     const config = copyConfig();
-    config.settings = { ...settings, layerShortcut: String(data.get('layerShortcut')).trim(), pauseShortcut: String(data.get('pauseShortcut')).trim(), cooldownMs: Number(data.get('cooldownMs')), autoSwitchLayers: data.get('autoSwitchLayers') === 'on', closeToTray: state.desktop?.trayAvailable ? data.get('closeToTray') === 'on' : Boolean(settings.closeToTray) };
+    config.settings = { ...settings, panelShortcut: String(data.get('panelShortcut')).trim(), layerShortcut: String(data.get('layerShortcut')).trim(), pauseShortcut: String(data.get('pauseShortcut')).trim(), cooldownMs: Number(data.get('cooldownMs')), autoSwitchLayers: data.get('autoSwitchLayers') === 'on', closeToTray: state.desktop?.trayAvailable ? data.get('closeToTray') === 'on' : Boolean(settings.closeToTray) };
+    const momentaryShortcut = String(data.get('momentaryShortcut') || '').trim();
+    const momentaryLayerId = String(data.get('momentaryLayerId') || '');
+    if (Boolean(momentaryShortcut) !== Boolean(momentaryLayerId)) invalid('Escolha a tecla e a camada temporária, ou deixe ambos vazios.', momentaryShortcut ? 'momentaryLayerId' : 'momentaryShortcut');
+    if (momentaryShortcut) { config.settings.momentaryShortcut = momentaryShortcut; config.settings.momentaryLayerId = momentaryLayerId; }
+    else { delete config.settings.momentaryShortcut; delete config.settings.momentaryLayerId; }
+    if (state.inputDevices?.supported || settings.inputDeviceId) { const deviceId = String(data.get('inputDeviceId') || ''); if (deviceId) config.settings.inputDeviceId = deviceId; else delete config.settings.inputDeviceId; }
     await saveConfiguration(config, 'save-settings');
     toast('Configurações salvas.');
   },
     el('div', { class: 'form-grid' }, shortcutField('layerShortcut', 'Alternar camada', settings.layerShortcut, 'Percorre suas camadas na ordem da lista.'),
       shortcutField('pauseShortcut', 'Pausar ou retomar ações', settings.pauseShortcut, 'Disponível após a primeira ativação pelo botão.')),
+    el('details', { class: 'advanced-fields', open: Boolean(settings.momentaryShortcut) }, el('summary', {}, 'Camada temporária e painel rápido'),
+      el('p', { class: 'hint' }, 'Segure uma combinação para usar outra camada; solte para voltar à anterior.'),
+      shortcutField('momentaryShortcut', 'Enquanto segurar', settings.momentaryShortcut || '', 'Opcional. Use uma combinação que não conflite com suas ações.', { required: false }),
+      field('momentaryLayerId', 'Camada temporária', settings.momentaryLayerId || '', { choices: [['', 'Desabilitada'], ...state.config.layers.map(layer => [layer.id, layer.name])] }).wrapper,
+      shortcutField('panelShortcut', 'Abrir painel rápido', settings.panelShortcut ?? 'CommandOrControl+Shift+Space', 'Deixe vazio para abrir apenas pelo botão.', { required: false })),
+    inputDeviceSettings(),
     el('section', { class: 'behavior-settings' }, el('h3', {}, 'Comportamento'),
       checkboxField('autoSwitchLayers', 'Trocar camadas conforme o aplicativo em foco', settings.autoSwitchLayers, 'Associe aplicativos no editor de cada camada. Ao sair, a última camada manual é retomada.'),
       el('p', { id: 'application-status', class: 'application-status', role: 'status' }),
@@ -970,6 +1025,8 @@ function renderSettings() {
     el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Levar a configuração para outro computador'), el('p', {}, 'A cópia portátil remove todos os headers HTTP, inclusive nas sequências. Reinsira as credenciais após importar.')),
       el('div', { class: 'button-row' }, button('Exportar', () => void perform(() => api.exportConfig()), '', { symbol: 'download', 'data-focus': 'export-config' }),
         button('Importar', () => void guardNavigation(() => void importConfiguration()), '', { symbol: 'upload' }))),
+    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Camadas e modelos'), el('p', {}, 'Adicione exemplos ou importe camadas sem substituir toda a configuração.')), el('div', { class: 'button-row' }, button('Modelos', productivity.openLibrary), button('Importar camadas', productivity.openImport, '', { symbol: 'upload' }))),
+    el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Desfazer configurações'), el('p', {}, 'Até dez alterações desta sessão. Reverter mantém ações pausadas; não desfaz efeitos executados.')), el('div', { class: 'button-row' }, button('Desfazer', () => void undoConfiguration(false), '', { disabled: !state.configHistory?.canUndo, 'data-history': 'undo' }), button('Refazer', () => void undoConfiguration(true), '', { disabled: !state.configHistory?.canRedo, 'data-history': 'redo' }))),
     el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Recuperar backup local'), el('p', { id: 'storage-backup' })), button('Restaurar backup', () => void guardNavigation(() => void restoreConfiguration()), '', { symbol: 'history', 'data-focus': 'restore-backup', disabled: true })),
     el('div', { class: 'backup-row' }, el('div', {}, el('h3', {}, 'Diagnóstico para suporte'), el('p', {}, 'Exporta versões, capacidades e tempos. Sem configurações, credenciais, URLs ou dados pessoais. Nada é enviado automaticamente.')), button('Exportar diagnóstico', () => void perform(() => api.exportDiagnostics()), '', { symbol: 'download', 'data-focus': 'export-diagnostics' })),
     el('details', { class: 'storage-details' }, el('summary', {}, 'Locais dos arquivos'),
@@ -979,14 +1036,14 @@ function renderSettings() {
     el('p', { class: 'hint token-note' }, 'Configurações com headers HTTP exigem proteção nativa do sistema. O backup local mantém a mesma proteção.'));
   const support = el('details', { class: 'settings-section support-details' }, el('summary', {}, 'Captura e permissões'),
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
-      el('p', {}, state.session === 'wayland' ? 'Habilite a integração Linux para observar teclas fora desta janela. As teclas continuam funcionando nos outros aplicativos.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'As teclas são observadas sem bloquear outros programas. A entrada global pode depender de permissões da sessão.')),
+      el('p', {}, state.session === 'wayland' ? 'Habilite a integração Linux para observar teclas fora desta janela. As teclas continuam funcionando nos outros aplicativos.' : state.platform === 'darwin' ? 'Autorize o Dobra em Privacidade e Segurança → Monitoramento de Entrada. Reinicie o aplicativo após conceder a permissão. A detecção opcional de aplicativos também pode exigir Acessibilidade.' : state.platform === 'linux' ? 'As teclas são observadas sem bloquear outros programas. Para selecionar um teclado específico no X11, habilite a integração Linux abaixo.' : 'As teclas são observadas sem bloquear outros programas. A entrada global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
   main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
   if (state.linuxInput?.supported) {
     support.open = true;
     support.append(el('p', { class: 'hint' }, 'O sistema solicitará autorização para um componente separado. Ele observa os teclados da sessão local ativa e interrompe a leitura ao bloquear ou trocar de sessão. O Dobra não registra a digitação.'),
       el('p', { id: 'linux-input-status', role: 'status', class: 'application-status' }),
-      button('Habilitar integração com Wayland', () => void toggleLinuxInput(), '', { id: 'linux-input-toggle' }));
+      button('Habilitar integração Linux', () => void toggleLinuxInput(), '', { id: 'linux-input-toggle' }));
   }
 }
 
@@ -1055,6 +1112,7 @@ document.addEventListener('input', clearFieldError);
 document.addEventListener('change', clearFieldError);
 document.addEventListener('keydown', event => {
   if (document.querySelector('#confirm-dialog').open) return;
+  if (!capture && state && (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!productivity.active) productivity.openSearch(); return; }
   if (capture) {
     event.preventDefault();
     event.stopPropagation();
@@ -1141,6 +1199,7 @@ if (!api) {
       if (toTray) closingAllowed = false;
     });
     selectedLayerId = state.activeLayerId;
+    document.querySelector('.topbar-actions').prepend(button('Buscar comandos', productivity.openSearch, 'quiet', { symbol: 'search', iconOnly: true, title: 'Buscar comandos · Ctrl/Cmd+K', 'data-focus': 'command-search' }), button('Painel rápido', () => void perform(() => api.showQuickPanel()), 'quiet', { symbol: 'keyboard', iconOnly: true, title: 'Painel rápido' }));
     render();
     api.onState(next => {
       const previous = state;

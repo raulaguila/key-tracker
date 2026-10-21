@@ -130,3 +130,20 @@ Associações de aplicativos ficam em seção expansível no drawer da camada.
 Configurações concentra opt-in de troca automática e comportamento da bandeja,
 com disponibilidade real e texto explicando o fallback manual. Mantêm a direção
 visual, temas e densidade do aplicativo; não criam outra tela de administração.
+
+## Produtividade progressiva
+
+A barra principal mantém busca e biblioteca compactas. O painel rápido é uma
+janela separada, com camada/status/atalhos e ação de voltar ao Dobra. Seu preload
+não oferece execução. Paleta e assistente usam diálogo sobreposto, foco contido,
+Escape e retorno ao invocador. O assistente é retomável, sem exigir um cadastro.
+
+Importação separa origem, seleção/mescla e confirmação dos totais/conflitos. Nenhuma
+prévia ativa ações. Selecionar a nova camada para editar não muda a camada em execução.
+Condições, variáveis e espera por etapa ficam em opções avançadas do editor;
+a lista principal continua legível para sequências simples. Estados de ignorada,
+pendente, falha e cancelada têm texto explícito nos dois temas.
+
+Desfazer/refazer afeta configuração e deixa isso expresso; campos de texto mantêm
+seu histórico nativo. Escolha de teclado informa suporte real, origem ausente e
+permissões sem sugerir que um layout visual identifica o dispositivo físico.

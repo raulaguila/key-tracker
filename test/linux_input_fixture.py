@@ -70,9 +70,14 @@ else:
             self.emit, self.ended, self.state = emit, ended, KeyState()
             self.state.devices = {'one': set(), 'two': set()}
             self.devices = self.state.devices
+            self.selected_id = ""
             FakeDevices.active = self
+        def select(self, selected_id):
+            self.selected_id = selected_id
+            self.state.selection = None if not selected_id else {name for name, suffix in [('one','1'),('two','2')] if selected_id == 'linux:'+suffix*40}
         def snapshot(self):
-            self.emit({'type':'status', 'mode':'global', 'keyboards': len(self.devices)})
+            self.emit({'type':'devices', 'devices':[{'id':'linux:'+suffix*40,'name':'Fixture '+name} for name,suffix in [('one','1'),('two','2')]], 'selectedId': self.selected_id})
+            self.emit({'type':'status', 'mode':'global' if self.state.active() else 'waiting', 'keyboards': len(self.devices)})
             self.emit({'type':'reset', 'held': sorted(self.state.held())})
         def close(self): FakeDevices.active = None
     broker = service.Service(bus, devices_factory=FakeDevices)

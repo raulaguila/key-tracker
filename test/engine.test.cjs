@@ -31,17 +31,17 @@ test('inicia pausado e A muda de log para arquivo ao alternar camada pelo F8', a
   assert.equal(registrations.size, 0);
 });
 
-test('edição suspende teclas; pausa mantém somente o controle para retomar', () => {
+test('edição suspende ações; pausa mantém controles para retomar e abrir painel', () => {
   let now = 1000;
   const { engine, registrations } = fixture({ now: () => now });
   engine.setEnabled(true);
   engine.setEditing(true);
-  assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+F12']);
+  assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+Space', 'CommandOrControl+Shift+F12']);
   engine.setEditing(false);
   assert.ok(registrations.has('A'));
   registrations.get('CommandOrControl+Shift+F12')();
   assert.equal(engine.enabled, false);
-  assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+F12']);
+  assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+Space', 'CommandOrControl+Shift+F12']);
   now += 400;
   registrations.get('CommandOrControl+Shift+F12')();
   assert.equal(engine.enabled, true);
@@ -52,7 +52,7 @@ test('conflito do atalho de emergência impede ativação', () => {
   const { engine, registrations } = fixture({ fail: 'CommandOrControl+Shift+F12' });
   const state = engine.setEnabled(true);
   assert.equal(state.enabled, false);
-  assert.equal(registrations.size, 0);
+  assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+Space']);
   assert.equal(state.shortcuts.failed.length, 1);
 });
 

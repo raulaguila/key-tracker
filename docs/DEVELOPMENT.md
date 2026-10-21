@@ -130,3 +130,20 @@ dependências e scripts de instalação/remoção sem instalar o pacote. O hook
 `build/prepare-linux-input.cjs` gera staging em `artifacts/`, fora dos fontes.
 Não adicionar modos de teste, barramentos alternativos ou caminhos de dispositivos
 controlados pelo cliente ao serviço instalado. [Contrato](../.keel/surfaces/wayland-input.md).
+
+## Recursos de produtividade e helpers por dispositivo
+
+`beforePack` usa `build/prepare-native-input.cjs`: prepara o serviço Linux ou
+compila o helper passivo no Windows/macOS e executa seu self-test sem abrir teclado.
+Windows requer Visual Studio Build Tools com C++ e ambiente `cl.exe`; CI configura
+MSVC antes de pack/dist. macOS requer Xcode Command Line Tools. Os binários gerados
+ficam em `app/native-input/`, ignorados pelo Git e desempacotados do ASAR.
+O helper macOS acompanha o mínimo macOS 13 exigido pelo Electron 44.
+Para desenvolvimento nesses dois sistemas, execute `npm run native:build` antes
+de `npm start`. Instaladores já incluem o helper compilado; o comando não instala
+serviços ou altera permissões no sistema.
+
+Provas de catálogo/importação ficam em `test/layer-library.test.cjs` e
+`test/product-services.test.cjs`. Testes de sequência, undo e controles cobrem
+invariantes no motor; o smoke de produtividade verifica a integração real no
+Electron. Nenhuma prova sintética certifica teclados físicos ou permissões do SO.

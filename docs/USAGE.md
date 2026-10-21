@@ -108,8 +108,9 @@ correção manual da geometria física. O mapa não identifica o modelo do tecla
 IME, Shift/AltGr e variantes de fabricantes não são integralmente representados.
 Se a leitura falhar, US é uma referência provisória acompanhada de aviso.
 
-A tela informa captura global ou local. No Wayland, o rastreio funciona somente
-com a janela em foco. Desligar a visualização não desliga a entrada nativa quando
+A tela informa captura global ou local. No Wayland, a captura global exige o
+[componente Linux autorizado](WAYLAND.md); sem ele funciona nesta janela.
+Desligar a visualização não desliga a entrada nativa quando
 ela é necessária para ações de manter/soltar; isso não passa a gravar as teclas.
 
 ## Aplicativos, aparência e bandeja
@@ -148,3 +149,77 @@ até terminar. O backup pode aparecer como “Verificando” por um breve perío
 histórico terminarem. Ao sair, o aplicativo aguarda gravações pendentes; se a
 espera exceder dez segundos, você pode continuar aguardando ou sair com o aviso
 de que operações ainda não concluídas podem não ser persistidas.
+
+## Primeiros passos, busca e painel
+
+Abra **Primeiros passos** para conferir permissões e testar uma tecla com ações
+pausadas. O assistente pode ser retomado em Configurações. Use um modelo local
+para criar sua primeira camada; revise o conteúdo e só ative quando estiver pronto.
+
+**Ctrl+K** (Windows/Linux) ou **⌘+K** (macOS) abre a busca de ações e camadas dentro
+do Dobra. A busca abre editores ou troca a camada em uso; não dispara ações.
+O **Painel rápido** mostra a camada ativa e os atalhos em uma janela compacta.
+Também pode ser aberto por seu controle configurável; o padrão é
+`Ctrl+Shift+Espaço` / `⌘+Shift+Espaço`, observado após ativar a entrada.
+Escape oculta o painel. Abrir o painel não ativa o motor.
+
+## Camada temporária e teclado de entrada
+
+Em Configurações, escolha uma combinação e a camada temporária. Enquanto ela
+estiver mantida, essa camada recebe os atalhos; soltar restaura a anterior.
+Pausa, edição, mudança manual/de aplicativo e perda da entrada cancelam a camada
+temporária. As teclas continuam funcionando nos demais aplicativos.
+
+O seletor de teclado lista dispositivos reais quando o backend e a permissão
+permitem. **Todos os teclados** mantém a agregação padrão. Ao escolher um teclado,
+as ações e o Rastreio passam a usar essa origem. Desconexão ou mudança de seleção
+cancela gestos e pausa ações; confira o estado antes de reativar. Teclados sem
+identidade disponível não são apresentados como se tivessem suporte por dispositivo.
+No Linux, a seleção exige o componente evdev e sua autorização, inclusive em X11.
+No macOS, a integração pode solicitar Monitoramento de Entrada.
+
+## Biblioteca e importação por camada
+
+A biblioteca possui modelos locais de notas, textos/navegação e webhook. O modelo
+de webhook usa um endereço de exemplo: substitua-o pelo serviço desejado e confira
+os headers antes de executar. Nenhum modelo é ativado automaticamente.
+
+Importar camadas permite escolher quais trazer, criar camadas novas ou mesclar
+nas existentes. **Ignorar conflitos** preserva as ações atuais; **Substituir**
+remove ações conflitantes indicadas na prévia. Controles reservados são sempre
+preservados. A prévia mostra os totais antes de aplicar. Selecionar uma camada
+que troca para outra exige trazer também essa dependência; IDs são remapeados.
+Headers e associações de aplicativo são removidos da cópia portátil. Planos
+expiram após cinco minutos ou quando a configuração muda.
+
+**Exportar camada** inclui as camadas referenciadas pelas ações, sem headers ou
+associações. A importação da configuração inteira continua disponível nas opções
+de dados e substitui o conjunto atual conforme sua confirmação.
+
+## Sequências com dados e condições
+
+Abra as opções avançadas de uma etapa para definir **espera antes da etapa**,
+independente do intervalo geral entre etapas. Em uma requisição HTTP, dê um nome
+ao resultado, por exemplo `consulta`. Etapas posteriores podem usar
+`{{steps.consulta.status}}`, `{{steps.consulta.body}}` ou
+`{{steps.consulta.json.nome}}` em conteúdo compatível. Destinos dinâmicos são
+validados novamente antes do efeito: URLs continuam restritas a HTTP/HTTPS sem
+credenciais embutidas e arquivos não podem atingir os dados internos do Dobra.
+A resposta é limitada a 64 KiB e não é guardada no histórico.
+
+Uma condição compara um resultado anterior por igualdade, diferença, conteúdo
+ou existência. Condição falsa mostra a etapa como **Ignorada** e continua o fluxo.
+A prévia informa valores que só existirão na execução; abrir a prévia não faz
+requisições. Não há loops nem sequências aninhadas. Falhas e cancelamentos mantêm
+os limites atuais e impedem as próximas etapas. Resultados dinâmicos não podem
+ser usados em mensagens de log legadas, que seriam persistidas.
+
+## Desfazer e refazer configuração
+
+Os controles **Desfazer** e **Refazer** recuperam até dez alterações desta sessão,
+incluindo exclusões e importações. A recuperação pausa/cancela execuções e salva
+pelo mesmo mecanismo protegido da configuração. Uma edição nova elimina o caminho
+de refazer. Fechar o aplicativo encerra esse histórico em memória; o backup em
+disco continua disponível. Desfazer não reverte arquivos, clipboard, notificações,
+aplicativos ou requisições que já foram executados. A edição de texto nos campos
+mantém seu próprio Desfazer nativo.
