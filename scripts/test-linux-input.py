@@ -60,6 +60,14 @@ class NativeStateTests(unittest.TestCase):
         for value in ['', '../session', 'x'*129]:
             with self.assertRaises(ValueError): authority.session(':1.1', value)
 
+    def test_oversized_dbus_payload_is_rejected_before_unpack(self):
+        errors = []
+        parameters = SimpleNamespace(get_size=lambda: 4097, unpack=lambda: self.fail('Oversized request must not be materialized'))
+        invocation = SimpleNamespace(return_dbus_error=lambda name, message: errors.append(name))
+        broker = service.Service.__new__(service.Service)
+        broker.method(None, ':1.2', None, service.INTERFACE, 'Start', parameters, invocation)
+        self.assertEqual(errors, [service.INTERFACE+'.InvalidRequest'])
+
     def test_native_buffer_drains_without_another_fd_notification(self):
         class Lib:
             def __init__(self): self.index = 0

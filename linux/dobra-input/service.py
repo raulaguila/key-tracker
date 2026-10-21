@@ -150,6 +150,11 @@ class Service:
         invocation.return_dbus_error(INTERFACE + "." + reason, reason)
 
     def method(self, _bus, owner, _path, _interface, method, parameters, invocation):
+        # Inspect serialized size before unpacking attacker-controlled variants;
+        # the D-Bus transport ceiling is much larger than this protocol needs.
+        if parameters.get_size() > 4096:
+            self.error(invocation, "InvalidRequest")
+            return
         try:
             if method == "Version":
                 invocation.return_value(GLib.Variant("(u)", (1,)))

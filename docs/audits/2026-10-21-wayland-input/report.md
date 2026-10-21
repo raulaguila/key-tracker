@@ -25,10 +25,11 @@ nem inicia o serviço no boot. AppImage requer esse componente instalado.
 ## Validação local
 
 - Sintaxe e 200 testes Node: passaram.
-- 20 testes Python: GIO/D-Bus reais em barramento privado, autoridade e teclados
+- 21 testes Python: GIO/D-Bus reais em barramento privado, autoridade e teclados
   simulados; incluem cliente de produção, FD privado, negação, isolamento entre
   clientes, vínculo PID/sessão, lock durante autorização, heartbeat, backpressure,
   múltiplos teclados, SYN_DROPPED, drenagem e mudança de seat.
+  O serviço limita o tamanho serializado antes de materializar argumentos D-Bus.
 - Electron: fluxo de permissão simulado somente no processo de teste, nova
   tentativa, mensagens legíveis, temas, Rastreio e pausa na perda da sessão.
 - Axe: 14 estados, zero violações WCAG A/AA. 112 combinações responsivas e
