@@ -1,5 +1,9 @@
 # Proposta de interface compacta
 
+> **Protótipo histórico.** Preserva a primeira direção compacta. Cores, editor
+> em coluna e nomes desta prévia não representam a versão atual. O produto usa
+> Dobra e drawers sobrepostos; consulte [Design](../../../DESIGN.md).
+
 Protótipo navegável preservado como referência do design adotado no aplicativo.
 Tema claro e rosa do produto preservados; foco em densidade, alinhamento e
 controle por mouse/teclado. Esta pasta continua sendo uma prévia independente;

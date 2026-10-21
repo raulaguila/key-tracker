@@ -1,5 +1,8 @@
 # Auditoria nativa — base 77a360d
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Somente leitura de código e testes. Ao concluir, HEAD era 8a6c78d; o diff adicionou apenas workflow/script de diagnóstico, sem alterar os arquivos auditados. Nenhum aplicativo, teste ou configuração real foi editado. Os 19 testes focados dos serviços passaram.
 
 ## Achados confirmados

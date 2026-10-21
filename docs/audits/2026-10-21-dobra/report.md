@@ -1,5 +1,8 @@
 # Adoção da identidade Dobra — 2026-10-21
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 O produto passa a se chamar Dobra. Pacote, App ID, perfil Electron, IPC,
 preload, cofre, preferências, pasta de documentos e nomes de exportação passam
 integralmente à identidade Dobra, sem aliases de migração. O código funcional

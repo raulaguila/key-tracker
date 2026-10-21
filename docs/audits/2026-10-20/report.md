@@ -1,5 +1,8 @@
 # Auditoria do sistema — UI/UX e performance
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Data: 20/10/2026. Versão auditada: `0d861122c9a72bfc5a40c3417e4867bc7dae5220`.
 Esta entrega documenta a análise; não modifica o comportamento do aplicativo.
 

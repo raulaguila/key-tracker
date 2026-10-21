@@ -1,5 +1,8 @@
 # Momentos da tecla e cadastro compacto
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Escopo: implementar ações ao pressionar, enquanto mantém e ao soltar; adotar a
 proposta de UX aprovada pelo usuário. Configuração permanece versão 1.
 

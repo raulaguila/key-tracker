@@ -1,6 +1,8 @@
 # Dobra
 
-Identidade aprovada: **Dobra**. Assinatura: **Mais possibilidades em cada tecla.**
+[Documentação](README.md) · [Design da interface](../DESIGN.md)
+
+Nome: **Dobra**. Assinatura: **Mais possibilidades em cada tecla.**
 Personalidade: próxima, tátil e versátil. O D representa uma superfície dobrada,
 associando uma mesma tecla às possibilidades de suas camadas.
 
@@ -18,15 +20,15 @@ o layout compacto e os drawers sobrepostos. Verde/âmbar/azul/vermelho comunicam
 estados independentemente da marca. O wordmark é `dobra`, em minúsculas; o nome
 do aplicativo, dos instaladores e dos textos é **Dobra**.
 
-`app/assets/` contém logo claro/escuro, símbolo, ícone SVG e PNG. O script
+O diretório [app/assets](../app/assets/) contém logo claro/escuro, símbolo, ícone SVG e PNG. O script
 `python3 scripts/generate-icon.py` regenera o PNG a partir da mesma geometria.
-O estudo comparativo completo permanece em `docs/prototypes/identity/`.
-Os logos SVG ainda usam texto com a fonte do sistema, conforme o estudo aprovado.
+O [estudo comparativo](prototypes/identity/README.md) é uma referência histórica.
+Os logos SVG usam texto com a fonte do sistema; não são lettering em contornos.
+O [kit da marca](dobra-brand-kit.zip) reúne os recursos e capturas de referência.
 
 ## Identidade técnica
 
-Não há usuários publicados nem migração de nomes antigos. A configuração inicial
-usa exclusivamente a identidade Dobra:
+A configuração e os pacotes usam exclusivamente a identidade Dobra:
 
 - Pacote/executável Linux: `dobra`; produto Windows/macOS: `Dobra`.
 - App ID: `io.dobra.app`; desktop Linux: `io.dobra.app.desktop`.
@@ -39,7 +41,6 @@ usa exclusivamente a identidade Dobra:
 - Variáveis de QA: prefixo `DOBRA_`; testes usam perfis temporários.
 
 Não há aliases ou fallback para configurações/perfis da identidade anterior.
-Os formatos de camadas e ações e os recursos funcionais continuam os mesmos.
-O endereço Git remoto continua apontando ao repositório existente do projeto.
+O endereço do repositório permanece `github.com/raulaguila/key-tracker`.
 Relatórios de auditoria e capturas anteriores são registros históricos, não
 promessas de validação da identidade atual.

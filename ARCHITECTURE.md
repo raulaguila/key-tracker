@@ -1,10 +1,12 @@
 # Arquitetura
 
+[Documentação](docs/README.md) · [Contrato interno](CONTRACT.md)
+
 ## Decisão
 
 Um processo desktop Electron, um renderer HTML/CSS/JS sem framework e um worker
 nativo de captura. Sem servidor local, banco, conta ou dependência de nuvem.
-Electron permite distribuir a mesma aplicação nos três sistemas pedidos. O custo
+Electron permite distribuir a mesma aplicação em Windows, macOS e Linux. O custo
 é um pacote maior; cada instalador precisa ser compilado e validado em seu SO.
 O módulo de captura utiliza binários N-API pré-compilados por SO/arquitetura;
 `npmRebuild: false` evita recompilar uma dependência com ABI estável. O pacote
@@ -19,7 +21,8 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/actions.cjs`: preparação pura e execução das ações simples e sequências.
 - `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
   notificações; injetada pelo main, sem exposição arbitrária no preload.
-- `app/storage.cjs`: configuração atômica e log serializado com rotação.
+- `app/storage.cjs`: configuração atômica, backup, cofre e log serializado com rotação.
+- `app/key-gestures.cjs`: pressionar/manter/soltar, delays e cancelamento de gestos.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
 - `app/native-keycodes.cjs`: normalização dos códigos físicos, inclusive numpad
@@ -55,13 +58,15 @@ primeira falha interrompe as próximas, sem desfazer efeitos anteriores. O motor
 congela a prévia completa; headers de etapas HTTP também são mascarados. Eventos
 guardam só metadados de resultado por etapa, sem textos privados ou payload HTTP.
 Um HTTP lento não bloqueia o comando de pausa. Pausar impede novos disparos;
-ações que já começaram terminam normalmente.
+ações que já começaram continuam, salvo cancelamento explícito.
 
 ## Rastreio
 
 Controles independentes do motor. Worker transmite somente down/up e código da
 tecla por IPC; eventos de repetição são descartados. Nenhum desses eventos vai
-ao histórico ou ao disco. Encerrar/desligar termina o worker. Falha nativa oferece
+ao histórico ou ao disco. O worker atende à demanda de rastreio e de gestos:
+desligar a visualização não o encerra se manter/soltar ainda precisar da entrada.
+Encerrar o aplicativo termina o worker. Falha nativa oferece
 modo local em vez de derrubar a janela. No Wayland o hook integral é evitado;
 atalhos dependem do portal do compositor e do identificador desktop instalado.
 
@@ -89,7 +94,7 @@ redige headers. Campos comuns de corpo/query/URL não substituem o cofre quando
 não há headers. Arquivos usam permissões restritas onde o SO as aplica.
 
 Histórico em memória: até 100 resultados/eventos da sessão. Resultados de ações
-e mensagens configuradas são salvos em JSONL; 1 MiB por arquivo, com uma cópia
+e mensagens de log legadas são salvos em JSONL; 1 MiB por arquivo, com uma cópia
 rotacionada. Falhas de execução e de persistência aparecem separadamente na UI.
 Sem telemetria. Configuração inválida no startup oferece recuperação explícita
 por backup/importação, com cópia preservada. Writes serializados sincronizam um
@@ -128,7 +133,8 @@ Node 24 para scripts/testes. `npm test` verifica esquema, persistência, troca d
 camadas, pausa/retomada, conflitos, concorrência, arquivos, log e HTTP real em
 loopback. Testes de hook nativo e teclas reais foram exercitados em Linux/X11
 com Xvfb; não são substitutos para QA de hardware em Windows/macOS/Wayland.
-Workflow `Desktop`: testes nos três sistemas em push/PR; instaladores em push
+Workflow `Desktop`: testes nos quatro destinos (Windows x64, Linux x64, macOS
+ARM64 e Intel x64) em push/PR; instaladores em push
 na main ou `workflow_dispatch`, sem publicação automática. Assinatura/notarização requer
 certificados do distribuidor e deve ser configurada antes de uma release pública.
 
@@ -174,6 +180,7 @@ Confirmar ocultação encerra edição e mantém a janela recuperável; sair enc
 monitor, worker de rastreio, tray e atalhos. Falha de render libera encerramento.
 
 Dependência get-windows é fixada em 9.3.0 e extraída do ASAR junto aos helpers.
-Override de tar 7.5.22 corrige os alertas altos/críticos nos instaladores transitivos
-introduzidos pela dependência; permanecem os alertas moderados de desenvolvimento
-já documentados. Nenhum shell arbitrário ou serviço remoto foi adicionado.
+O lockfile e o override de tar são verificados pelo workflow de segurança.
+Resultados de vulnerabilidades são datados; consulte a execução atual e não
+interprete um relatório antigo como garantia do estado das dependências.
+Não há shell arbitrário ou serviço remoto próprio.

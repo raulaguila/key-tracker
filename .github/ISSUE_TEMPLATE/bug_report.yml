@@ -1,0 +1,40 @@
+name: Relatar um problema
+description: Informe uma falha reproduzível no Dobra.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: Não publique credenciais ou configurações pessoais. Para vulnerabilidades, siga SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Versão ou commit
+      placeholder: "0.1.0 / SHA do commit"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Sistema e arquitetura
+      description: Inclua versão do SO e, no Linux, X11 ou Wayland.
+      placeholder: "Windows x64, macOS ARM64, Linux x64/X11..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Como reproduzir
+      description: Liste os passos. Para entrada, informe layout, momento da tecla e janela em foco.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Resultado esperado e observado
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidências opcionais
+      description: Diagnóstico exportado ou capturas revisadas, sem dados privados.

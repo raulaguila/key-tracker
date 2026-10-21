@@ -1,5 +1,8 @@
 # Recomendação para cadastrar ações e sequências
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Data: 20/10/2026. Status: recomendação de UX, sem redesign aplicado ao produto.
 A correção de A08 otimiza atualização de estado, linhas e menus; não muda este
 fluxo de cadastro. A proposta abaixo usa os tipos, limites e APIs existentes.

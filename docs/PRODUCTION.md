@@ -1,5 +1,11 @@
 # Preparação e operação de produção
 
+[Documentação](README.md) · [Instalação](INSTALLATION.md) · [Assinatura e notarização](SIGNING.md)
+
+**Status:** distribuição pública ainda pendente de certificados/integração de
+assinatura, notarização real e QA instalado. O workflow prepara candidatos;
+não demonstra que essas etapas externas já foram concluídas.
+
 O CI valida Windows x64, Linux x64/X11, macOS ARM64 e macOS Intel x64. Os artifacts
 de desenvolvimento são distintos dos candidatos assinados. Não há publicação ou
 atualização automática. O usuário escolhe instalar cada versão.
@@ -68,18 +74,22 @@ source em perfis isolados e compara o ASAR. Nenhum desses testes instala pela
 interface, aceita permissões de usuário ou comprova todo hardware/compositor.
 
 Dependency security roda no lockfile, bloqueando vulnerabilidades altas/críticas;
-Dependabot propõe atualizações semanalmente, sem auto-merge. A auditoria inicial
-encontrou um advisory moderado transitivo em `sprintf-js` da cadeia de build do
-electron-builder (oito pacotes afetados, zero alto/crítico). Não foi forçado o
-downgrade sugerido pelo npm. Reavaliar advisory/compatibilidade antes da release;
-não afirmar que o projeto está sem vulnerabilidades.
+Dependabot propõe atualizações semanalmente, sem auto-merge. Resultados anteriores
+estão nos [relatórios datados](audits/README.md); contagens de advisories variam.
+Consulte a execução atual, reavalie compatibilidade antes de cada release e não
+force downgrades apenas para eliminar um alerta. Um gate aprovado não significa
+ausência de vulnerabilidades moderadas ou ainda desconhecidas.
 
 ## Candidato assinado e distribuição
 
 1. Configure um environment GitHub **production-release**, com revisão humana e
    acesso somente à branch/tag de release. Cadastre certificados apenas como
    secrets, nunca no repositório:
-   - Windows: `WIN_CSC_LINK` (PFX/P12 base64), `WIN_CSC_KEY_PASSWORD`.
+   - Windows, no caminho PFX atualmente implementado: `WIN_CSC_LINK` (PFX/P12
+     base64), `WIN_CSC_KEY_PASSWORD`. **Certificados públicos recentes exigem
+     proteção de chave em hardware/HSM ou serviço de assinatura. Essa integração
+     ainda precisa ser implementada; não basta comprar um certificado e tentar
+     exportá-lo para PFX.** Veja [o limite do workflow atual](SIGNING.md#windows).
    - macOS: `MAC_CSC_LINK` (Developer ID Application P12 base64),
      `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
      `APPLE_TEAM_ID`. Use senha específica de aplicativo da Apple.

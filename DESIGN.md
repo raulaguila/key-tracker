@@ -1,5 +1,7 @@
 # Design do Dobra
 
+[Documentação](docs/README.md) · [Marca](docs/BRAND.md) · [Produto](PRODUCT.md)
+
 ## Cena e direção
 
 Uma pessoa configura seus atalhos na mesa de trabalho, durante o dia, alternando
@@ -7,9 +9,9 @@ entre o aplicativo e seus programas usuais. Temas claro e escuro permitem confer
 nomes, teclas e resultados conforme a iluminação. Interface de ferramenta, em pt-BR,
 com uma família de fontes do sistema e hierarquia compacta.
 
-Estratégia **restrained**: fundo branco no tema claro, neutros discretamente
+Direção contida: fundo branco no tema claro, neutros discretamente
 inclinados ao cobre na navegação e Dobra em destaque nos controles principais.
-A direção aprovada é a do estudo Dobra: um D construído como uma superfície
+A marca usa um D construído como uma superfície
 dobrada, wordmark em minúsculas e identidade próxima, tátil e versátil.
 
 A paleta de referência usa Cobre `#A94320`, Tinta `#302721`, Porcelana `#F6F2EF`
@@ -18,7 +20,7 @@ e Pêssego `#F4AE85`. A interface usa tokens OKLCH com variantes para contraste:
 usam luminosidades .19/.215/.245 e hue 45. Verde comunica sucesso; vermelho, erro;
 âmbar, pausa/conflito; azul, suspensão. Estado nunca depende da cor da marca.
 O símbolo no menu usa `currentColor`, acompanhando o tema; ícone nativo e SVG
-compartilham a geometria da dobra. Densidade, drawer e navegação aprovados continuam.
+compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mesmos tokens nos dois temas.
 
 ## Estrutura
 
@@ -66,7 +68,8 @@ compartilham a geometria da dobra. Densidade, drawer e navegação aprovados con
   Ajuda de uso, privacidade, locais de arquivos e permissões ficam em seções
   expansíveis. Estado, camada em uso, avisos e resultados continuam visíveis.
 - Rastreio é opt-in e independente do motor de ações. Teclas simultâneas são
-  destacadas por código físico e chips textuais. O modo global/local aparece antes
+  destacadas por código físico e chips com contorno. A combinação textual fica
+  disponível para leitores de tela, sem duplicação visual. O modo global/local aparece antes
   do teclado. Layout automático usa as legendas disponíveis no Chromium; BR ABNT2,
   US ANSI, PT ISO, FR AZERTY e DE QWERTZ também podem ser escolhidos manualmente.
   Formato completo, TKL e compacto, além de correção do padrão físico, são
@@ -104,7 +107,7 @@ no indicador textual de teclas pressionadas. Captura global
 e execução dependem da integração nativa e das permissões do sistema, informadas
 pelo estado vindo do processo principal.
 
-## Produtividade aprovada
+## Produtividade
 
 A tabela é a visão inicial. O seletor Tabela/Teclado reutiliza a geometria do
 Rastreio como editor: clicar abre o mesmo drawer; combinações são escolhidas em
@@ -125,4 +128,4 @@ e o resultado continua acessível no Histórico.
 Associações de aplicativos ficam em seção expansível no drawer da camada.
 Configurações concentra opt-in de troca automática e comportamento da bandeja,
 com disponibilidade real e texto explicando o fallback manual. Mantêm a direção
-visual, temas e densidade aprovados; não criam outra tela de administração.
+visual, temas e densidade do aplicativo; não criam outra tela de administração.

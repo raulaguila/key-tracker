@@ -1,5 +1,9 @@
 # Bridge plan — Preparação para produção
 
+> **Registro interno histórico.** Checklist e resultados pertencem aos commits
+> citados abaixo. Para operação e distribuição atuais, consulte
+> [Produção](../docs/PRODUCTION.md). Este arquivo não é um roteiro de instalação.
+
 <!-- bridge:plan-schema 1 -->
 
 ## Checklist

@@ -1,5 +1,8 @@
 # Auditoria do motor, ações e persistência
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 HEAD: `77a360d`. Somente leitura do produto. Provas em `engine-results.json`; script temporário `/tmp/keyboard-engine-os-audit.cjs`. Node 24.15.0, Linux; bordas nativas substituídas apenas nos diagnósticos do motor. Não houve execução nativa Windows/macOS.
 
 ## Achados confirmados

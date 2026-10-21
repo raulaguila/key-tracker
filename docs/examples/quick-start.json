@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "settings": {
+    "layerShortcut": "F8",
+    "pauseShortcut": "CommandOrControl+Shift+F12",
+    "cooldownMs": 400,
+    "autoSwitchLayers": false,
+    "closeToTray": false
+  },
+  "layers": [
+    {
+      "id": "texto",
+      "name": "Texto",
+      "description": "A copia uma mensagem.",
+      "applications": [],
+      "bindings": [
+        {
+          "id": "copiar-texto",
+          "key": "A",
+          "name": "Copiar mensagem",
+          "enabled": true,
+          "action": {
+            "type": "clipboard",
+            "text": "Texto da camada {{layer}}."
+          }
+        }
+      ]
+    },
+    {
+      "id": "notas",
+      "name": "Notas",
+      "description": "A cria uma nota em Documentos/Dobra.",
+      "applications": [],
+      "bindings": [
+        {
+          "id": "criar-nota",
+          "key": "A",
+          "name": "Criar nota",
+          "enabled": true,
+          "action": {
+            "type": "file",
+            "directory": "",
+            "filename": "nota-{{timestamp}}.txt",
+            "content": "Criado pela tecla {{key}} na camada {{layer}}.\n",
+            "mode": "create"
+          }
+        }
+      ]
+    }
+  ]
+}

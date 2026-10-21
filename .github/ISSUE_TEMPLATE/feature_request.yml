@@ -1,0 +1,23 @@
+name: Sugerir melhoria
+description: Proponha uma melhoria de uso ou funcionalidade.
+title: "[Melhoria] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema você quer resolver?
+      description: Descreva o cenário e o impacto no uso.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Explique o comportamento desejado e alternativas consideradas.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Plataformas relevantes
+      placeholder: "Todas, Windows, macOS, Linux/X11, Linux/Wayland..."

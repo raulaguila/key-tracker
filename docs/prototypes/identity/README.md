@@ -1,5 +1,8 @@
 # Klavra × Dobra — estudos de identidade
 
+> **Estudo histórico.** Dobra foi a identidade adotada. O comparador e seu ZIP
+> preservam as duas propostas; recursos atuais estão no [guia da marca](../../BRAND.md).
+
 Abra `index.html` no navegador. Não é necessário instalar dependências ou acessar
 a internet. Os dois estudos estão no mesmo comparador e usam os mesmos dados de
 exemplo. Não há captura de teclado, persistência do produto ou execução de ações.

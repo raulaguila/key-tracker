@@ -1,5 +1,9 @@
 # Auditoria e melhorias de UI/UX
 
+> **Registro histórico de UI/UX.** Este relatório preserva a evolução anterior
+> à interface/identidade atuais. Consulte [Design](../DESIGN.md) e a
+> [documentação atual](README.md) para o comportamento do Dobra.
+
 > Histórico da primeira rodada de melhorias. A análise atual do sistema, com
 > achados ainda abertos e medições do executável, está na
 > [auditoria de UI/UX e performance de 20/10/2026](audits/2026-10-20/report.md).

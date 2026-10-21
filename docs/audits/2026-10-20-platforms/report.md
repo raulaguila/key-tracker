@@ -1,5 +1,8 @@
 # Auditoria de performance, compatibilidade e integração por sistema
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Registro da versão auditada. As correções posteriores e suas provas estão em
 [remediation.md](remediation.md).
 

@@ -1,5 +1,7 @@
 # Momentos da tecla
 
+[Documentação](README.md) · [Guia de uso](USAGE.md) · [Contrato](../CONTRACT.md)
+
 Uma combinação pode ter uma ação por momento em cada camada:
 
 - **Ao pressionar:** executa quando a tecla é pressionada.

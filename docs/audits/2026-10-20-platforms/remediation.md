@@ -1,5 +1,8 @@
 # Correções da auditoria de plataformas
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Escopo autorizado: A01–A08 de [report.md](report.md). A auditoria original é
 preservada como registro da versão anterior. Os limites de validação por hardware,
 permissões, assinatura e ambientes Wayland continuam aplicáveis.

@@ -1,5 +1,8 @@
 # Preparação para produção
 
+> **Registro histórico.** Resultados e nomes refletem o commit/ambiente desta
+> avaliação. Consulte a [documentação atual](../../README.md) para usar ou desenvolver o Dobra.
+
 Escopo autorizado: proteção de credenciais, backup/recuperação, cancelamento e
 progresso, diagnóstico, estabilidade, distribuição assinada e Mac Intel. Código
 da configuração permanece versão 1; envelope criptografado local tem versão 1.
