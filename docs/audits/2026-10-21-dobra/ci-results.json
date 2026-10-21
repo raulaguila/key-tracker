@@ -1,0 +1,62 @@
+{
+  "commit": "3fbb67308d11c27a7e51463b191140a6f864ed40",
+  "runs": [
+    {
+      "id": 39607423056,
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39607423056",
+      "jobs": [
+        {
+          "name": "verify (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify (macos-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify (macos-15-intel)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 39607423070,
+      "url": "https://github.com/raulaguila/key-tracker/actions/runs/39607423070",
+      "jobs": [
+        {
+          "name": "audit (macos-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "audit (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "audit (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "audit (macos-15-intel)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "dependencySecurity": {
+    "id": 39607422947,
+    "conclusion": "success",
+    "url": "https://github.com/raulaguila/key-tracker/actions/runs/39607422947"
+  }
+}

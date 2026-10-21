@@ -27,5 +27,15 @@ na bandeja ou aplicativo em foco; esses estados permaneceram explícitos.
 O JSON da sonda registra HEAD anterior à mudança porque foi gerado na árvore
 modificada antes do commit. Não é uma certificação desse commit anterior.
 
-Windows e macOS continuam previstos no CI; seus binários desta mudança ainda
-precisam de validação. Assinatura pública e notarização não foram concluídas.
+## CI do commit `3fbb67308d11c27a7e51463b191140a6f864ed40`
+
+- [Desktop](https://github.com/raulaguila/key-tracker/actions/runs/39607423056):
+  Windows x64, Linux x64, macOS ARM64 e macOS Intel x64 aprovados, incluindo
+  instaladores e execução real empacotada. O runtime confirma o nome Dobra.
+- [Platform audit](https://github.com/raulaguila/key-tracker/actions/runs/39607423070):
+  quatro destinos aprovados.
+- [Dependency security](https://github.com/raulaguila/key-tracker/actions/runs/39607422947):
+  gate aprovado; não equivale à ausência de vulnerabilidades moderadas.
+
+Os artifacts gerados são builds de desenvolvimento. Assinatura pública,
+notarização e instalação em hardware físico não foram concluídas por esses jobs.
