@@ -73,4 +73,35 @@ documentado para reavaliação antes da publicação.
 
 Operação, requisitos de assinatura e roteiro físico: [PRODUCTION.md](../../PRODUCTION.md).
 
-CI dos quatro targets: aguardando push desta revisão.
+## CI dos quatro targets
+
+Código de produto **a280be3**, com ajuste de teste **551a7c8**. O ajuste só altera
+o harness da UI: suporta forçar provider basic_text no teste e espera o
+Content-Type padrão do fetch quando o cofre indisponível exige remover headers.
+O smoke completo passou localmente tanto com proteção nativa quanto com
+`KEY_TRACKER_UI_BASIC_STORE=1`; indisponibilidade não foi convertida em mock de
+criptografia nem contornada com gravação de credenciais em texto aberto.
+
+- [Desktop 39531470581](https://github.com/raulaguila/key-tracker/actions/runs/39531470581):
+  quatro jobs aprovados, testes/sintaxe/carga curta, UI/XTest Linux, geração dos
+  instaladores e abertura dos executáveis empacotados nos quatro targets.
+- [Platform audit 39531170283](https://github.com/raulaguila/key-tracker/actions/runs/39531170283):
+  quatro runtimes source reais de a280be3, produto idêntico ao de 551a7c8.
+- [Dependency security 39531170261](https://github.com/raulaguila/key-tracker/actions/runs/39531170261):
+  gate de alto/crítico aprovado; advisory moderado documentado acima permanece.
+
+Oito relatórios JSON foram baixados e conferidos: SHA a280be3 em source, SHA
+551a7c8 em packaged, todos `corePassed=true`. Os 25 arquivos de source comparados
+ao ASAR coincidem; cada sonda confirmou cancelamento durante espera sem efeito
+posterior e três encerramentos limpos por target.
+
+| Target | Source | Executável empacotado | Instaladores |
+| --- | --- | --- | --- |
+| Windows x64 | Passou | isPackaged=true, x64, passou | EXE |
+| Linux x64/X11 | Passou | isPackaged=true, x64, passou | AppImage/DEB |
+| macOS Apple Silicon | Passou | isPackaged=true, arm64, passou | DMG/ZIP |
+| macOS Intel | Passou | isPackaged=true, x64, passou | DMG/ZIP |
+
+[Artifact Mac Intel](https://github.com/raulaguila/key-tracker/actions/runs/39531470581/artifacts/12316026029).
+Os artifacts desse run são de desenvolvimento. Aprovação de build/runtime não
+equivale a assinatura pública, instalação interativa ou teste de teclado físico.
