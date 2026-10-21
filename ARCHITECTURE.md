@@ -5,7 +5,8 @@
 ## Decisão
 
 Um processo desktop Electron, um renderer HTML/CSS/JS sem framework e um worker
-nativo de captura. Sem servidor local, banco, conta ou dependência de nuvem.
+nativo de captura. No Wayland, há um serviço Linux opcional autorizado pelo Polkit
+e vinculado à sessão pelo logind. Sem servidor HTTP, banco, conta ou dependência de nuvem.
 Electron permite distribuir a mesma aplicação em Windows, macOS e Linux. O custo
 é um pacote maior; cada instalador precisa ser compilado e validado em seu SO.
 O módulo de captura utiliza binários N-API pré-compilados por SO/arquitetura;
@@ -29,6 +30,9 @@ inclui os prebuilds e os extrai do ASAR.
   por exportações e pela proteção de destinos das ações de arquivo.
 - `app/key-gestures.cjs`: pressionar/manter/soltar, delays e cancelamento de gestos.
 - `app/tracking.cjs`: opt-in de rastreio, permissões e fallback local.
+- `app/wayland-input.cjs`: cliente sem privilégios, configuração filtrada e ciclo de vida do backend Linux.
+- `app/linux-input/client.py`: ponte GIO/D-Bus e stream privado; Python isolado, sem executar ações.
+- `linux/dobra-input/`: serviço do sistema, Polkit, logind, libudev/libevdev e payload do instalador.
 - `app/tracker-worker.cjs`: libuiohook em utility process, isolando falha nativa.
 - `app/native-keycodes.cjs`: normalização dos códigos físicos, inclusive numpad
   sem NumLock e constantes internacionais conhecidas do libuiohook.
@@ -76,8 +80,20 @@ tecla por IPC; eventos de repetição são descartados. Nenhum desses eventos va
 ao histórico ou ao disco. O worker atende à demanda de rastreio e de gestos:
 desligar a visualização não o encerra após a ativação das ações, inclusive só de pressionar.
 Encerrar o aplicativo termina o worker. Falha nativa oferece
-modo local em vez de derrubar a janela. No Wayland o hook integral é evitado;
-ações por tecla ficam indisponíveis, sem fallback para atalhos exclusivos do portal.
+modo local em vez de derrubar a janela. No Wayland, habilitar a integração Linux
+solicita autorização explicitamente. Não usa atalhos exclusivos do portal.
+
+O serviço verifica o UID real do proprietário D-Bus, sessão local ativa e seat
+antes/depois da autorização Polkit. Entrega um socket Unix privado e limitado,
+nunca descritores dos dispositivos. Só abre teclados evdev do seat autorizado,
+em leitura e sem grab; sem Rastreio, filtra posições configuradas/modificadores.
+Não interpreta Unicode nem persiste eventos. Bloqueio, suspensão, troca de sessão,
+perda do cliente/heartbeat e fila cheia revogam a sessão e fecham dispositivos.
+Snapshots sincronizam teclas mantidas sem fabricar solturas ou reexecutar ações.
+Falha pausa o motor; não reconecta nem autentica silenciosamente. O `.deb` inclui
+o componente com arquivos root:root 0644, dependências e ativação D-Bus/systemd;
+AppImage precisa do componente instalado. [Decisão](docs/decisions/wayland-input.md)
+e [operação/QA](docs/WAYLAND.md).
 
 Legendas automáticas vêm de `navigator.keyboard.getLayoutMap()` no renderer;
 não alteram atalhos registrados. A leitura tem timeout de 2 s e proteção contra

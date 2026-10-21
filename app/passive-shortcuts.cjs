@@ -34,6 +34,7 @@ class PassiveShortcuts {
 
   unregister(shortcut) { this.subscriptions.delete(effectiveShortcut(shortcut, this.platform)); this.index = null; }
   unregisterAll() { this.subscriptions.clear(); this.down.clear(); this.index = null; }
+  synchronize(pressed) { this.down = new Set(pressed); }
 
   observe(event) {
     if (!event || typeof event.code !== 'string') return;
@@ -54,4 +55,4 @@ class PassiveShortcuts {
   handleInput(event) { this.observe(event)?.callback(); }
 }
 
-module.exports = { PassiveShortcuts };
+module.exports = { PassiveShortcuts, referenceCode };

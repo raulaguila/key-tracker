@@ -14,6 +14,9 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 - Gatilhos ao pressionar, manter e soltar; delay inicial, repetição e intervalo
   entre etapas de sequência.
 - Rastreio opt-in, layouts automáticos/manuais e formatos ajustáveis.
+- Integração Wayland opcional: serviço passivo evdev, autorização Polkit, stream
+  privado e revogação ao bloquear/suspender/trocar de sessão. Componente no `.deb`;
+  AppImage requer instalação desse componente. QA com hardware GNOME/KDE pendente.
 - Temas claro/escuro/sistema, sidebar recolhível e drawers sobrepostos.
 - Perfis por aplicativo e integração opcional com a bandeja.
 - Prévia sem efeitos, teste explícito, histórico e cancelamento de execução.

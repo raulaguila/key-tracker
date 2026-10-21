@@ -9,6 +9,7 @@ const { Engine } = require('./engine.cjs');
 const { drainServices, waitForShutdown } = require('./shutdown.cjs');
 const { StateDelivery } = require('./state-delivery.cjs');
 const { Tracker } = require('./tracking.cjs');
+const { WaylandInput } = require('./wayland-input.cjs');
 const { encodeConfig } = require('./config.cjs');
 const { writeExport } = require('./safe-export.cjs');
 const { ApplicationMonitor } = require('./application-monitor.cjs');
@@ -153,11 +154,12 @@ else {
     if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
     engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions });
-    tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true) });
+    tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true),
+      wayland: process.platform === 'linux' && session === 'wayland' ? new WaylandInput() : undefined });
     const suspendActions = () => {
-      engine.resetInput();
-      if (engine.enabled) {
-        engine.setEnabled(false);
+      const wasEnabled = engine.enabled;
+      tracker.suspend();
+      if (wasEnabled) {
         engine.record('info', 'Atalhos pausados ao bloquear ou suspender o sistema. Ative novamente quando estiver pronto.');
         engine.publish();
       }
@@ -167,7 +169,9 @@ else {
     powerMonitor.on('resume', () => engine.resetInput());
     powerMonitor.on('unlock-screen', () => engine.resetInput());
     engine.on('state', state => visualState.push(state));
-    engine.on('key', key => send('key', key));
+    // A fresh tracking snapshot must reach the renderer before its key stream,
+    // including the initial held-key snapshot from the Wayland service.
+    engine.on('key', key => { visualState.flush(); send('key', key); });
 
     handle('save-config', stateResult(config => serialConfig(() => engine.saveConfig(config))));
     handle('set-enabled', stateResult(enabled => engine.setEnabled(enabled)));
@@ -181,6 +185,7 @@ else {
     handle('confirm-close', () => lifecycle?.confirm());
     handle('cancel-close', () => lifecycle?.cancel());
     handle('set-tracking', stateResult(enabled => tracker.set(enabled)));
+    handle('set-linux-input-enabled', stateResult(enabled => tracker.setLinuxEnabled(enabled)));
     handle('choose-directory', async () => {
       const result = await dialog.showOpenDialog(window, { title: 'Escolher pasta para os arquivos', properties: ['openDirectory', 'createDirectory'] });
       return result.canceled ? null : result.filePaths[0];

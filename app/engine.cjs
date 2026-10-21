@@ -51,6 +51,7 @@ class Engine extends EventEmitter {
     this.lastPauseControlAt = -Infinity;
     this.tracking = { enabled: false, mode: 'off', message: '' };
     this.input = { mode: 'off', message: '' };
+    this.linuxInput = { supported: platform === 'linux' && session === 'wayland', enabled: false, status: 'disabled', message: '' };
     this.inputGroupCache = new Map();
     this.gestures = new KeyGestures({
       findGroup: event => this.inputGroups().find(group => group.keyCode === event.code && matchesModifiers(event, group.modifiers)),
@@ -62,7 +63,7 @@ class Engine extends EventEmitter {
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
 
   state({ sharedConfig = false } = {}) {
-    const snapshot = structuredClone({ stopping: this.stopping, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
+    const snapshot = structuredClone({ stopping: this.stopping, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
     if (sharedConfig && this.snapshotConfig?.revision !== this.configRevision) this.snapshotConfig = { revision: this.configRevision, value: freezeTree(structuredClone(this.config)) };
     snapshot.config = sharedConfig ? this.snapshotConfig.value : structuredClone(this.config);
     return snapshot;
@@ -309,6 +310,12 @@ class Engine extends EventEmitter {
   }
 
   resetInput() { this.gestures.reset(); }
+
+  synchronizeInput(pressed) {
+    this.resetInput();
+    this.gestures.down = new Set(pressed);
+    this.shortcutsAPI.synchronize?.(pressed);
+  }
 
   async runInputBinding(group, binding) {
     if (!this.enabled || this.editing || this.input.mode !== 'global' || group.layerId !== this.activeLayerId || !this.registrations.has(group.effective)) return;

@@ -1,0 +1,26 @@
+[Unit]
+Description=Dobra passive keyboard observation
+After=dbus.service systemd-logind.service
+Requires=dbus.service systemd-logind.service
+
+[Service]
+Type=dbus
+BusName=io.dobra.Input1
+ExecStart=/usr/bin/python3 -I -B /usr/libexec/dobra-input/service.py
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+DevicePolicy=closed
+DeviceAllow=char-input r
+UMask=0077
+TimeoutStopSec=3

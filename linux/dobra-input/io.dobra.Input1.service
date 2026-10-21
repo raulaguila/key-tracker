@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=io.dobra.Input1
+Exec=/usr/bin/python3 -I -B /usr/libexec/dobra-input/service.py
+User=root
+SystemdService=dobra-input.service

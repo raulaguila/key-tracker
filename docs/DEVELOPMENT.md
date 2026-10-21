@@ -116,3 +116,17 @@ A fixture altera provedores apenas na entrada de teste, fora do pacote; não há
 flags de bypass de cofre no produto. `platform-audit`/`performance-audit` distinguem
 a interface utilizável (`interfaceMs`) da medição que inclui a leitura explícita
 de State (`startupMs`); nenhuma das duas é tempo físico de primeiro paint.
+
+## Serviço de entrada Wayland
+
+Em Linux, `npm run test:wayland` requer `/usr/bin/python3`, `python3-gi`,
+`gir1.2-glib-2.0`, `libevdev2`, `libudev1` e `dbus`. Usa barramento privado com
+login1/Polkit/dispositivos simulados; não requer root nem altera o sistema.
+O bridge de produção e a passagem de descritor privado são exercitados realmente.
+
+`npm run dist:linux` prepara o payload protegido e inclui os arquivos na lista do
+`.deb`; `node scripts/check-linux-input-package.cjs` inspeciona propriedade, modos,
+dependências e scripts de instalação/remoção sem instalar o pacote. O hook
+`build/prepare-linux-input.cjs` gera staging em `artifacts/`, fora dos fontes.
+Não adicionar modos de teste, barramentos alternativos ou caminhos de dispositivos
+controlados pelo cliente ao serviço instalado. [Contrato](../.keel/surfaces/wayland-input.md).

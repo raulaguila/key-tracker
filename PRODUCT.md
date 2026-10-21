@@ -40,7 +40,9 @@ sem escrever scripts ou editar JSON. A interface é em português.
 O projeto prepara pacotes para Windows x64, Linux x64, macOS Apple Silicon e Intel.
 O CI cobre os quatro destinos. Instalação, assinatura/notarização e hardware real
 exigem evidência própria; o status público continua em desenvolvimento.
-Ações de manter/soltar e rastreio global integral não são oferecidos no Wayland.
+Wayland possui integração Linux opcional com autorização Polkit, leitura passiva
+de teclados evdev e vínculo à sessão local ativa. Validação de GNOME/KDE instalados
+e hardware real é separada das provas automatizadas. [Integração Linux](docs/WAYLAND.md).
 
 Uma tarefa deve ser testável sem ativar todo o motor. Pausar, cancelar e encerrar
 têm funções distintas e não prometem desfazer efeitos externos já realizados.

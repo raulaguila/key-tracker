@@ -5,6 +5,7 @@
 - [Instalação e compatibilidade](INSTALLATION.md): downloads, permissões e formatos.
 - [Guia de uso](USAGE.md): camadas, ações, sequências, rastreio e recuperação.
 - [Momentos da tecla](KEY_MOMENTS.md): pressionar, manter, soltar e interrupções.
+- [Integração Wayland](WAYLAND.md): componente Linux, autorização, privacidade e limites.
 - [Privacidade](PRIVACY.md): dados locais, rede, credenciais e diagnóstico.
 
 ## Desenvolver e distribuir

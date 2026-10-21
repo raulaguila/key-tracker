@@ -145,6 +145,7 @@ a UI deve consultar o evento de resultado correspondente.
 - `config`, `configRevision`, `stateRevision`, `activeLayerId`, `enabled`, `stopping`, `editing`;
 - `platform`, `session`, `paths: {data, documents, log}`;
 - `shortcuts: {registered, failed}`, `tracking`, `input`, `application`, `desktop`;
+- `linuxInput`: `supported`, `enabled`, `status`, `message`, `keyboards?`; autorização da sessão, não persistida;
 - `storage: {encryptionAvailable, protection, backupAvailable, backupChecking?, message}`;
 - `running`: até quatro execuções com `bindingId`, `layerId`, `name`, `key`,
   `startedAt`, `stepIndex`, `stepCount`, `phase`;
@@ -155,6 +156,14 @@ assinaturas passivas em memória. Não comprova reserva no SO nem disponibilidad
 do hook: esta vem de `input.mode` (`off`, `starting`, `global`, `unavailable`).
 
 `storage.protection` é `encrypted`, `plain`, `legacy` ou `unavailable`.
+
+`setLinuxInputEnabled(boolean)` habilita/desabilita o backend opcional no Linux/
+Wayland. Habilitar é explícito, pode abrir autenticação Polkit e não ativa ações.
+Retorna State; negação, componente ausente ou encerramento rejeitam a promessa.
+`linuxInput.status` informa `disabled`, `authorizing`, `idle`, `global`, `waiting`
+ou um erro contextual. Só `global` habilita entrega de teclas ao motor. Perda da
+sessão pausa ações. `onKey` também aceita `{reset: true, pressed: string[]}` para
+sincronizar códigos físicos sem fabricar eventos de soltura/pressionamento.
 `running.phase` é `running`, `waiting` ou `cancelling`. Capacidade nativa deve ser
 lida do estado, não presumida pelo SO. O estado inclui a configuração em memória;
 não deve ser copiado para logs, diagnósticos ou serviços externos.

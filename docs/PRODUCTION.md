@@ -140,7 +140,7 @@ há certificação de instalação/hardware.
 | Atualizar/retornar | Configuração preservada; exportação portátil permite retorno compatível |
 | Remover/reinstalar | Sem processo/hook residual; Windows mantém dados por padrão |
 | Uso prolongado | Sessão de trabalho real com observação de CPU, memória, falhas e recuperação |
-| Linux | X11 suportado; Wayland informa limites sem prometer captura global integral |
+| Linux | X11 suportado; Wayland opcional exige validar serviço/Polkit, lock e teclados em GNOME/KDE instalados |
 
 Estado inicial desse roteiro: **pendente em hardware real**, incluindo Windows,
 Mac Intel e Apple Silicon. Provas virtuais/automatizadas são registradas à parte.

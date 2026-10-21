@@ -39,7 +39,8 @@ layouts exigem validação no ambiente de uso.
 
 Todos os momentos usam observação global nativa em Windows, macOS e
 Linux/X11, com as permissões do sistema. O drawer mostra a disponibilidade.
-No Wayland, ações por tecla ficam indisponíveis; use X11 para elas. Falha ou falta
+No Wayland, habilite o [componente Linux autorizado](WAYLAND.md). Sem ele,
+ações por tecla ficam indisponíveis. Falha ou falta
 de permissão não é tratada como soltura, e não inicia uma repetição fictícia.
 Nenhuma combinação é reservada no sistema, mesmo quando a entrada está disponível.
 

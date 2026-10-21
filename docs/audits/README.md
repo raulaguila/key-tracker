@@ -9,6 +9,7 @@ real, assinatura ou todos os teclados/sistemas.
 
 | Registro | Assunto |
 | --- | --- |
+| [2026-10-21 — Integração Wayland](2026-10-21-wayland-input/report.md) | Serviço passivo, autorização, sessão, IPC privado, UI e pacote; hardware instalado pendente |
 | [2026-10-21 — Performance e lifecycle](2026-10-21-performance-lifecycle/report.md) | Preparação visível, estado mais leve, parada coordenada e gates nativos |
 | [2026-10-21 — Correções F01–F05](2026-10-21-remediation/report.md) | Integridade, prazo do cofre, acessibilidade, dependências e patch do Electron |
 | [2026-10-21 — Auditoria completa](2026-10-21-full/report.md) | Performance, segurança, funcionamento, UI/UX e duas falhas prioritárias reproduzidas |

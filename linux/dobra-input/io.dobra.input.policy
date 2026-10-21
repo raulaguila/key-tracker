@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Dobra</vendor>
+  <vendor_url>https://github.com/raulaguila/key-tracker</vendor_url>
+  <action id="io.dobra.input.observe">
+    <description>Observe keyboard events in the active local session</description>
+    <description xml:lang="pt_BR">Observar teclas na sessão local ativa</description>
+    <message>Authenticate to let Dobra observe keyboards in this session. Keys continue working in other applications.</message>
+    <message xml:lang="pt_BR">Autentique-se para permitir que o Dobra observe os teclados nesta sessão. As teclas continuam funcionando nos outros aplicativos.</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+</policyconfig>

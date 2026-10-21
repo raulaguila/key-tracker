@@ -19,6 +19,11 @@ reconhecer solturas e o controle de pausa/retomada, até encerrar o aplicativo.
 As ações de teclas ficam suspensas nesses estados. A observação é passiva:
 as teclas continuam chegando aos outros programas, sem reinjeção.
 
+No Wayland, o [componente Linux opcional](WAYLAND.md) requer autorização Polkit.
+Ele verifica usuário, sessão e seat com logind e encerra a sessão ao bloquear,
+suspender ou desconectar. Sem Rastreio, encaminha apenas posições configuradas e
+modificadores. O serviço não executa ações; o Electron permanece sem privilégios.
+
 A detecção opcional de aplicativo em foco usa nome/caminho/bundle do processo.
 Não coleta títulos de janelas, URLs ou histórico de programas utilizados.
 

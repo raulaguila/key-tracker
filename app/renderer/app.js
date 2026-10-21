@@ -32,6 +32,7 @@ let visualBindingCache;
 let editingRequested = false;
 let editingQueue = Promise.resolve();
 let closingAllowed = false;
+let linuxInputPending = false;
 
 // Visual preferences stay on this computer, separate from exported actions.
 const sidebarPreference = 'dobra.sidebar-collapsed';
@@ -188,6 +189,14 @@ function updateStatus() {
     picker.value = state.activeLayerId;
   }
   updateApplicationStatus();
+  const linuxInputStatus = document.querySelector('#linux-input-status');
+  const linuxInputToggle = document.querySelector('#linux-input-toggle');
+  if (linuxInputStatus && state.linuxInput) {
+    linuxInputStatus.textContent = state.linuxInput.message;
+    linuxInputStatus.dataset.status = state.linuxInput.status;
+    linuxInputToggle.disabled = linuxInputPending || state.linuxInput.status === 'authorizing' || state.stopping;
+    linuxInputToggle.textContent = state.linuxInput.status === 'authorizing' ? 'Aguardando autorização…' : state.linuxInput.enabled ? 'Desabilitar integração' : 'Habilitar integração com Wayland';
+  }
   editor?.triggerControls?.setInputState(state.input, state.enabled);
   updateInputStatus();
   if (runningPanel?.node.isConnected) runningPanel.update(state.running);
@@ -841,6 +850,13 @@ function renderTracking() {
 }
 
 function keyEvent(event) {
+  if (!state) return;
+  if (event.reset) {
+    clearPressed();
+    if (state.tracking.enabled && state.tracking.mode === 'global') for (const code of event.pressed || []) pressed.set(code, keyboardEventLabel(currentKeyboardLayout(), { code, source: 'global' }));
+    if (!document.hidden) updateKeys();
+    return;
+  }
   if (!state?.tracking.enabled) return;
   if (event.direction === 'down' && pressed.has(event.code)) return;
   if (event.direction === 'up' && !pressed.has(event.code)) return;
@@ -963,9 +979,30 @@ function renderSettings() {
     el('p', { class: 'hint token-note' }, 'Configurações com headers HTTP exigem proteção nativa do sistema. O backup local mantém a mesma proteção.'));
   const support = el('details', { class: 'settings-section support-details' }, el('summary', {}, 'Captura e permissões'),
     el('div', { class: 'platform-note' }, el('strong', {}, state.platform === 'linux' && state.session === 'wayland' ? 'Você está no Linux com Wayland' : state.platform === 'darwin' ? 'Você está no macOS' : state.platform === 'win32' ? 'Você está no Windows' : 'Você está no Linux com X11'),
-      el('p', {}, state.session === 'wayland' ? 'O teclado visual funciona com esta janela em foco. As ações por tecla exigem observação global, disponível em sessões X11 no Linux.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'As teclas são observadas sem bloquear outros programas. A entrada global pode depender de permissões da sessão.')),
+      el('p', {}, state.session === 'wayland' ? 'Habilite a integração Linux para observar teclas fora desta janela. As teclas continuam funcionando nos outros aplicativos.' : state.platform === 'darwin' ? 'Autorize o aplicativo em Privacidade e Segurança → Acessibilidade. O sistema também pode solicitar Monitoramento de Entrada.' : 'As teclas são observadas sem bloquear outros programas. A entrada global pode depender de permissões da sessão.')),
     el('p', { class: 'hint' }, 'Ao abrir o aplicativo, as ações começam pausadas e o rastreio desligado.'));
   main.append(el('div', { class: 'settings-layout' }, el('div', {}, shortcutForm, support), el('div', {}, appearance, data)));
+  if (state.linuxInput?.supported) {
+    support.open = true;
+    support.append(el('p', { class: 'hint' }, 'O sistema solicitará autorização para um componente separado. Ele observa os teclados da sessão local ativa e interrompe a leitura ao bloquear ou trocar de sessão. O Dobra não registra a digitação.'),
+      el('p', { id: 'linux-input-status', role: 'status', class: 'application-status' }),
+      button('Habilitar integração com Wayland', () => void toggleLinuxInput(), '', { id: 'linux-input-toggle' }));
+  }
+}
+
+async function toggleLinuxInput() {
+  if (linuxInputPending) return;
+  linuxInputPending = true;
+  document.querySelector('#toast').hidden = true;
+  updateStatus();
+  try {
+    state = await api.setLinuxInputEnabled(!state.linuxInput.enabled);
+  } catch {
+    toast(state.linuxInput.message, 'error');
+  } finally {
+    linuxInputPending = false;
+    updateStatus();
+  }
 }
 
 async function restoreConfiguration() {

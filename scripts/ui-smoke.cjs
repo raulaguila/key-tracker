@@ -504,7 +504,7 @@ async function main() {
     assert.equal(await evaluate('return document.querySelector(".storage-details").open'), false);
     await click('.storage-details summary');
     assert.ok(await evaluate('return document.querySelector(".path-list").innerText.length > 0'), 'File locations remain available on demand');
-    await click('.support-details summary');
+    if (!await evaluate('return document.querySelector(".support-details").open')) await click('.support-details summary');
     assert.ok(await evaluate('return document.querySelector(".platform-note").innerText.includes("Wayland")'), 'Platform guidance remains available');
 
     await click('[data-view="tracking"]');
@@ -790,6 +790,7 @@ async function main() {
     await require('./renderer-performance-ui.cjs')({ evaluate, click, fill, until, nativeState, data: effects });
     await require('./key-moments-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
     await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data: effects });
+    await require('./wayland-ui.cjs')({ evaluate, click, until, nativeState, nativeEvaluate, shot });
     await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until });
     console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, unavailable/paused/suspended indicators in both themes and explicit Wayland limitation, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);

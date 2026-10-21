@@ -95,11 +95,15 @@ Pausar impede novos disparos; **Parar todas** também cancela execuções em and
 | Windows x64 | Observação nativa passiva | Dependem da sessão e permissões |
 | macOS ARM64/x64 | Exigem permissões de entrada | Exigem as permissões de entrada do sistema |
 | Linux x64/X11 | Integração nativa | Exigem bibliotecas X11 disponíveis |
-| Linux/Wayland | Indisponíveis | Indisponíveis; rastreio local com a janela em foco |
+| Linux/Wayland | Componente Linux + autorização Polkit | Componente Linux; fallback visual local |
 
 Os quatro destinos têm CI nativo. Isso não substitui testar instalação,
 permissões e teclados físicos no ambiente de uso. ARM64 para Linux/Windows não
 faz parte da matriz atual.
+
+No Wayland, habilite a integração opcional em Configurações após instalar o
+`.deb`. Ela não inicia automaticamente e requer uma sessão local ativa com
+logind/Polkit. [Instalação e limites](docs/WAYLAND.md).
 
 ## Dados e privacidade
 

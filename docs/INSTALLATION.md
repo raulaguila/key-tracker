@@ -75,10 +75,11 @@ armazenamento desprotegido.
 
 ### Wayland
 
-O rastreio é local, com a janela do Dobra em foco. A observação global passiva
-não está disponível: ações por tecla, troca de camada e pausa pelo teclado
-exigem X11 no Linux. O Dobra informa a limitação e mantém os controles da
-interface e a execução manual disponíveis. Não reserva atalhos pelo portal.
+Instale o `.deb` e habilite a integração opcional em **Configurações → Captura e
+permissões**. O componente Linux usa Polkit, logind e leitura passiva evdev;
+ações e Rastreio usam o mesmo motor. O AppImage precisa desse componente instalado
+no sistema. Sem autorização, mantém rastreio local e execução manual, sem reservar
+atalhos pelo portal. [Passo a passo e limites](WAYLAND.md).
 
 ## Primeiro início e atualização
 

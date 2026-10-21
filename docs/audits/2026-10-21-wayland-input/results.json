@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-21",
+  "scope": "Workspace changes based on 42d5cbd; private D-Bus, simulated keyboard devices, isolated Electron/Xvfb profiles. No host keyboard or installed service validation.",
+  "syntax": "passed",
+  "node": {
+    "passed": 200,
+    "failed": 0
+  },
+  "wayland_private_bus": {
+    "passed": 20,
+    "failed": 0
+  },
+  "ui": {
+    "passed": true,
+    "axe_states": 14,
+    "wcag_a_aa_violations": 0,
+    "responsive_combinations": 112,
+    "keyboard_geometry_combinations": 90
+  },
+  "native_x11": {
+    "passed": true,
+    "external_receiver_key_and_keyup": true
+  },
+  "lifecycle": {
+    "complete": true
+  },
+  "linux_package": {
+    "passed": true,
+    "root_owned_payloads": 6,
+    "automatic_start_or_enable": false
+  },
+  "source_runtime": {
+    "complete": true,
+    "corePassed": true,
+    "asar_source_matches": 32,
+    "all_sources_match": true,
+    "graceful_shutdowns": 3
+  },
+  "pending_manual_qa": [
+    "GNOME and KDE installed sessions with real keyboards",
+    "Installed Polkit/systemd activation and package upgrade/removal",
+    "Lock/unlock, VT/user switching, suspend/resume on real desktops"
+  ],
+  "ci": "See commit workflow runs; local evidence does not certify physical input or installed compositor compatibility."
+}

@@ -25,6 +25,14 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Install Linux input test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-glib-2.0 libevdev2 libudev1 dbus
+      - name: Verify Wayland service on a private bus
+        if: runner.os == 'Linux'
+        run: npm run test:wayland
       - name: Verify lifecycle on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:lifecycle
@@ -69,6 +77,9 @@ jobs:
             dist/*.AppImage
             dist/*.deb
           if-no-files-found: error
+      - name: Verify Linux input installation payload
+        if: github.event_name != 'pull_request' && runner.os == 'Linux'
+        run: node scripts/check-linux-input-package.cjs
       - name: Verify packaged runtime on Linux
         if: github.event_name != 'pull_request' && runner.os == 'Linux'
         run: xvfb-run -a node scripts/platform-audit.cjs --packaged
