@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validateAction, validateConfig, defaultConfig } = require('../app/config.cjs');
+const { validateAction, validateConfig, defaultConfig, effectiveShortcut } = require('../app/config.cjs');
 const { prepareAction, previewAction, executeAction, actionErrorMessage } = require('../app/actions.cjs');
 const { Engine } = require('../app/engine.cjs');
 const { historySnapshot } = require('../app/desktop-actions.cjs');
@@ -56,33 +56,35 @@ test('prévia do fluxo resolve texto sem acessar serviços nativos e execução 
   assert.equal(calls, 1);
 });
 
-function engineFixture(macroService) {
+function engineFixture(macroService, platform = process.platform) {
   const config = defaultConfig();
   config.layers[0].bindings[0].action = flow();
   const logs = [];
-  const engine = new Engine({ config, macroService, documents: '/documents', storage: {
+  const engine = new Engine({ config, platform, macroService, documents: '/documents', storage: {
     directory: '/data', logPath: '/data/history', save: async () => {}, appendLog: async event => logs.push(event)
   } });
   return { engine, logs, layer: engine.activeLayer, binding: engine.activeLayer.bindings[0] };
 }
 
-test('teclas produzidas pelo fluxo não disparam atalhos, camadas nem painel; pausa interrompe', async () => {
+for (const platform of ['linux', 'win32', 'darwin']) test(`teclas produzidas pelo fluxo não disparam atalhos, camadas nem painel; pausa interrompe em ${platform}`, () => {
   const state = { playing: true, recording: false };
   let suspended = 0;
-  const { engine } = engineFixture({ state: () => state, suspend: async () => { suspended++; } });
+  const { engine } = engineFixture({ state: () => state, suspend: async () => { suspended++; } }, platform);
+  const effective = shortcut => effectiveShortcut(shortcut, platform);
+  assert.equal(effective(engine.config.settings.pauseShortcut), platform === 'darwin' ? 'Command+Shift+F12' : 'Control+Shift+F12');
   engine.setEnabled(true);
   engine.updateInput({ mode: 'global' });
   let panels = 0; engine.on('quick-panel', () => panels++);
   const before = engine.activeLayerId;
-  engine.handleShortcut('F8');
-  engine.handleShortcut('Control+Shift+Space');
-  engine.handleShortcut('Control+Alt+A');
+  engine.handleShortcut(effective(engine.config.settings.layerShortcut));
+  engine.handleShortcut(effective(engine.panelShortcut));
+  engine.handleShortcut(effective(engine.activeLayer.bindings[0].key));
   assert.equal(engine.activeLayerId, before);
   assert.equal(panels, 0);
   assert.equal(engine.inFlight.size, 0);
-  engine.handleInput({ direction: 'down', code: 'KeyA', key: 'A', ctrlKey: true, altKey: true });
+  engine.handleInput({ direction: 'down', code: 'KeyA', key: 'A', ctrlKey: platform !== 'darwin', metaKey: platform === 'darwin', altKey: true });
   assert.equal(engine.inFlight.size, 0);
-  engine.handleShortcut('Control+Shift+F12');
+  engine.handleShortcut(effective(engine.config.settings.pauseShortcut));
   assert.equal(engine.enabled, false);
   assert.equal(suspended, 1);
   engine.dispose();
