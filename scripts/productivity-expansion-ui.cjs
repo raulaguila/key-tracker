@@ -71,11 +71,11 @@ module.exports = async ({ cdp, evaluate, click, fill, select, until, nativeState
     const current = await nativeState(); assert.equal(current.config.settings.panelShortcut, 'Control+Shift+F9');
     if (!current.inputDevices?.supported) assert.match(await evaluate('return document.querySelector("#input-device-status").textContent'), /indisponível|disponível|Wayland|componente|identifica|integração/);
     await evaluate('localStorage.removeItem("dobra.setup-progress");');
-    await evaluate('[...document.querySelectorAll("button")].find(item=>item.textContent.trim()==="Primeiros passos").click();');
-    await until(title('Primeiros passos'), 'Resumable setup opens'); await buttonText('Continuar');
+    await evaluate('[...document.querySelectorAll("button")].find(item=>item.textContent.trim()==="Verificar teclado").click();');
+    await until(title('Configurar teclado'), 'Resumable setup opens'); await buttonText('Continuar');
     await until('document.querySelector(".setup-progress .current").textContent.includes("Testar")', 'Setup progress advances');
     await escape(); await until('!document.querySelector(".productivity-dialog")', 'Escape dismisses setup');
-    await evaluate('[...document.querySelectorAll("button")].find(item=>item.textContent.trim()==="Primeiros passos").click();');
+    await evaluate('[...document.querySelectorAll("button")].find(item=>item.textContent.trim()==="Verificar teclado").click();');
     await until('document.querySelector(".setup-progress .current")?.textContent.includes("Testar")', 'Setup resumes');
     assert.equal((await nativeState()).enabled, false); await buttonText('Iniciar teste de uma tecla');
     await until('(await window.dobra.getState()).tracking.enabled', 'Setup explicitly enables observation with actions paused');
@@ -104,6 +104,30 @@ module.exports = async ({ cdp, evaluate, click, fill, select, until, nativeState
     const event = (await nativeState()).events.find(event => event.bindingId === binding.id && event.status === 'success'); assert.equal(event.steps.at(-1).status, 'skipped'); assert.doesNotMatch(JSON.stringify(event), /Resposta efêmera QA/);
     await click('[data-drawer-close]');
     for (const theme of ['light', 'dark']) {
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
+      await click('[data-focus=model-library]');
+      await until('document.querySelectorAll(".template-row").length===3', 'Styled library ready');
+      await accessible('library ' + theme); await shot('habbo-library-' + theme);
+      for (const [width, height] of [[360, 640], [760, 580]]) {
+        await cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+        assert.equal(await evaluate('const node=document.querySelector(".productivity-dialog");return node.scrollWidth<=node.clientWidth+1;'), true, 'Library fits narrow window');
+        await accessible('library ' + theme + ' ' + width); await shot('habbo-library-' + theme + '-' + width);
+      }
+      await cdp('Emulation.clearDeviceMetricsOverride'); await escape();
+      await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"k",ctrlKey:true,bubbles:true}));');
+      await until('Boolean(document.querySelector("#field-command-search")) && !document.querySelector(".productivity-content").inert', 'Styled search ready');
+      await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 });
+      assert.equal(await evaluate('return document.activeElement===document.querySelector(".command-result")'), true, 'Arrow navigation focuses the first search result');
+      await accessible('search focused ' + theme); await shot('habbo-search-' + theme);
+      for (const [width, height] of [[360, 640], [760, 580]]) {
+        await cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+        assert.equal(await evaluate('const node=document.querySelector(".productivity-dialog");return node.scrollWidth<=node.clientWidth+1;'), true, 'Search fits narrow window');
+        await accessible('search ' + theme + ' ' + width); await shot('habbo-search-' + theme + '-' + width);
+      }
+      await fill('#field-command-search', 'sem-resultado-qa');
+      assert.equal(await evaluate('return document.querySelectorAll(".command-result").length'), 0);
+      await accessible('empty search ' + theme);
+      await cdp('Emulation.clearDeviceMetricsOverride'); await escape();
       await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');'); await libraryClipboard(); await accessible('import ' + theme); await shot('productivity-import-' + theme);
       for (const [width, height] of [[360, 640], [760, 580]]) {
         await cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
@@ -116,8 +140,20 @@ module.exports = async ({ cdp, evaluate, click, fill, select, until, nativeState
     await nativeEvaluate('new Promise((resolve,reject)=>{let retries=0;const check=()=>{const panel=process.mainModule.require("electron").BrowserWindow.getAllWindows().find(win=>win.webContents.getURL().includes("quick-panel.html"));if(panel?.isVisible()){globalThis.__productPanel=panel;resolve(true);}else if(++retries>100)reject(new Error("Quick panel did not show"));else setTimeout(check,25);};check();})');
     await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript('+JSON.stringify('new Promise(resolve=>{const check=()=>document.querySelector("#quick-main[aria-busy]")?requestAnimationFrame(check):resolve();check();})')+')');
     await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript(' + JSON.stringify(axeSource) + ')');
-    const panelViolations = await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript(' + JSON.stringify("axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}).then(result=>result.violations.map(item=>({id:item.id,nodes:item.nodes.map(node=>node.target)})))") + ')');
-    assert.deepEqual(panelViolations, [], 'Quick panel accessibility');
+    for (const theme of ['light', 'dark']) {
+      await evaluate('window.dobraAppearance.set(' + JSON.stringify(theme) + ');');
+      await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript(' + JSON.stringify('new Promise(resolve=>{const check=()=>document.documentElement.dataset.theme===' + JSON.stringify(theme) + '?resolve():requestAnimationFrame(check);check();})') + ')');
+      for (const [width, height] of [[380, 500], [300, 240]]) {
+        await nativeEvaluate('globalThis.__productPanel.setSize(' + width + ',' + height + ')');
+        const bounds = await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript(' + JSON.stringify('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{const list=document.querySelector(".quick-bindings");const item=list.lastElementChild;if(item)item.scrollIntoView({block:"center"});const last=item?.getBoundingClientRect();const itemVisible=!last||last.bottom>0&&last.top<innerHeight;document.querySelector(".quick-footer").scrollIntoView({block:"end"});const footer=document.querySelector(".quick-footer").getBoundingClientRect();resolve({page:document.documentElement.scrollWidth,viewport:innerWidth,footerTop:footer.top,footerBottom:footer.bottom,height:innerHeight,listHeight:list.clientHeight,itemVisible});})))') + ')');
+        assert.ok(bounds.page<=bounds.viewport && bounds.listHeight>0 && bounds.itemVisible && bounds.footerTop>=0 && bounds.footerBottom<=bounds.height+1, 'Quick panel keeps shortcuts and footer reachable, including document scrolling in short windows: ' + JSON.stringify(bounds));
+        const panelViolations = await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript(' + JSON.stringify("(async()=>{await Promise.all(document.getAnimations().filter(item=>item.effect?.getTiming().iterations!==Infinity).map(item=>item.finished.catch(()=>{})));const result=await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}});return result.violations.map(item=>({id:item.id,nodes:item.nodes.map(node=>({target:node.target,summary:node.failureSummary}))}));})()") + ')');
+        assert.deepEqual(panelViolations, [], 'Quick panel accessibility: ' + theme + ' ' + width);
+        const image = await nativeEvaluate('(async()=> (await globalThis.__productPanel.webContents.capturePage()).toPNG().toString("base64"))()');
+        await fs.writeFile(require('node:path').resolve(__dirname, '../artifacts/ui-audit/habbo-quick-panel-' + theme + '-' + width + '.png'), Buffer.from(image, 'base64'));
+      }
+    }
+    await nativeEvaluate('globalThis.__productPanel.setSize(380,500)');
     const panelText = await nativeEvaluate('globalThis.__productPanel.webContents.executeJavaScript("document.body.innerText")'); assert.match(panelText, /Escape fecha/); assert.doesNotMatch(panelText, /(?:^|\n)null(?:\n|$)/); assert.doesNotMatch(panelText, /Resposta efêmera QA|127\.0\.0\.1/);
     const panelImage = await nativeEvaluate('(async()=> (await globalThis.__productPanel.webContents.capturePage()).toPNG().toString("base64"))()');
     await fs.writeFile(require('node:path').resolve(__dirname, '../artifacts/ui-audit/productivity-quick-panel.png'), Buffer.from(panelImage, 'base64'));

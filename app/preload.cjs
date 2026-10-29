@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('dobra', {
   cancelAllExecutions: () => invokeState('cancel-all-executions'),
   setTracking: enabled => invokeState('set-tracking', enabled),
   setLinuxInputEnabled: enabled => invokeState('set-linux-input-enabled', enabled),
+  openInputSettings: () => ipcRenderer.invoke('dobra:open-input-settings'),
   chooseDirectory: () => ipcRenderer.invoke('dobra:choose-directory'),
   chooseApplication: () => ipcRenderer.invoke('dobra:choose-application'),
   chooseActionTarget: kind => ipcRenderer.invoke('dobra:choose-action-target', kind),

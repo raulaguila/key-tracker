@@ -5,6 +5,47 @@ pacote é 0.1.0; tags e datas de distribuição serão adicionadas quando public
 
 ## Não lançado
 
+- Alvos de toque uniformizados: botões de captura e expansíveis têm pelo menos
+  44 px nos dois temas, incluindo permissões e detalhes do Histórico. Regressões
+  cobrem 24 combinações de tela/editor, tema e largura, com toque na borda inferior
+  para validar a área ampliada e cancelamento da captura sem fechar o editor.
+- Navegação com Orca: foco no título ao trocar de tela, erros relidos junto aos
+  campos e retorno ao controle de origem em diálogos encadeados. Títulos e
+  descrições dos diálogos têm referências únicas. Novo `npm run test:orca`
+  usa Orca/AT-SPI reais nos temas claro e escuro, em sessão e perfil isolados.
+- Correções da auditoria Impeccable: painel rápido mantém os atalhos acessíveis
+  com zoom de 200%; Histórico preserva foco e detalhes em novas execuções e
+  encaminha o foco à busca quando o evento sai do limite da sessão; teclado
+  interativo tem alvos de pelo menos 44 × 44 px para toque, incluindo Enter ISO/ABNT2.
+- Regressões de acessibilidade verificam execução real, foco, limite de eventos,
+  busca, toque, cinco layouts, três formatos, ampliação e os dois temas.
+- Revisão visual nos dois temas: contraste preservado durante a troca de tema,
+  hover de remoção com cor correta, checkboxes nativos em ciano, confirmações
+  com superfícies consistentes e ações mais legíveis em janelas estreitas.
+- Ícone nativo e logos alinhados ao azul/ciano; o PNG é regenerado usando as
+  cores do SVG. Revisão automatizada cobre nomes extensos, menus e confirmações.
+- Biblioteca, busca e painel rápido adotam a aparência azul/ciano: modelos com
+  ícones, resultados com foco destacado e dicas de navegação, cabeçalhos unificados
+  e lista rolável no painel mantendo estado e retorno ao Dobra visíveis.
+- Rastreio, Histórico e Configurações seguem a mesma aparência de Camadas:
+  teclado e estado integrados, filtros segmentados, resultados com ícones e
+  painéis para controles, permissões, aparência e dados, nos dois temas.
+- Aparência inspirada no HabboAssets em Camadas: base azul/ciano nos dois temas,
+  seleção e navegação mais definidas, teclado com relevo, guia com etapas visíveis
+  e editor com superfícies distintas para atalho, formulário e salvamento.
+- Primeiro uso guiado em Camadas: criar uma automação com atalho sugerido, testar
+  pela prévia real e ativar explicitamente, com recuperação de permissões,
+  progresso local retomável e confirmação por execução bem-sucedida do atalho fora
+  do Dobra, com origem/foco/revisão verificados pelo motor.
+- Recuperação contextual de autorização negada, instalação Linux, sessão e teclado
+  ausente; orientação para ajustes do macOS. A ação e o teste permanecem válidos
+  ao reabrir se não foram editados; autorização não ativa ações automaticamente.
+
+- Exemplos iniciais e JSON de demonstração usam Ctrl/⌘+Alt+A para evitar disparos
+  ao digitar A sem modificadores.
+- Importação completa cancela e aguarda execuções e registros antes da substituição,
+  bloqueia reativação durante a parada e preserva a configuração em falha de gravação.
+
 ### Recursos
 
 - Camadas temporárias ao manter um controle, com restauração ao soltar ou interromper.

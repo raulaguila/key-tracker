@@ -13,6 +13,7 @@
     "native:build": "node scripts/build-native-input.cjs",
     "test": "node --test test/*.test.cjs",
     "test:ui": "node scripts/ui-smoke.cjs",
+    "test:orca": "node scripts/orca-smoke.cjs",
     "test:lifecycle": "node scripts/lifecycle-smoke.cjs",
     "test:input": "node scripts/input-phases-smoke.cjs",
     "test:wayland": "/usr/bin/python3 -I -B scripts/test-linux-input.py",

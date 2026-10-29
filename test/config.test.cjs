@@ -197,7 +197,7 @@ test('mesma combinação permite um binding por momento e legado press não infl
 test('gatilhos validam captura física, intervalo, consistência e reservas', () => {
   const create = () => {
     const config = defaultConfig();
-    Object.assign(config.layers[0].bindings[0], { trigger: 'hold', keyCode: 'KeyA' });
+    Object.assign(config.layers[0].bindings[0], { key: 'A', trigger: 'hold', keyCode: 'KeyA' });
     return config;
   };
   assert.equal(validateConfig(create()).layers[0].bindings[0].repeatMs, 400);

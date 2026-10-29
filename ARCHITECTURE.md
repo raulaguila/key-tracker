@@ -40,6 +40,15 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
 - `app/renderer/action-editor.js`: campos de cada tipo de ação e editor de etapas;
   rascunhos de tipos alternados permanecem em DOM desconectado, sem JSON manual.
+- `app/renderer/first-automation.js`: guia de criar/testar/ativar/confirmar. Progresso
+  local por IDs e SHA-256 da binding/camada testada; edição invalida a prova.
+  Conclusão aceita apenas resultado novo de sucesso, da revisão armada ao ativar,
+  com origem de atalho e foco fora do Dobra verificados pelo main. IPC manual não
+  pode fornecer essa origem. Mudanças de revisão exigem reativação.
+- `app/renderer/input-recovery.mjs`: classifica códigos de estado de autorização,
+  instalação, sessão e dispositivo. O guia reutiliza o instalador Linux e a seleção
+  de teclado; macOS abre apenas Ajustes do Sistema por IPC dedicado. Recuperação
+  não apaga progresso nem ativa ações automaticamente.
 - `app/renderer/appearance.js`: bootstrap antes do CSS, preferência visual
   claro/escuro/sistema e acompanhamento do esquema de cores do sistema.
 - `app/renderer/keyboard.js`: geometrias de referência ANSI/ISO/ABNT2 e tamanhos.
@@ -50,6 +59,9 @@ Contrato de dados e API em `CONTRACT.md`. O processo principal é o único dono
 da configuração. Escritas de configuração são serializadas. Configuração é
 validada antes de persistir e antes de atualizar o motor; erro de disco preserva
 o estado anterior. Camada ativa é estado da sessão; inicia na primeira camada.
+A importação completa bloqueia novos disparos e testes, cancela as execuções e
+aguarda seus efeitos em andamento e registros finais antes de persistir a substituição.
+Falha mantém a configuração anterior e libera a parada, com ações pausadas.
 
 ## Atalhos
 
@@ -127,6 +139,9 @@ não há headers. Arquivos usam permissões restritas onde o SO as aplica.
 Histórico em memória: até 100 resultados/eventos da sessão. Resultados de ações
 e mensagens de log legadas são salvos em JSONL; 1 MiB por arquivo, com uma cópia
 rotacionada. Falhas de execução e de persistência aparecem separadamente na UI.
+Resultados identificam origem manual/atalho, camada por ID, revisão e um booleano
+de foco fora do Dobra no início da execução. O main verifica todas as janelas
+próprias e DevTools; não identifica o aplicativo externo para essa confirmação.
 Sem telemetria. Configuração inválida no startup oferece recuperação explícita
 por backup/importação, com cópia preservada. Writes serializados sincronizam um
 arquivo temporário antes do rename e mantêm o último backup válido. Diagnóstico

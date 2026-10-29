@@ -263,10 +263,10 @@ function defaultConfig() {
     settings: { layerShortcut: 'F8', pauseShortcut: 'CommandOrControl+Shift+F12', cooldownMs: 400, autoSwitchLayers: false, closeToTray: false },
     layers: [
       { id: randomUUID(), name: 'Camada 1', description: 'Texto e automações do dia a dia.', applications: [], bindings: [
-        { id: randomUUID(), key: 'A', name: 'Copiar texto', enabled: true, action: { type: 'clipboard', text: 'Texto copiado pela tecla {{key}} na {{layer}}.' } }
+        { id: randomUUID(), key: 'CommandOrControl+Alt+A', name: 'Copiar texto', enabled: true, action: { type: 'clipboard', text: 'Texto copiado pela tecla {{key}} na {{layer}}.' } }
       ] },
       { id: randomUUID(), name: 'Camada 2', description: 'Criação de arquivos em Documentos.', applications: [], bindings: [
-        { id: randomUUID(), key: 'A', name: 'Criar uma nota', enabled: true, action: { type: 'file', directory: '', filename: 'nota-{{timestamp}}.txt', content: 'Criado pela tecla {{key}} na {{layer}}.\n', mode: 'create' } }
+        { id: randomUUID(), key: 'CommandOrControl+Alt+A', name: 'Criar uma nota', enabled: true, action: { type: 'file', directory: '', filename: 'nota-{{timestamp}}.txt', content: 'Criado pela tecla {{key}} na {{layer}}.\n', mode: 'create' } }
       ] }
     ]
   };

@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 1,
+  "title": "Auditoria Impeccable após correção TOUCH-01 de alvos de toque",
+  "generatedAt": "2026-10-29T04:13:10.467Z",
+  "scope": {
+    "type": "Auditoria técnica de frontend e UX",
+    "runtime": "Electron/Linux em Xvfb e perfis temporários; Orca em D-Bus isolado",
+    "themes": [
+      "Claro",
+      "Escuro"
+    ],
+    "surfaces": [
+      "Camadas e teclado visual",
+      "Guia de primeira automação",
+      "Editor e prévia de ações",
+      "Rastreio",
+      "Histórico e execuções",
+      "Configurações",
+      "Biblioteca e importação",
+      "Busca",
+      "Painel rápido"
+    ],
+    "source": {
+      "rendererFiles": 19,
+      "sha256": "c348c9f74f7fd86fc4174b2ab84fe128d85cae84b1fb362864c2c32ddc682002"
+    }
+  },
+  "antiPatterns": {
+    "verdict": "Aprovado",
+    "reason": "Identidade azul/ciano consistente, componentes familiares, fonte do sistema adequada ao produto e ausência de efeitos decorativos excessivos nas superfícies inspecionadas. O detector estático complementou a inspeção visual."
+  },
+  "evaluation": {
+    "score": 20,
+    "outOf": 20,
+    "rating": "Excelente",
+    "previous": {
+      "score": 19,
+      "dimensions": {
+        "accessibility": 4,
+        "performance": 4,
+        "responsive": 3,
+        "theming": 4,
+        "antiPatterns": 4
+      }
+    },
+    "dimensions": [
+      {
+        "name": "Acessibilidade",
+        "score": 4,
+        "reason": "Navegação, títulos, erros associados e diálogos validados com Orca/AT-SPI; sem violações automáticas A/AA detectadas nos estados verificados."
+      },
+      {
+        "name": "Desempenho",
+        "score": 4,
+        "reason": "Linhas reutilizadas, busca limitada e atualizações sem reconstrução desnecessária; medições locais estáveis."
+      },
+      {
+        "name": "Responsividade",
+        "score": 4,
+        "reason": "Alvos de captura e expansíveis com pelo menos 44px, interação funcional na borda inferior em 24 combinações; zoom, painel e teclado preservados."
+      },
+      {
+        "name": "Temas",
+        "score": 4,
+        "reason": "Claro/escuro, transição, superfícies, estados e contraste consistentes nas capturas e testes."
+      },
+      {
+        "name": "Antipadrões",
+        "score": 4,
+        "reason": "A aparência continua intencional e adequada à ferramenta."
+      }
+    ],
+    "explanation": "20/20 no escopo verificado. A responsividade sobe de 3 para 4 após uniformizar botões de captura e expansíveis, sem novos problemas confirmados nos dois temas."
+  },
+  "severities": {
+    "P0": 0,
+    "P1": 0,
+    "P2": 0,
+    "P3": 0
+  },
+  "findings": [],
+  "previousCorrections": {
+    "quickPanel": "Lista não colapsa a 200%; atalhos e rodapé alcançáveis pela rolagem.",
+    "history": "Foco, detalhes abertos e linhas preservados; evento removido pelo limite da sessão retorna foco à busca.",
+    "keyboard": "30 combinações de layout/formato/tema com alvos mínimos medidos de 44×44; Enter ISO/ABNT2 e setas funcionais.",
+    "navigation": "Orca anuncia títulos das telas; conteúdo principal nomeado.",
+    "formErrors": "Erros relidos ao retornar ao campo, com a dica original preservada.",
+    "dialogs": "Títulos/descrições únicos e retorno ao controle de origem em fluxos encadeados.",
+    "touchControls": "Captura e expansíveis com altura mínima de 44px e interação validada nos dois temas; regra compartilhada evita sobreposição por especificidade."
+  },
+  "checks": {
+    "syntax": "passed",
+    "diffWhitespace": "passed",
+    "fullUiSuite": "passed",
+    "responsiveCombinations": 112,
+    "keyboardGeometryCombinations": 90,
+    "drawerSizes": 14,
+    "axe": {
+      "generalStates": 24,
+      "regressionChecks": 44,
+      "additionalCoarseChecks": 10,
+      "violations": []
+    },
+    "orca": {
+      "passed": true,
+      "version": "50.3",
+      "atspiVersion": "2.60.4",
+      "cases": 31,
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "nativeCommands": [
+        "Heading navigation: H",
+        "Landmark navigation: M"
+      ]
+    },
+    "touchKeyboard": {
+      "combinations": 30,
+      "minWidth": 44,
+      "minHeight": 44
+    },
+    "mainZoom200States": 8,
+    "panelSizeZoomThemeCombinations": 8,
+    "reducedMotion": [
+      {
+        "theme": "light",
+        "matches": true,
+        "animation": "none",
+        "transition": "0s"
+      },
+      {
+        "theme": "dark",
+        "matches": true,
+        "animation": "none",
+        "transition": "0s"
+      }
+    ],
+    "staticDetector": [],
+    "captureAndExpandTouchTargets": {
+      "cases": 24,
+      "minimumMeasuredHeight": 44,
+      "undersized": 0,
+      "baseline": "artifacts/impeccable-touch-fix/baseline.log",
+      "evidence": "artifacts/impeccable-touch-fix/regressions.json"
+    }
+  },
+  "performance": {
+    "localOnly": true,
+    "renderer100Rows": {
+      "medianMs": 0.7000000178813934,
+      "p95Ms": 1.4000000059604645,
+      "addedNodes": 0,
+      "documentElements": 3025
+    },
+    "largeFixture": {
+      "fixtureBindings": 1960,
+      "fixtureBytes": 186175,
+      "palette": [
+        {
+          "query": "",
+          "ms": 1.699999988079071,
+          "rendered": 40
+        },
+        {
+          "query": "A",
+          "ms": 1,
+          "rendered": 40
+        },
+        {
+          "query": "Camada 2",
+          "ms": 1,
+          "rendered": 40
+        },
+        {
+          "query": "Ctrl",
+          "ms": 0.9000000059604645,
+          "rendered": 40
+        },
+        {
+          "query": "nenhuma agulha",
+          "ms": 0.5999999940395355,
+          "rendered": 0
+        }
+      ],
+      "import": {
+        "ms": 53,
+        "addedNodes": 1702,
+        "shortcuts": 120
+      },
+      "panel": {
+        "mutations": 0,
+        "focused": true
+      }
+    }
+  },
+  "themeChecks": {
+    "primaryButtonContrastDuringSwitch": {
+      "light": 7.84603139785228,
+      "dark": 9.933404272655263
+    },
+    "dangerHover": {
+      "light": true,
+      "dark": true
+    },
+    "checkboxAccent": {
+      "light": "oklch(0.43 0.085 225)",
+      "dark": "oklch(0.78 0.12 225)"
+    },
+    "inspection": "Capturas das quatro telas, busca, importação e painel; nomes longos, estados e janelas estreitas."
+  },
+  "systemicPatterns": {
+    "positive": [
+      "Tokens e componentes compartilhados preservam a aparência nos dois temas.",
+      "Atualizações por identidade preservam contexto e foco.",
+      "Validação automática complementada por Orca real e inspeção visual.",
+      "Regra compartilhada de toque cobre também captura e expansíveis; regressões incluem acionamento real na área ampliada."
+    ],
+    "remaining": []
+  },
+  "actions": [
+    {
+      "priority": "Manutenção",
+      "command": "$impeccable audit",
+      "target": "Repetir as mesmas verificações após mudanças futuras na interface."
+    }
+  ],
+  "limits": [
+    "Nota referente às superfícies e cenários verificados; não é certificação formal WCAG nem aprovação de release.",
+    "Sem NVDA, JAWS, VoiceOver, linha Braille ou hardware de toque real nesta sessão.",
+    "Anúncios do Orca avaliados por seus registros e AT-SPI; sem escuta humana do áudio.",
+    "Não inclui auditoria de segurança do backend, assinatura, instalação ou operação nativa completa em Windows/macOS."
+  ],
+  "implementationChanged": true,
+  "evidenceDirectory": "artifacts/impeccable-touch-fix",
+  "revalidation": {
+    "previousReport": "docs/audits/2026-10-28-impeccable/report.json",
+    "previousGeneratedAt": "2026-10-29T03:59:08.571Z",
+    "rendererChanged": true,
+    "previousScore": 19,
+    "previousSeverities": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 1,
+      "P3": 0
+    },
+    "results": "P2 corrigido; teste novo reproduziu a falha antes da correção e passou com medidas e toque na borda inferior após a mudança."
+  },
+  "resolvedIssues": [
+    {
+      "id": "TOUCH-01",
+      "severity": "P2",
+      "name": "Adaptação para toque incompleta em controles de captura e expansíveis",
+      "category": "Responsividade / ergonomia para toque",
+      "reproduced": {
+        "viewport": {
+          "width": 760,
+          "height": 580
+        },
+        "pointer": "coarse",
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "effectiveLabels": true,
+        "modalBackgroundExcluded": true
+      },
+      "locations": [
+        {
+          "file": "app/renderer/styles.css",
+          "line": 237,
+          "selector": ".input-with-button .button",
+          "measuredHeight": 32
+        },
+        {
+          "file": "app/renderer/styles.css",
+          "line": 376,
+          "selector": ".support-details > summary",
+          "measuredHeight": 21.75
+        },
+        {
+          "file": "app/renderer/styles.css",
+          "line": 683,
+          "selector": ".execution-steps > summary",
+          "measuredHeight": 23.9375
+        }
+      ],
+      "impact": "Áreas verticais pequenas exigem mais precisão para capturar uma tecla, recuperar permissões ou abrir detalhes de execução em dispositivos de toque.",
+      "cause": "A regra mais específica dos botões de captura mantém 32px, sobrepondo a regra genérica de toque. Alguns summaries não recebem altura mínima para ponteiros de toque.",
+      "standard": {
+        "reference": "WCAG 2.5.5 — Target Size (Enhanced), AAA; meta de 44×44 CSS px",
+        "url": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html",
+        "classification": "Melhoria de usabilidade. Não foi confirmada violação WCAG AA; os testes axe também passaram nestes estados."
+      },
+      "recommendation": "Uniformizar a altura mínima de controles de captura e expansíveis para pelo menos 44px em pointer:coarse, corrigir a especificidade e ampliar as regressões de toque para esses componentes.",
+      "commands": [
+        "$impeccable adapt",
+        "$impeccable polish"
+      ],
+      "status": "Corrigido",
+      "fix": "Regra compartilhada de toque inclui o seletor específico dos botões de captura e todos os summaries. Permissões e detalhes de execução centralizam o texto usando espaçamento que acompanha a altura da linha.",
+      "after": {
+        "minimumMeasuredHeight": 44,
+        "cases": 24,
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "widths": [
+          760,
+          390
+        ],
+        "undersized": 0,
+        "functionalChecks": [
+          "Toque na borda inferior inicia captura",
+          "Escape cancela captura sem fechar o editor",
+          "Toque na borda inferior abre etapas do Histórico",
+          "Toque fecha e reabre Captura e permissões"
+        ]
+      },
+      "regressionTest": "scripts/touch-targets-ui.cjs"
+    }
+  ]
+}

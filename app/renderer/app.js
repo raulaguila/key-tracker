@@ -1,5 +1,6 @@
 import { createLinuxInstallHelp } from './linux-install.js';
 import { createProductivity } from './productivity.js';
+import { createFirstAutomation } from './first-automation.js';
 import { el, icon, button, shortcut, heading, field, toast, announce, confirmDialog } from './ui.js';
 import { keyboardView } from './keyboard.js';
 import { createActionEditor, actionLabels, actionTypeLabels, sequenceDelayLabel } from './action-editor.js';
@@ -23,6 +24,7 @@ let capture = null;
 let actionQuery = '';
 let historyQuery = '';
 let historyFilter = 'all';
+const historyRows = new Map();
 let runningPanel;
 let bindingView = 'table';
 try { bindingView = localStorage.getItem('dobra.binding-view') === 'keyboard' ? 'keyboard' : 'table'; } catch { /* Session preference remains available. */ }
@@ -37,11 +39,49 @@ let closingAllowed = false;
 let linuxInputPending = false;
 let linuxInstallHelp;
 const productivity = createProductivity({ api, getState: () => state, applyState: (next, options) => { state = next; editor = null; if (options?.layerId) activateLayerView(options.layerId); render(); },
+  startAutomation: () => { activateLayerView(state.activeLayerId); firstAutomation.resume(); },
   guard: callback => void guardNavigation(() => { editor = null; render(); callback(); }),
   editBinding: (layerId, bindingId) => { activateLayerView(layerId); startEditor({ kind: 'binding', value: layerById(layerId).bindings.find(item => item.id === bindingId) }); },
   editLayer: layerId => { activateLayerView(layerId); startEditor({ kind: 'layer', value: layerById(layerId) }); },
   selectLayer: layerId => void perform(async () => { state = await api.setLayer(layerId); render(); }),
   onModalChange: async () => { syncEditing(); await editingQueue; if (productivity.active && !state.editing) throw new Error('Não foi possível suspender os atalhos. Feche este painel e tente novamente.'); }, notify: toast });
+const firstAutomation = createFirstAutomation({ getState: () => state,
+  api,
+  create: () => void guardNavigation(() => void perform(async () => {
+    state = await api.setEnabled(false);
+    const layer = layerById();
+    const modifiers = state.platform === 'darwin' ? 'Command+Alt' : 'Control+Alt';
+    const reserved = [state.config.settings.layerShortcut, state.config.settings.pauseShortcut, state.config.settings.momentaryShortcut, state.shortcuts.panelShortcut].filter(Boolean);
+    const key = [...'TRGBCDEHIJKLMNOPSUVWXYZ'].map(letter => modifiers + '+' + letter).find(candidate => ![...reserved, ...layer.bindings.map(binding => binding.key)].some(key => key.split('+').at(-1) === candidate.split('+').at(-1) && shortcutModifiers(key, state.platform) === modifiers)) || '';
+    startEditor({ kind: 'binding', value: null, onboarding: true, returnFocus: 'first-next', seed: { name: 'Meu texto rápido', key, action: { type: 'clipboard', text: 'Olá! Como posso ajudar?' } } });
+  })),
+  test: (layer, binding) => { activateLayerView(layer.id); runBinding(layer, binding); },
+  edit: (layer, binding) => { activateLayerView(layer.id); startEditor({ kind: 'binding', value: binding, onboarding: true, returnFocus: 'first-next' }); },
+  activate: async layer => {
+    if (editor || productivity.active || isDirty()) throw new Error('Feche o editor antes de ativar sua automação.');
+    requestEditing(false); await editingQueue;
+    state = await api.setEnabled(false);
+    state = await api.setLayer(layer.id);
+    selectedLayerId = layer.id;
+    state = await api.setEnabled(true);
+    if (!state.enabled) throw new Error(state.events.find(event => event.status === 'error')?.message || 'Não foi possível ativar as ações. Confira a entrada do teclado.');
+    render('first-next');
+  },
+  configureInput: productivity.openWizard,
+  recoverInput: async kind => {
+    if (kind === 'mac') return api.openInputSettings();
+    if (kind === 'linux' || kind === 'install') {
+      try { state = await api.setLinuxInputEnabled(true); }
+      catch { state = await api.getState(); throw new Error(state.linuxInput?.message || 'Não foi possível autorizar. Tente novamente.'); }
+      updateStatus();
+    }
+  },
+  chooseDevice: () => {
+    navigate('settings');
+    queueMicrotask(() => { const control = document.querySelector('#field-inputDeviceId'); if (control) { control.closest('details').open = true; control.focus(); control.scrollIntoView({ block: 'center' }); } });
+  },
+  onChange: () => render('new-binding')
+});
 
 // Visual preferences stay on this computer, separate from exported actions.
 const sidebarPreference = 'dobra.sidebar-collapsed';
@@ -182,6 +222,7 @@ function updateStatus() {
   const toggle = document.querySelector('#engine-toggle');
   toggle.disabled = !state || state.stopping || (!state.enabled && state.editing);
   if (!state) return;
+  firstAutomation.update();
   const suspended = state.enabled && state.editing;
   const inputLimited = state.input?.mode === 'unavailable';
   const editingForm = Boolean(editor || isDirty());
@@ -248,6 +289,7 @@ function restoreFocus(key) {
 function render(focusKey) {
   if (!state) return;
   if (view !== 'layers') bindingTable = null;
+  if (view !== 'history') historyRows.clear();
   if (view !== 'layers' || bindingView !== 'keyboard') visualBindingCache = null;
   const previousFocus = focusKey || document.activeElement?.dataset.focus;
   if (!layerById()) selectedLayerId = state.activeLayerId;
@@ -291,7 +333,9 @@ function navigate(next) {
       else item.removeAttribute('aria-current');
     }
     render();
-    main.focus({ preventScroll: true });
+    const title = main.querySelector('h1') || main;
+    title.tabIndex = -1;
+    title.focus({ preventScroll: true });
     if (next === 'tracking') void refreshSystemLayout();
     window.scrollTo({ top: 0, behavior: 'instant' });
   });
@@ -458,10 +502,11 @@ function renderLayers() {
     el('small', {}, layer.bindings.length + (layer.bindings.length === 1 ? ' ação' : ' ações')))
   ));
   list.append(choices, button('Modelos e importação', productivity.openLibrary, 'quiet layer-library', { symbol: 'upload', 'data-focus': 'model-library' }));
-  if (productivity.needsSetup()) list.append(button('Primeiros passos', productivity.openWizard, 'quiet layer-library', { symbol: 'check', 'data-focus': 'setup' }));
+  if (productivity.needsSetup()) list.append(button('Verificar teclado', productivity.openWizard, 'quiet layer-library', { symbol: 'check', 'data-focus': 'setup' }));
   const layer = layerById();
   const current = layer.id === state.activeLayerId;
   const detail = el('section', { class: 'layer-detail', 'aria-label': 'Ações de ' + layer.name });
+  detail.append(firstAutomation.render());
   detail.append(el('div', { class: 'detail-heading' },
     el('div', {}, el('div', { class: 'title-line' }, el('h1', { id: 'layer-title' }, layer.name),
       el('span', { class: 'badge ' + (current ? 'success' : '') }, current ? 'Em uso' : 'Visualizando')),
@@ -474,7 +519,7 @@ function renderLayers() {
   detail.append(el('p', { id: 'input-status', class: 'input-mode-status', role: 'status', hidden: true }));
   const search = field('action-search', 'Buscar ações', actionQuery, { type: 'search', placeholder: 'Buscar ação, tecla ou tipo…' });
   search.input.addEventListener('input', () => { actionQuery = search.input.value; updateBindings(); });
-  const modes = el('div', { class: 'filter-group binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('dobra.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
+  const modes = el('div', { class: 'filter-group segmented-control binding-view-toggle', role: 'group', 'aria-label': 'Visualização das ações' }, [['table', 'Tabela', 'list'], ['keyboard', 'Teclado', 'keyboard']].map(([value, label, symbol]) => button(label, () => { bindingView = value; try { localStorage.setItem('dobra.binding-view', value); } catch { /* Keep session preference. */ } render('view-' + value); }, bindingView === value ? 'selected' : 'quiet', { symbol, 'aria-pressed': String(bindingView === value), 'data-focus': 'view-' + value })));
   detail.append(el('div', { class: 'section-toolbar' }, el('div', { class: 'search-field' }, icon('search'), search.wrapper), modes, el('span', { id: 'action-count' })),
     el('div', { id: 'bindings', class: 'binding-list table-scroll' }),
     el('p', { class: 'test-explanation' }, 'Confira a prévia antes de executar um teste. A execução funciona mesmo com os atalhos pausados.'),
@@ -604,10 +649,12 @@ async function executePreview() {
   const target = editor;
   if (target?.kind !== 'test' || !target.preview || target.running) return;
   target.running = true;
+  firstAutomation.testing(target.layerId, target.value.id);
   target.result = null;
   target.error = null;
   pendingBindings.add(target.value.id);
   const previous = new Set(state.events.map(event => event.id));
+  const testedRevision = state.configRevision;
   const token = target.preview.previewId;
   target.preview = null; // Tokens are consumed once, including failed executions.
   updateTestPreview();
@@ -615,13 +662,18 @@ async function executePreview() {
   try {
     state = await api.runBinding(target.layerId, target.value.id, token);
     target.result = state.events.find(event => !previous.has(event.id) && event.kind === 'action' && event.bindingId === target.value.id);
-    if (target.result) toast(target.result.message, target.result.status);
+    if (target.result) {
+      if (target.result.status === 'success' && state.configRevision === testedRevision) await firstAutomation.tested(target.layerId, target.value);
+      if (!firstAutomation.isTarget(target.layerId, target.value.id)) toast(target.result.message, target.result.status);
+    }
   } catch (error) { target.error = error.message; }
   finally {
     target.running = false;
     pendingBindings.delete(target.value.id);
     if (editor === target) {
       updateTestPreview();
+      const next = document.querySelector('[data-focus="first-activate-next"]');
+      if (next && !next.hidden) next.focus({ preventScroll: true });
       document.querySelector('#editor-drawer')?.scrollTo({ top: 0, behavior: 'instant' });
     }
     updateBindings();
@@ -631,10 +683,11 @@ async function executePreview() {
 
 function testPreviewPanel(layer) {
   return el('section', { class: 'editor test-preview', 'aria-label': 'Prévia e teste da ação' },
-    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, 'Executar teste realiza uma execução: ignora o delay inicial da tecla e respeita o delay entre etapas. Não inicia repetição nem aguarda soltura.')),
+    el('div', { class: 'editor-heading' }, el('h2', {}, 'Testar ' + editor.value.name), el('p', {}, triggerDescription(editor.value) + ' · ' + editor.value.key), el('p', {}, firstAutomation.isTarget(editor.layerId, editor.value.id) ? 'Confira a prévia e execute um teste. A execução realiza a ação de verdade.' : 'Executar teste realiza uma execução: ignora o delay inicial da tecla e respeita o delay entre etapas. Não inicia repetição nem aguarda soltura.')),
     el('div', { id: 'test-preview-content', class: 'form-fields', role: 'status', 'aria-live': 'polite' }),
     el('div', { class: 'form-footer' }, button('Fechar', closeEditor),
-      el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }))));
+      el('div', { class: 'button-row' }, button('Atualizar prévia', () => void loadTestPreview(), '', { 'data-focus': 'refresh-preview', 'data-initial-focus': '' }), button('Executar teste', () => void executePreview(), 'primary', { symbol: 'play', 'data-focus': 'execute-preview' }),
+        button('Continuar para ativação', () => { closeEditor(); }, 'primary', { 'data-focus': 'first-activate-next', hidden: true }))));
 }
 
 function actionPreview(action) {
@@ -673,16 +726,22 @@ function updateTestPreview() {
   execute.setAttribute('aria-busy', String(Boolean(target.running)));
   execute.querySelector('span').textContent = target.running ? 'Executando…' : 'Executar teste';
   refresh.disabled = target.running || target.loading;
+  const next = document.querySelector('[data-focus="first-activate-next"]');
+  const guidedSuccess = firstAutomation.isTarget(target.layerId, target.value.id) && firstAutomation.ready && !target.running;
+  next.hidden = !guidedSuccess;
+  refresh.hidden = guidedSuccess;
+  execute.hidden = guidedSuccess;
+  if (firstAutomation.isTarget(target.layerId, target.value.id)) content.append(el('p', { class: 'first-automation-context' }, 'Etapa 2 de 4 · Testar. Confira o que será executado abaixo. “Executar teste” realiza a ação de verdade, com os atalhos pausados.'));
   if (target.loading) content.append(el('p', { class: 'hint' }, 'Resolvendo variáveis…'));
   if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'cancelled' ? 'Execução cancelada' : target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
     el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
-    el('p', { class: 'hint' }, 'Atualize a prévia para executar outro teste.'),
+    el('p', { class: 'hint' }, guidedSuccess ? 'O teste funcionou. Continue para ativar seu atalho.' : 'Atualize a prévia para executar outro teste.'),
     executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined, undefined, target.result.stepDelayMs)));
   if (target.error) content.append(el('div', { class: 'form-errors', role: 'alert' }, icon('alert'), target.error));
   if (target.resolvedAction) {
     const action = target.resolvedAction;
     content.append(actionPreview(action),
-      el('p', { class: 'hint' }, target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'),
+      el('p', { class: 'hint' }, guidedSuccess ? 'Conteúdo usado no teste concluído.' : target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'),
       ...(action.type === 'http' || action.type === 'sequence' && action.steps.some(step => step.type === 'http') ? [el('p', { class: 'hint' }, 'Valores de headers ficam ocultos. A execução usa os valores completos.')] : []));
   }
   if (target.running) content.append(el('p', { class: 'context-note' }, icon('play'), 'Executando a ação… Você pode fechar este painel; o resultado ficará no Histórico.'));
@@ -706,9 +765,10 @@ async function removeLayer(layer) {
   await perform(() => saveConfiguration(config), 'Camada removida.');
 }
 
-async function saveConfiguration(config, focusKey) {
+async function saveConfiguration(config, focusKey, firstTarget) {
   const result = await api.saveConfig(config);
   state = result;
+  if (firstTarget) firstAutomation.saved(firstTarget.layerId, firstTarget.bindingId);
   const previous = editor;
   editor = null;
   stopCapture();
@@ -747,6 +807,7 @@ function stopCapture() {
 }
 
 function formError(form, error) {
+  clearFormErrors(form);
   const box = form.querySelector('.form-errors');
   box.replaceChildren(icon('alert'), el('p', {}, error.message || String(error)));
   box.dataset.fieldName = error.fieldName || '';
@@ -754,9 +815,23 @@ function formError(form, error) {
   const input = error.fieldName ? form.elements.namedItem(error.fieldName) : form.querySelector('[aria-invalid="true"]');
   if (input instanceof HTMLElement) {
     input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), box.id].filter(Boolean).join(' '));
     for (let parent = input.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
     input.focus();
   } else box.focus();
+}
+
+function clearFormErrors(form) {
+  const box = form.querySelector('.form-errors');
+  for (const input of form.querySelectorAll('[aria-invalid="true"]')) {
+    input.removeAttribute('aria-invalid');
+    const descriptions = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== box.id);
+    if (descriptions.length) input.setAttribute('aria-describedby', descriptions.join(' '));
+    else input.removeAttribute('aria-describedby');
+  }
+  box.hidden = true;
+  box.replaceChildren();
+  delete box.dataset.fieldName;
 }
 
 function invalid(message, fieldName) {
@@ -774,14 +849,13 @@ function formShell(title, description, submit, ...content) {
     button.setAttribute('aria-busy', 'true');
     const label = button.textContent;
     button.textContent = 'Salvando…';
-    form.querySelector('.form-errors').hidden = true;
-    for (const input of form.querySelectorAll('[aria-invalid]')) input.removeAttribute('aria-invalid');
+    clearFormErrors(form);
     try { await submit(form); }
     catch (error) { formError(form, error); }
     finally { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = label; }
   } },
     el('div', { class: 'editor-heading' }, el('h2', {}, title), el('p', {}, description)),
-    el('div', { class: 'form-errors', role: 'alert', tabindex: '-1', hidden: true }),
+    el('div', { id: newId('form-error'), class: 'form-errors', role: 'alert', tabindex: '-1', hidden: true }),
     el('div', { class: 'form-fields' }, content),
     el('div', { class: 'form-footer' }, el('span', { id: 'draft-status' }, 'Nenhuma alteração pendente'),
       el('div', { class: 'button-row' }, button('Cancelar', closeEditor), el('button', { type: 'submit', class: 'button primary' }, icon('save'), 'Salvar alterações'))));
@@ -813,12 +887,13 @@ function layerForm() {
 
 function bindingForm(layer) {
   const current = editor.value;
+  const onboarding = editor.onboarding;
   const initial = current || editor.seed;
   const triggers = createBindingTrigger({ initial, platform: state.platform, shortcutField, onDirty: syncEditing, invalid, getInputState: key => ({ input: state.input, enabled: state.enabled, groupRequiresInput: layer.bindings.some(binding => binding.key === key && binding.enabled !== false && triggerFor(binding) !== 'press') }) });
   editor.triggerControls = triggers;
   const actionEditor = createActionEditor({ initial: initial?.action || { type: 'clipboard', text: '' }, layers: state.config.layers, api,
     defaultDirectory: defaultFilesPath(), onDirty: syncEditing, onError: message => toast(message, 'error'), invalid });
-  const form = formShell(current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
+  const form = formShell(onboarding ? 'Criar sua primeira automação' : current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
     const key = String(data.get('key')).trim();
@@ -829,14 +904,24 @@ function bindingForm(layer) {
     const bindings = config.layers.find(item => item.id === layer.id).bindings;
     if (current) bindings[bindings.findIndex(item => item.id === current.id)] = binding;
     else bindings.push(binding);
-    await saveConfiguration(config, 'edit-' + binding.id);
+    if (onboarding && !/(^|\+)(CommandOrControl|Control|Command|Alt|Super|Ctrl|Cmd|Option|Meta)\+/i.test(key)) invalid('Use Ctrl/⌘, Alt ou Super na combinação, como Control+Alt+T, para evitar disparos ao digitar.', 'key');
+    if (onboarding && binding.enabled === false) invalid('Mantenha a ação ativada para continuar. Os atalhos só serão ligados na última etapa.', 'enabled');
+    await saveConfiguration(config, 'edit-' + binding.id, onboarding ? { layerId: layer.id, bindingId: binding.id } : undefined);
     toast('Ação salva em ' + layer.name + '.');
+    if (onboarding) runBinding(layerById(layer.id), layerById(layer.id).bindings.find(item => item.id === binding.id));
   },
     field('name', 'Nome da ação', initial?.name || '', { required: true, maxlength: 100, placeholder: 'Ex.: Copiar resposta ou abrir meu projeto' }).wrapper,
     triggers.node, actionEditor.node,
     el('details', { class: 'variable-help' }, el('summary', {}, 'Personalizar com variáveis'), el('p', {}, 'Use em textos, notificações, URLs, parâmetros e conteúdo de arquivos. Numa sequência, todas as etapas usam a tecla e a camada de origem.'),
       el('dl', {}, [['{{key}}', 'Tecla configurada'], ['{{layer}}', 'Nome da camada de origem'], ['{{date}}', 'Data UTC: ano-mês-dia'], ['{{timestamp}}', 'Instante UTC, seguro para nomes de arquivo']].map(([term, description]) => [el('dt', {}, el('code', {}, term)), el('dd', {}, description)]))));
   form.classList.add('compact-binding-editor');
+  if (onboarding) {
+    triggers.node.open = !initial?.key;
+    const shortcutEdit = triggers.summary.querySelector('[data-edit-trigger]');
+    shortcutEdit.title = 'Alterar atalho'; shortcutEdit.querySelector('span').textContent = 'Alterar atalho';
+    form.querySelector('.form-fields').prepend(el('p', { class: 'first-automation-context' }, 'Etapa 1 de 4 · Criar. Personalize o texto abaixo. Depois de salvar, você poderá conferir a prévia e testar.'));
+    form.querySelector('[type="submit"]').replaceChildren(icon('save'), 'Salvar e testar');
+  }
   let invalidTarget;
   form.addEventListener('invalid', event => {
     event.preventDefault();
@@ -859,7 +944,7 @@ function renderTracking() {
   const tracking = state.tracking;
   const mode = !tracking.enabled ? 'Desligado' : tracking.mode === 'global' ? 'Captura global' : tracking.mode === 'starting' ? 'Iniciando captura' : 'Somente nesta janela';
   const status = !tracking.enabled ? 'off' : tracking.mode === 'global' ? 'active' : tracking.mode === 'starting' ? 'starting' : 'limited';
-  main.append(heading('Rastreio do teclado', '', el('span', { class: 'tracking-mode status-indicator', 'data-status': status, role: 'status', 'aria-atomic': 'true' }, el('span', { class: 'status-dot', 'aria-hidden': 'true' }), mode)));
+  main.append(heading('Rastreio do teclado', 'Confira as teclas pressionadas, sem registrar sua digitação.', el('span', { class: 'tracking-mode status-indicator', 'data-status': status, role: 'status', 'aria-atomic': 'true' }, el('span', { class: 'status-dot', 'aria-hidden': 'true' }), mode)));
   const layout = field('keyboard-layout', 'Layout', keyboardPreference.layout, { choices: [['auto', 'Automático (sistema)'], ...Object.entries(layouts).map(([id, item]) => [id, item.name])] });
   const size = field('keyboard-size', 'Formato', keyboardPreference.size, { choices: [['full', 'Completo'], ['tkl', 'Sem numérico (TKL)'], ['compact', 'Compacto (60%)']] });
   const geometry = field('keyboard-geometry', 'Padrão físico', keyboardPreference.geometry, { choices: [['auto', 'Referência do layout'], ['ansi', 'ANSI'], ['iso', 'ISO'], ['abnt2', 'ABNT2']] });
@@ -915,7 +1000,8 @@ function updateKeys() {
 function clearPressed() { pressed.clear(); updateKeys(); }
 
 function renderHistory() {
-  main.append(heading('Histórico de execução', '',
+  historyRows.clear();
+  main.append(heading('Histórico de execução', 'Confira resultados, acompanhe execuções e encontre o motivo de uma falha.',
     el('div', { class: 'button-row' }, button('Exportar histórico', () => void perform(() => api.exportHistory()), '', { symbol: 'download', 'data-focus': 'export-history' }),
       button('Abrir pasta de dados', () => void perform(() => api.openDataDirectory()), 'quiet', { symbol: 'folder' }))));
   runningPanel = runningExecutions({ platform: state.platform,
@@ -926,7 +1012,7 @@ function renderHistory() {
   const filters = [['all', 'Tudo'], ['action', 'Ações'], ['error', 'Erros'], ['cancelled', 'Cancelados']];
   const search = field('history-search', 'Buscar no histórico', historyQuery, { type: 'search', placeholder: 'Buscar por mensagem, camada ou tecla' });
   search.input.addEventListener('input', () => { historyQuery = search.input.value; updateHistory(); });
-  main.append(el('div', { class: 'history-toolbar' }, el('div', { class: 'filter-group', role: 'group', 'aria-label': 'Filtrar eventos' }, filters.map(([value, label]) =>
+  main.append(el('div', { class: 'history-toolbar' }, el('div', { class: 'filter-group segmented-control', role: 'group', 'aria-label': 'Filtrar eventos' }, filters.map(([value, label]) =>
     button(label, () => { historyFilter = value; render('filter-' + value); }, historyFilter === value ? 'selected' : 'quiet', { 'aria-pressed': String(historyFilter === value), 'data-focus': 'filter-' + value }))),
     el('div', { class: 'search-field' }, icon('search'), search.wrapper)),
     el('p', { id: 'history-count', class: 'result-count' }),
@@ -942,9 +1028,16 @@ function updateHistory() {
   const events = state.events.filter(event => (historyFilter === 'all' || (['error', 'cancelled'].includes(historyFilter) ? event.status === historyFilter : event.kind === 'action')) &&
     [event.message, event.layer, event.key].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(query));
   document.querySelector('#history-count').textContent = events.length + (events.length === 1 ? ' evento encontrado' : ' eventos encontrados');
-  const expandedEvents = new Set([...container.querySelectorAll('[data-event-steps][open]')].map(node => node.dataset.eventSteps));
-  container.replaceChildren();
+  const focused = document.activeElement;
+  const hadFocus = container.contains(focused);
+  const restoreFocus = () => {
+    if (hadFocus && !focused.isConnected) document.querySelector('#field-history-search')?.focus({ preventScroll: true });
+  };
   if (!events.length) {
+    container.replaceChildren();
+    container.classList.remove('table-scroll');
+    historyRows.clear();
+    restoreFocus();
     if (state.running?.length) { container.append(el('p', { class: 'hint' }, 'Os resultados aparecerão aqui quando as execuções terminarem.')); return; }
     if (historyFilter === 'cancelled') { container.append(empty('Nenhum cancelamento registrado', 'As ações canceladas aparecerão aqui.')); return; }
     container.append(empty(query ? 'Nenhum evento encontrado' : historyFilter === 'error' ? 'Nenhum erro registrado' : 'Seu histórico começa com uma ação',
@@ -952,23 +1045,35 @@ function updateHistory() {
       !query && historyFilter !== 'error' ? button('Configurar ações', () => navigate('layers'), '', { symbol: 'layers' }) : null));
     return;
   }
-  const body = el('tbody');
-  container.classList.add('table-scroll');
-  container.append(el('table', { class: 'event-table' }, el('caption', { class: 'sr-only' }, 'Histórico de execução'),
-    el('thead', {}, el('tr', {}, [['Horário', 'event-time'], ['Resultado', 'event-status-cell'], ['Evento', ''], ['Camada / tecla', 'event-context']].map(([label, className]) => el('th', { scope: 'col', class: className }, label)))), body));
-  for (const event of events) {
-    const date = new Date(event.time);
-    const valid = !Number.isNaN(date.getTime());
-    const context = () => el('span', { class: 'event-meta' }, event.layer || '', event.key ? shortcut(event.key, state.platform) : null, event.key ? el('span', { class: 'event-trigger' }, triggerDescription(event)) : null);
-    body.append(el('tr', {},
-      el('td', { class: 'event-time' }, el('time', { datetime: valid ? date.toISOString() : undefined, title: valid ? date.toLocaleString('pt-BR') : '' },
-        valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
-      el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'cancelled' ? 'close' : event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
-        { success: 'Concluído', error: 'Erro', info: 'Sistema', cancelled: 'Cancelado' }[event.status] || event.status)),
-      el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, expandedEvents.has(event.id), undefined, event.id, event.stepDelayMs)),
-      el('td', { class: 'event-context' }, context())));
+  let body = container.querySelector('tbody');
+  if (!body) {
+    body = el('tbody');
+    container.classList.add('table-scroll');
+    container.replaceChildren(el('table', { class: 'event-table' }, el('caption', { class: 'sr-only' }, 'Histórico de execução'),
+      el('thead', {}, el('tr', {}, [['Horário', 'event-time'], ['Resultado', 'event-status-cell'], ['Evento', ''], ['Camada / tecla', 'event-context']].map(([label, className]) => el('th', { scope: 'col', class: className }, label)))), body));
   }
-
+  const ids = new Set(events.map(event => event.id));
+  for (const [id, row] of historyRows) if (!ids.has(id)) { row.remove(); historyRows.delete(id); }
+  // Completed events are immutable. Retain their DOM, including focused
+  // summaries and expanded details, when newer results arrive.
+  for (const [index, event] of events.entries()) {
+    let row = historyRows.get(event.id);
+    if (!row) {
+      const date = new Date(event.time);
+      const valid = !Number.isNaN(date.getTime());
+      const context = () => el('span', { class: 'event-meta' }, event.layer || '', event.key ? shortcut(event.key, state.platform) : null, event.key ? el('span', { class: 'event-trigger' }, triggerDescription(event)) : null);
+      row = el('tr', { 'data-event-id': event.id },
+        el('td', { class: 'event-time' }, el('time', { datetime: valid ? date.toISOString() : undefined, title: valid ? date.toLocaleString('pt-BR') : '' },
+          valid ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—')),
+        el('td', { class: 'event-status-cell' }, el('span', { class: 'event-status ' + event.status }, icon(event.status === 'cancelled' ? 'close' : event.status === 'error' ? 'alert' : event.status === 'success' ? 'check' : 'layers'),
+          { success: 'Concluído', error: 'Erro', info: 'Sistema', cancelled: 'Cancelado' }[event.status] || event.status)),
+        el('td', {}, el('p', { class: 'event-message' }, event.message), el('span', { class: 'event-mobile-context' }, context()), executionSteps(event.steps, false, undefined, event.id, event.stepDelayMs)),
+        el('td', { class: 'event-context' }, context()));
+      historyRows.set(event.id, row);
+    }
+    if (body.children[index] !== row) body.insertBefore(row, body.children[index] || null);
+  }
+  restoreFocus();
 }
 
 function defaultFilesPath() {
@@ -1001,10 +1106,13 @@ async function undoConfiguration(redo) {
 }
 
 function renderSettings() {
-  main.append(heading('Configurações', undefined, button('Primeiros passos', productivity.openWizard, '', { symbol: 'check' })));
+  main.append(heading('Configurações', 'Ajuste seus controles, a aparência e a integração com o computador.', button('Verificar teclado', productivity.openWizard, '', { symbol: 'check' })));
+  main.append(el('section', { class: 'first-automation-resume', 'aria-label': 'Guia de automação' },
+    el('div', {}, el('h2', {}, 'Do primeiro teste ao atalho funcionando'), el('p', { class: 'hint' }, 'Crie sua automação ou retome o guia de onde parou.')),
+    button('Criar uma automação guiada', () => { activateLayerView(state.activeLayerId); firstAutomation.resume(); }, '', { symbol: 'plus' })));
   const theme = field('theme', 'Tema', window.dobraAppearance.preference, { choices: [['system', 'Seguir o sistema'], ['light', 'Claro'], ['dark', 'Escuro']], hint: 'Aplicado na hora e salvo neste computador.' });
   theme.input.addEventListener('change', () => window.dobraAppearance.set(theme.input.value));
-  const appearance = el('section', { class: 'settings-section appearance-section' }, el('div', { class: 'section-heading' }, el('h2', {}, 'Aparência')), theme.wrapper);
+  const appearance = el('section', { class: 'settings-section appearance-section' }, el('div', { class: 'section-heading' }, icon('sun'), el('h2', {}, 'Aparência')), theme.wrapper);
   const settings = state.config.settings;
   const shortcutForm = formShell('Atalhos de controle', 'Estes atalhos valem para todas as camadas.', async form => {
     const data = new FormData(form);
@@ -1094,7 +1202,7 @@ async function restoreConfiguration() {
 }
 
 async function importConfiguration() {
-  if (!await confirmDialog({ title: 'Substituir a configuração atual?', message: 'O arquivo escolhido substituirá suas camadas e atalhos. Exporte uma cópia se quiser guardar a configuração atual.', confirmLabel: 'Escolher arquivo', danger: true })) return;
+  if (!await confirmDialog({ title: 'Substituir a configuração atual?', message: 'O arquivo escolhido substituirá suas camadas e atalhos após cancelar e aguardar as execuções em andamento. Efeitos já realizados serão preservados. Exporte uma cópia se quiser guardar a configuração atual.', confirmLabel: 'Escolher arquivo', danger: true })) return;
   await perform(async () => {
     state = await api.importConfig();
     editor = null;
@@ -1122,9 +1230,9 @@ function accelerator(event) {
 document.addEventListener('focusin', syncEditing);
 document.addEventListener('focusout', () => queueMicrotask(syncEditing));
 function clearFieldError(event) {
-  event.target.removeAttribute('aria-invalid');
   const box = event.target.closest('form')?.querySelector('.form-errors');
-  if (box?.dataset.fieldName && box.dataset.fieldName === event.target.name) { box.hidden = true; box.replaceChildren(); delete box.dataset.fieldName; }
+  if (box?.dataset.fieldName && box.dataset.fieldName === event.target.name) clearFormErrors(event.target.closest('form'));
+  else event.target.removeAttribute('aria-invalid');
   syncEditing();
 }
 document.addEventListener('input', clearFieldError);

@@ -1,0 +1,109 @@
+{
+  "pointer": "coarse",
+  "cases": [
+    {
+      "theme": "light",
+      "view": "layers",
+      "coarse": true,
+      "controls": 16,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "view": "tracking",
+      "coarse": true,
+      "controls": 5,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "view": "history",
+      "coarse": true,
+      "controls": 8,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "view": "settings",
+      "coarse": true,
+      "controls": 32,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "view": "editor",
+      "coarse": true,
+      "controls": 12,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "view": "layers",
+      "coarse": true,
+      "controls": 16,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "view": "tracking",
+      "coarse": true,
+      "controls": 5,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "view": "history",
+      "coarse": true,
+      "controls": 8,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "view": "settings",
+      "coarse": true,
+      "controls": 32,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "view": "editor",
+      "coarse": true,
+      "controls": 12,
+      "below44": [],
+      "below24": [],
+      "violations": []
+    }
+  ],
+  "reducedMotion": [
+    {
+      "theme": "light",
+      "matches": true,
+      "animation": "none",
+      "transition": "0s"
+    },
+    {
+      "theme": "dark",
+      "matches": true,
+      "animation": "none",
+      "transition": "0s"
+    }
+  ]
+}

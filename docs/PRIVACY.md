@@ -12,6 +12,9 @@ O rastreio recebe eventos de pressionar/soltar e códigos físicos apenas para a
 visualização e o controle de gestos. Não persiste teclas rastreadas, não reconstrói
 texto digitado e não as envia pela rede. O histórico pode identificar o **atalho
 configurado** que executou uma ação; isso é diferente de registrar a digitação.
+O resultado também distingue teste manual/atalho e se o Dobra estava fora de foco
+ao iniciar a execução. A confirmação do guia usa apenas esse booleano, sem buscar
+o nome, título, conteúdo ou identidade do aplicativo externo.
 
 Rastreio visual e entrada necessária às ações são controles independentes.
 Após ativar as ações ou o Rastreio, o observador permanece disponível durante
@@ -50,6 +53,9 @@ O perfil usa o nome `Dobra` no diretório de dados do Electron:
 - `config.invalid-<UUID>.json`: cópia preservada após uma recuperação explícita.
 - `logs/activity.jsonl`: resultados e eventos, rotacionado em 1 MiB com uma cópia.
 - Preferências visuais ficam no armazenamento local do perfil do Electron.
+- O guia guarda IDs da ação/camada, conclusão e um resumo SHA-256 da ação testada
+  e do nome da camada. Esse resumo permite retomar o teste após reabrir sem copiar
+  textos, caminhos ou credenciais para o progresso; não é criptografia de conteúdo.
 
 Arquivos criados por ações ficam na pasta escolhida, ou em `Documentos/Dobra`
 quando ela está vazia. Remover o aplicativo não remove esses arquivos.

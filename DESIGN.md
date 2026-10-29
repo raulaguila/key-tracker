@@ -9,16 +9,18 @@ entre o aplicativo e seus programas usuais. Temas claro e escuro permitem confer
 nomes, teclas e resultados conforme a iluminação. Interface de ferramenta, em pt-BR,
 com uma família de fontes do sistema e hierarquia compacta.
 
-Direção contida: fundo branco no tema claro, neutros discretamente
-inclinados ao cobre na navegação e Dobra em destaque nos controles principais.
-A marca usa um D construído como uma superfície
-dobrada, wordmark em minúsculas e identidade próxima, tátil e versátil.
+Direção inspirada na interface do HabboAssets: superfícies azul-escuras, destaque
+ciano e painéis compactos com contornos discretos. O tema claro usa branco e
+neutros frios com ciano mais escuro para contraste. A preferência claro/escuro/sistema
+permanece local; a nova direção não força outro tema. A marca mantém o D construído
+como uma superfície dobrada e o wordmark em minúsculas.
 
-A paleta de referência usa Cobre `#A94320`, Tinta `#302721`, Porcelana `#F6F2EF`
-e Pêssego `#F4AE85`. A interface usa tokens OKLCH com variantes para contraste:
-`oklch(.49 .13 42)` no claro e `oklch(.8 .1 46)` no escuro. As superfícies escuras
-usam luminosidades .19/.215/.245 e hue 45. Verde comunica sucesso; vermelho, erro;
-âmbar, pausa/conflito; azul, suspensão. Estado nunca depende da cor da marca.
+A interface usa tokens OKLCH: ação principal `oklch(.43 .085 225)` no claro e
+`oklch(.78 .12 225)` no escuro. Superfícies escuras usam luminosidades .16/.195/.225
+e hue 230; `--on-primary` define texto de botões e teclas pressionadas. Verde
+comunica sucesso; vermelho, erro; âmbar, pausa/conflito; azul, suspensão.
+Estado nunca depende da cor da marca. Ícone nativo e logos compartilham a paleta
+azul/ciano da interface, com variantes adequadas para fundos claros e escuros.
 O símbolo no menu usa `currentColor`, acompanhando o tema; ícone nativo e SVG
 compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mesmos tokens nos dois temas.
 
@@ -38,14 +40,16 @@ compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mes
 - Camadas usam navegação própria e painel de ações. “Em uso” identifica a camada
   dos atalhos; “Visualizando” identifica outra camada aberta para configuração.
   Escolher uma camada para editar não muda a camada em uso.
-- Ações usam tabela com linhas a partir de 44 px, controles de 30–32 px e título
-  de 18 px. Criação/edição de ações e camadas abre um drawer modal sobreposto de
+- Ações usam tabela com linhas de 52 px, controles de 30–32 px e título
+  de 20 px. Criação/edição de ações e camadas abre um drawer modal sobreposto de
   até 480 px. A tabela mantém a largura e a rolagem; o fundo fica inerte e escurecido.
   Cabeçalho e salvamento permanecem visíveis durante a rolagem do formulário.
   Nome/tecla precedem a ação. Parâmetros e headers HTTP usam pares nome/valor em
   uma seção expansível; rascunhos são preservados ao alternar o tipo de ação.
 - Ações destrutivas e descarte de alterações usam um diálogo nativo HTML com foco
   inicial na opção de continuar/cancelar. Navegação e fechamento protegem rascunhos.
+  Confirmações compartilham as superfícies de cabeçalho/corpo/rodapé dos demais
+  diálogos. Remoção usa ícone e ação vermelhos, inclusive no hover do menu.
 - Escape, botão de fechar e clique no fundo fecham o drawer, com confirmação se
   houver alterações. Escape durante a captura de atalho cancela primeiro a captura.
   O foco começa no nome, fica contido no drawer e retorna ao controle de origem.
@@ -62,10 +66,15 @@ compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mes
   exigir JSON. Alternar o tipo preserva rascunhos e parâmetros incompletos.
 - O resultado do teste aparece antes da prévia, com detalhes das etapas e falha
   parcial. O Histórico oferece os mesmos detalhes e exportação da sessão.
+  Novos resultados reutilizam as linhas por evento, preservando foco e detalhes
+  abertos. Se o evento focado sair do limite de 100 registros, o foco volta à busca.
 - Busca de ações por nome/tecla/tipo e busca de eventos reduzem a necessidade de
   percorrer listas. A ação principal do painel é criar uma ação; remover é terciário.
 - O painel de ações é aberto, sem cartão externo ou numeração decorativa de
   camadas. Títulos e espaços organizam a informação; divisores separam ações.
+  A navegação das camadas usa superfície própria, seleção com contorno ciano e
+  o seletor Tabela/Teclado tem formato segmentado. A tabela tem cabeçalho em
+  superfície distinta e linhas de 52 px; os controles permanecem compactos.
   Ajuda de uso, privacidade, locais de arquivos e permissões ficam em seções
   expansíveis. Estado, camada em uso, avisos e resultados continuam visíveis.
 - Rastreio é opt-in e independente do motor de ações. Teclas simultâneas são
@@ -75,6 +84,17 @@ compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mes
   US ANSI, PT ISO, FR AZERTY e DE QWERTZ também podem ser escolhidos manualmente.
   Formato completo, TKL e compacto, além de correção do padrão físico, são
   preferências locais separadas das ações. Indisponibilidade automática é explícita.
+- As quatro telas compartilham títulos, espaçamento e superfícies azul/ciano.
+  Rastreio reúne as teclas pressionadas e o teclado na mesma moldura; layout,
+  formato e ativação ficam na barra de controles. Histórico usa o mesmo seletor
+  segmentado de Camadas, cabeçalho de tabela e rótulos com ícone para resultado;
+  execuções em andamento e estados vazios têm painéis próprios.
+  Em janelas estreitas, cada evento passa a ocupar uma linha completa com horário
+  e resultado acima da mensagem, mantendo contexto e detalhes acessíveis.
+- Configurações agrupa controles, permissões, aparência e dados em painéis,
+  com duas colunas em janelas largas e uma em janelas menores. O salvamento tem
+  rodapé em superfície distinta, e exportação/backup/diagnóstico têm divisores
+  e ações explícitas. Expansíveis e rascunhos preservam os comportamentos existentes.
 - A página aberta fora do Electron explica que o aplicativo desktop é necessário;
   não simula captura, persistência ou execução.
 
@@ -83,6 +103,11 @@ compartilham a geometria da dobra. Densidade, drawer e navegação seguem os mes
 HTML semântico, nomes acessíveis, labels explícitas, estados e feedback textual,
 foco visível, link para pular a navegação e respeito a movimento reduzido.
 Inputs usam controles nativos. Texto de usuário é inserido como texto, nunca HTML.
+Trocar de tela direciona o foco ao título, e o conteúdo principal tem o nome da
+tela. Erros de formulário são associados ao campo sem remover sua dica original;
+ao editar, somente a associação do erro é retirada. Diálogos de produtividade têm
+títulos e descrições com identificadores únicos; fluxos encadeados retornam ao
+controle que iniciou a sequência, inclusive após fechar biblioteca/importação.
 O foco em campos de texto suspende ações por `setEditing`; a edição de uma
 camada/ação mantém a suspensão enquanto o formulário está aberto. A barra de estado
 permanece visível ao rolar e distingue pausa, edição e digitação. A interface usa uma
@@ -94,9 +119,25 @@ recolhível. O teclado usa teclas de 32 px em uma região com rolagem própria.
 As linhas de digitação compartilham uma grade de 15 unidades, subdividida em
 quartos, com intervalos de 4 px. O recorte do Enter ISO/ABNT2 acompanha essa
 medida e mantém contorno completo junto à tecla `]`.
-Em ponteiros de toque, controles crescem para 44 px. Botões, formulários e textos
+Em ponteiros de toque, controles e teclas interativas crescem para pelo menos
+44 × 44 px. Botões de captura e todos os expansíveis têm altura mínima de 44 px;
+permissões e detalhes de execução centralizam o texto nessa área. O teclado amplia
+a grade e mantém sua rolagem própria; Enter ISO/ABNT2
+e teclas altas do numérico acompanham a altura das linhas. Botões, formulários e textos
 longos quebram linhas. Avisos ficam afastados da área principal de salvamento. Não há
 dependência de fontes externas, bibliotecas ou scripts inline.
+
+Em janelas estreitas, as ações usam nome em linha completa e combinação/controles
+abaixo, evitando comprimir atalhos extensos em uma coluna. Checkboxes e radios
+nativos usam o mesmo ciano das seleções. Superfícies de painel usam o token
+`--radius-panel`. Texto e fundo de botões/teclas mudam juntos, sem interpolar
+cores durante a troca de tema; bordas, drawers e controles de alternância mantêm
+suas transições e respeitam movimento reduzido.
+O painel rápido mantém a lista rolável na altura habitual. Com pouca altura,
+inclusive na ampliação de 200%, o documento passa a rolar por inteiro, mantendo
+atalhos e retorno ao aplicativo acessíveis sem comprimir a lista até zero.
+O cabeçalho reorganiza seus controles em linhas sem comprimir o indicador do
+motor, inclusive com a navegação expandida em janelas estreitas.
 
 ## Limites
 
@@ -133,10 +174,35 @@ visual, temas e densidade do aplicativo; não criam outra tela de administraçã
 
 ## Produtividade progressiva
 
+O primeiro uso tem um guia inline destacado em Camadas: Criar → Testar → Ativar → Confirmar,
+com uma ação principal por etapa. As quatro etapas têm contornos e rótulos;
+o passo atual usa ciano e os concluídos usam verde. O teclado e as combinações
+usam relevo interno discreto, sem alterar as posições físicas nem depender de
+imagens externas. O drawer distingue cabeçalho/atalho, formulário e rodapé de
+salvamento por superfícies. A criação reutiliza o drawer, sugere um atalho
+livre com modificadores e abre a prévia ao salvar, sem executar automaticamente.
+Um teste bem-sucedido troca os controles de teste por Continuar para ativação.
+A ativação seleciona a camada. A conclusão exige execução bem-sucedida pelo atalho
+enquanto nenhuma janela do Dobra tem foco; teste manual não serve como confirmação.
+Permissões, instalação e teclado desconectado têm recuperação dentro do guia,
+sem perder a ação ou o teste ao reabrir. Autorizar mantém ações pausadas até ativar.
+Agora não dispensa; Configurações permite retomar. O diagnóstico Verificar teclado
+permanece disponível como apoio às permissões, sem substituir o teste da ação.
+
 A barra principal mantém busca e biblioteca compactas. O painel rápido é uma
 janela separada, com camada/status/atalhos e ação de voltar ao Dobra. Seu preload
 não oferece execução. Paleta e assistente usam diálogo sobreposto, foco contido,
 Escape e retorno ao invocador. O assistente é retomável, sem exigir um cadastro.
+
+Biblioteca, busca, importação e assistente compartilham cabeçalho em superfície
+distinta com ícone, contornos discretos e corpo em painel. Os modelos aparecem em
+lista com ícones de finalidade e revisão explícita. A busca reúne nome/contexto e
+combinação em cada resultado; hover/foco usam seleção ciano e o rodapé informa
+setas, Enter e Escape. A lista continua limitada a 40 resultados por consulta.
+O painel rápido reutiliza as teclas com relevo e os mesmos indicadores de estado
+(texto, cor e formato). Cabeçalho, estado e rodapé ficam visíveis enquanto a lista
+rola separadamente; o botão Abrir Dobra usa o destaque principal. Temas e foco
+continuam sincronizados sem reconstruir linhas a cada atualização.
 
 Importação separa origem, seleção/mescla e confirmação dos totais/conflitos. Nenhuma
 prévia ativa ações. Selecionar a nova camada para editar não muda a camada em execução.

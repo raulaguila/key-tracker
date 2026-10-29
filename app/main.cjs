@@ -165,7 +165,8 @@ else {
     if (servicesStopping) return;
     if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
-    engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions });
+    engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions,
+      isAppFocused: () => BrowserWindow.getAllWindows().some(win => win.isFocused() || win.webContents.isDevToolsFocused()) });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true),
       wayland: process.platform === 'linux' ? new WaylandInput() : undefined,
       nativeInput: ['win32', 'darwin'].includes(process.platform) ? new NativeInput() : undefined });
@@ -207,6 +208,11 @@ else {
     handle('cancel-close', () => lifecycle?.cancel());
     handle('set-tracking', stateResult(enabled => tracker.set(enabled)));
     handle('set-linux-input-enabled', stateResult(enabled => tracker.setLinuxEnabled(enabled)));
+    handle('open-input-settings', async () => {
+      if (process.platform !== 'darwin') throw new Error('Ajustes de entrada disponíveis nesta opção somente no macOS.');
+      const error = await shell.openPath('/System/Applications/System Settings.app');
+      if (error) throw new Error('Abra Ajustes do Sistema → Privacidade e Segurança → Monitoramento de Entrada.');
+    });
     handle('choose-directory', async () => {
       const result = await dialog.showOpenDialog(window, { title: 'Escolher pasta para os arquivos', properties: ['openDirectory', 'createDirectory'] });
       return result.canceled ? null : result.filePaths[0];
@@ -254,8 +260,17 @@ else {
       const file = result.filePaths[0];
       const config = await readConfigFile(file);
       return serialConfig(async () => {
-        engine.setEnabled(false);
-        return engine.saveConfig(config);
+        if (engine.stopping || engine.disposed) throw new Error('Aguarde a parada das execuções.');
+        engine.stopping = true;
+        engine.cancelAllExecutions();
+        try {
+          await engine.whenIdle();
+          await engine.saveConfig(config);
+        } finally {
+          engine.stopping = false;
+          if (!engine.disposed) engine.publish();
+        }
+        return engine.state();
       });
     }));
     const template = [

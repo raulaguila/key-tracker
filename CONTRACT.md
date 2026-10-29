@@ -127,6 +127,7 @@ Não há Node, `ipcRenderer` arbitrário ou acesso genérico a arquivos no rende
 | `importConfig()`, `exportConfig()`, `restoreBackup()` | `State`; diálogos nativos e confirmação quando aplicável |
 | `exportHistory()`, `exportDiagnostics()` | Diálogo de salvar; sem envio automático |
 | `openDataDirectory()` | Abre a pasta de dados pelo sistema |
+| `openInputSettings()` | macOS: abre Ajustes do Sistema em destino fixo; sem argumentos ou concessão de permissão |
 | `showWindow()`, `confirmClose()`, `cancelClose()` | Controle explícito do ciclo de vida |
 | `onState(callback)`, `onKey(callback)`, `onCloseRequested(callback)` | Retornam função de unsubscribe |
 
@@ -186,6 +187,11 @@ Eventos do motor incluem `id`, `time`, `kind`, `status`, `message` e metadados
 pertinentes à execução. Resultados incluem binding, atalho configurado, camada,
 duração, momento e status HTTP quando aplicável; sequências incluem metadados
 por etapa e delay efetivo. Cancelamento é `cancelled`, distinto de erro/sucesso.
+Resultados de ações incluem `origin` (`manual`/`shortcut`), `outsideApp` (booleano),
+`layerId` e `configRevision`. O motor captura revisão e foco ao iniciar; apenas o
+despacho interno de teclado pode indicar `shortcut`. O main considera todas as
+janelas próprias e DevTools ao verificar foco; foco desconhecido não prova uso
+externo. Argumentos extras de `runBinding` via IPC não alteram essa origem.
 Headers, corpo HTTP e conteúdos privados não entram nos resultados automáticos.
 Mensagens explícitas de ações `log` legadas seguem sua compatibilidade própria.
 

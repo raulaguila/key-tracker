@@ -16,7 +16,7 @@ function freezeTree(value) {
 const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400, holdDelayMs: binding.holdDelayMs ?? binding.repeatMs ?? 400 } : {}) });
 
 class Engine extends EventEmitter {
-  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now }) {
+  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now, isAppFocused = () => true }) {
     super();
     this.config = validateConfig(config, platform);
     this.serializedConfig = JSON.stringify(this.config);
@@ -31,6 +31,7 @@ class Engine extends EventEmitter {
     this.execute = execute;
     this.desktopActions = desktopActions;
     this.now = now;
+    this.isAppFocused = isAppFocused;
     this.activeLayerId = this.config.layers[0].id;
     this.manualLayerId = this.activeLayerId;
     this.application = { status: 'off', message: '', current: null };
@@ -296,7 +297,7 @@ class Engine extends EventEmitter {
       const key = JSON.stringify([layer.id, binding.id]);
       if (now - (this.lastRun.get(key) ?? -Infinity) < settings.cooldownMs) return;
       this.lastRun.set(key, now);
-      void this.runBinding(layer.id, binding.id).catch(error => { this.record('error', error.message); this.publish(); });
+      void this.runBinding(layer.id, binding.id, undefined, { origin: 'shortcut' }).catch(error => { this.record('error', error.message); this.publish(); });
     }
   }
 
@@ -385,7 +386,7 @@ class Engine extends EventEmitter {
       if (now - (this.lastRun.get(key) ?? -Infinity) < this.config.settings.cooldownMs) return;
       this.lastRun.set(key, now);
     }
-    try { await this.runBinding(group.layerId, binding.id); }
+    try { await this.runBinding(group.layerId, binding.id, undefined, { origin: 'shortcut' }); }
     catch (error) {
       this.record('error', `${binding.name}: ${error.message}`, { kind: 'action', bindingId: binding.id, layer: group.layerName, key: binding.key, ...triggerDetails(binding), durationMs: 0 });
       this.publish();
@@ -414,7 +415,7 @@ class Engine extends EventEmitter {
     return { previewId, expiresAt: new Date(expires).toISOString(), action: previewAction(prepared) };
   }
 
-  async runBinding(layerId, bindingId, previewId) {
+  async runBinding(layerId, bindingId, previewId, { origin = 'manual' } = {}) {
     if (this.disposed) throw new Error('O aplicativo está encerrando.');
     if (this.stopping) throw new Error('Aguarde a parada das execuções.');
     const { layer, binding } = this.findBinding(layerId, bindingId);
@@ -430,6 +431,10 @@ class Engine extends EventEmitter {
     }
     this.inFlight.add(binding.id);
     const started = this.now();
+    // Origin is supplied only by internal input dispatch; IPC exposes the first three arguments.
+    let outsideApp = false;
+    if (origin === 'shortcut') { try { outsideApp = this.isAppFocused() === false; } catch { /* Unknown focus cannot prove an external shortcut. */ } }
+    const provenance = { origin: origin === 'shortcut' ? 'shortcut' : 'manual', outsideApp, layerId, configRevision: this.configRevision };
     const controller = new AbortController();
     const execution = { controller, state: { bindingId, layerId, name: binding.name, key: binding.key, startedAt: new Date(started).toISOString(), stepIndex: 1, stepCount: binding.action.type === 'sequence' ? binding.action.steps.length : 1, phase: 'running' } };
     execution.done = new Promise(resolve => { execution.resolveDone = resolve; });
@@ -442,7 +447,7 @@ class Engine extends EventEmitter {
     this.publish();
     let httpStatus;
     const steps = [];
-    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0, steps: structuredClone(steps) } : {}) });
+    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), ...provenance, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0, steps: structuredClone(steps) } : {}) });
     try {
       prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
       const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,

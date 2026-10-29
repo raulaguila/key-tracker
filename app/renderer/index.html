@@ -14,7 +14,7 @@
     <div class="app-shell">
       <aside id="sidebar" class="sidebar" aria-label="Navegação principal">
         <div class="brand"><svg class="brand-mark" viewBox="0 0 64 64" width="24" height="24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10 6h23v22h22v15c0 9-6 15-15 15H10V6Zm13 16v23h14c4 0 6-2 6-6v-8l-9-9H23Z"/><path d="M33 6v22h22L33 6Z" fill="currentColor" opacity=".38"/></svg><span>dobra</span></div>
-        <nav id="navigation">
+        <nav id="navigation" aria-label="Telas do Dobra">
           <button type="button" disabled data-view="layers" aria-current="page">Camadas</button>
           <button type="button" disabled data-view="tracking">Rastreio</button>
           <button type="button" disabled data-view="history">Histórico</button>
@@ -32,7 +32,7 @@
         </header>
         <div id="notice" class="notice" role="alert" hidden></div>
         <div id="shortcut-warning" class="shortcut-warning" role="status" hidden></div>
-        <main id="main" tabindex="-1"><div class="loading-state" aria-busy="true"><p role="status">Abrindo suas camadas com segurança…</p><div class="skeleton heading-skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
+        <main id="main" tabindex="-1" aria-labelledby="page-name"><div class="loading-state" aria-busy="true"><p role="status">Abrindo suas camadas com segurança…</p><div class="skeleton heading-skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></main>
         <footer class="statusbar"><label class="active-layer-context" for="active-layer-picker">Em uso: <strong id="active-layer-label" class="sr-only">—</strong><select id="active-layer-picker" disabled aria-label="Camada em uso"></select></label><span id="control-shortcuts"></span><span id="engine-detail" class="sr-only">Preparando suas camadas</span><span id="platform-label">Aplicativo desktop</span></footer>
       </div>
     </div>

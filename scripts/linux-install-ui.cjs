@@ -41,7 +41,7 @@ module.exports = async ({ cdp, evaluate, click, until, nativeState, nativeEvalua
     await nativeEvaluate('globalThis.__installBackend.publish("denied")'); await until('!document.querySelector('+JSON.stringify(help)+')','Authorization denial does not suggest reinstalling');
     await nativeEvaluate('globalThis.__installBackend.publish("not-installed")'); await visibleHelp();
     for(const theme of ['light','dark']) {await evaluate('window.dobraAppearance.set('+JSON.stringify(theme)+');');await accessible('Linux installation settings '+theme);await evaluate('document.querySelector('+JSON.stringify(help)+').scrollIntoView({block:"center"});');await shot('linux-install-settings-'+theme);}
-    await evaluate('localStorage.setItem("dobra.setup-progress","0");[...document.querySelectorAll("button")].find(node=>node.textContent.trim()==="Primeiros passos").click();');
+    await evaluate('localStorage.setItem("dobra.setup-progress","0");[...document.querySelectorAll("button")].find(node=>node.textContent.trim()==="Verificar teclado").click();');
     await until('Boolean(document.querySelector(".setup-dialog '+help+'"))','Wizard offers the same installation guidance');
     await buttonText('Habilitar integração Linux','.setup-dialog');
     await until('!document.querySelector(".setup-dialog .form-errors").hidden','Wizard shows contextual component failure');

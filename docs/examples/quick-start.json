@@ -11,12 +11,12 @@
     {
       "id": "texto",
       "name": "Texto",
-      "description": "A copia uma mensagem.",
+      "description": "Ctrl/⌘+Alt+A copia uma mensagem.",
       "applications": [],
       "bindings": [
         {
           "id": "copiar-texto",
-          "key": "A",
+          "key": "CommandOrControl+Alt+A",
           "name": "Copiar mensagem",
           "enabled": true,
           "action": {
@@ -29,12 +29,12 @@
     {
       "id": "notas",
       "name": "Notas",
-      "description": "A cria uma nota em Documentos/Dobra.",
+      "description": "Ctrl/⌘+Alt+A cria uma nota em Documentos/Dobra.",
       "applications": [],
       "bindings": [
         {
           "id": "criar-nota",
-          "key": "A",
+          "key": "CommandOrControl+Alt+A",
           "name": "Criar nota",
           "enabled": true,
           "action": {

@@ -140,8 +140,11 @@ ser lida ao abrir, um diálogo oferece recuperar/importar ou sair e preserva o
 arquivo problemático. Não edite um envelope criptografado como se fosse JSON comum.
 
 Para experimentar a estrutura de importação, baixe o
-[exemplo sem credenciais](examples/quick-start.json). Ele usa duas camadas com `A`
-e inicia pausado, como toda configuração importada.
+[exemplo sem credenciais](examples/quick-start.json). Ele usa duas camadas com
+`Ctrl+Alt+A` (`⌘+Alt+A` no macOS) e inicia pausado, como toda configuração importada.
+A importação completa cancela e aguarda as execuções e seus registros antes de
+substituir a configuração. Efeitos já realizados são preservados. Se o salvamento
+falhar, a configuração anterior é mantida e as ações continuam pausadas.
 
 Ao abrir, o Dobra mostra a preparação das camadas e mantém as ações indisponíveis
 até terminar. O backup pode aparecer como “Verificando” por um breve período.
@@ -152,13 +155,46 @@ de que operações ainda não concluídas podem não ser persistidas.
 
 ## Primeiros passos, busca e painel
 
-Abra **Primeiros passos** para conferir permissões e testar uma tecla com ações
-pausadas. O assistente pode ser retomado em Configurações. Use um modelo local
-para criar sua primeira camada; revise o conteúdo e só ative quando estiver pronto.
+Na tela **Camadas**, o guia **Sua primeira automação** conduz por quatro etapas:
+
+1. **Criar minha automação** abre o editor com um texto personalizável e sugere
+   uma combinação com modificadores que esteja livre na camada escolhida.
+2. **Salvar e testar** salva a ação e abre a prévia sem executá-la. Confira o
+   conteúdo e clique em **Executar teste**; um teste bem-sucedido libera a próxima etapa.
+3. **Continuar para ativação** volta ao guia. **Ativar e confirmar atalho** seleciona
+   a camada da ação e ativa seus atalhos explicitamente. Se faltar autorização,
+   instalação ou um teclado, o guia oferece a recuperação correspondente.
+4. **Confirmar** aguarda uma execução bem-sucedida pelo atalho com o Dobra fora
+   de foco. Abra outro aplicativo, pressione a combinação e volte para conferir.
+   O teste manual e a entrada global disponível, sozinhos, não concluem o guia.
+
+O guia começa com ações pausadas. A ativação habilita as ações da camada, não
+apenas a recém-criada. Copiar texto coloca o conteúdo na área de transferência;
+use o comando de colar do aplicativo de destino para inseri-lo.
+
+**Agora não** dispensa o guia. Para retomá-lo, abra **Configurações → Criar uma
+automação guiada**. A ação e o teste bem-sucedido são preservados entre aberturas.
+Editar a ação ou renomear sua camada exige outro teste. Alterações na configuração
+durante a confirmação exigem nova ativação. O progresso local guarda identificadores,
+um resumo SHA-256 da ação testada e conclusão, sem duplicar textos ou credenciais.
+Um guia concluído não reaparece.
+
+No Linux, o guia distingue autorização negada, sessão interrompida e componente
+ausente/desatualizado; oferece nova autorização ou as opções de instalação.
+No macOS, abre Ajustes do Sistema e orienta sobre Monitoramento de Entrada.
+Se o teclado selecionado estiver ausente, permite ir diretamente à sua seleção.
+Autorizar a integração não ativa as ações: volte e ative explicitamente.
+
+Use **Verificar teclado** para conferir permissões e testar a detecção de uma
+tecla com ações pausadas. Essa verificação não substitui o teste da automação.
 
 **Ctrl+K** (Windows/Linux) ou **⌘+K** (macOS) abre a busca de ações e camadas dentro
 do Dobra. A busca abre editores ou troca a camada em uso; não dispara ações.
+Use **↑/↓** para percorrer os resultados, **Enter** para abrir e **Esc** para fechar.
+O resultado em foco tem contorno e fundo destacados; cada ação mostra sua camada
+e combinação junto ao nome.
 O **Painel rápido** mostra a camada ativa e os atalhos em uma janela compacta.
+Sua lista tem rolagem própria, com estado e botão **Abrir Dobra** sempre visíveis.
 Também pode ser aberto por seu controle configurável; o padrão é
 `Ctrl+Shift+Espaço` / `⌘+Shift+Espaço`, observado após ativar a entrada.
 Escape oculta o painel. Abrir o painel não ativa o motor.

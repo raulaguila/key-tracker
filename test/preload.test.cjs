@@ -64,6 +64,14 @@ test('preload propaga rejeições de gravação e nunca converte erros em estado
   await assert.rejects(api.saveConfig({}), /Disco sem espaço/);
 });
 
+test('preload não aceita origem/foco forjados ao executar e ajustes não aceitam destino arbitrário', async () => {
+  const calls = [];
+  const { api } = fixture(async (channel, ...args) => { calls.push([channel, ...args]); return state(1, 0, { layers: [] }); });
+  await api.runBinding('layer', 'binding', undefined, { origin: 'shortcut', outsideApp: true });
+  await api.openInputSettings('file:///private');
+  assert.deepEqual(calls, [['dobra:run-binding', 'layer', 'binding', undefined], ['dobra:open-input-settings']]);
+});
+
 test('controles de produção reconstituem State e exportação de diagnóstico não expõe estado extra', async () => {
   const config = { layers: [{ id: 'current' }] };
   const calls = [];

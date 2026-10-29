@@ -77,6 +77,7 @@ test('entrada atrasada encerra sessão sem reexecutar ações da fila', async t 
 test('Tracker usa backend Wayland para ações/rastreio; reset não fabrica soltura e lock pausa', async t => {
   const { input, connect } = fixture(t);
   const config = defaultConfig(); config.settings.cooldownMs = 100;
+  config.layers[0].bindings[0].key = 'A';
   config.layers[0].bindings[0].keyCode = 'KeyA';
   config.layers[0].bindings.push({ ...config.layers[0].bindings[0], id: 'release', trigger: 'release' });
   const calls = [];

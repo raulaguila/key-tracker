@@ -2,8 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 
 // Run inside the real Electron smoke so IPC, themes and dialogs remain authentic.
-module.exports = async function accessibilityUI({ cdp, evaluate, click, until }) {
-  const original = await evaluate('return {theme:window.dobraAppearance.preference,view:document.querySelector("[data-view][aria-current=page]").dataset.view};');
+module.exports = async function accessibilityUI({ cdp, evaluate, click, until, shot }) {
+  const original = await evaluate('return {theme:window.dobraAppearance.preference,view:document.querySelector("[data-view][aria-current=page]").dataset.view,sidebar:document.documentElement.dataset.sidebar};');
   await cdp('Runtime.evaluate', { expression: await fs.readFile(require.resolve('axe-core/axe.min.js'), 'utf8') });
   let scenarios = 0;
   async function check(name) {
@@ -22,6 +22,24 @@ module.exports = async function accessibilityUI({ cdp, evaluate, click, until })
       for (const view of ['layers', 'tracking', 'history', 'settings']) {
         await click('[data-view=' + view + ']');
         await check(theme + '/' + view);
+        if (view !== 'layers') {
+          await shot('habbo-' + view + '-' + theme);
+          await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: false });
+          if (await evaluate('return document.documentElement.dataset.sidebar!=="expanded"')) await click('#sidebar-toggle');
+          const statusWidth = await evaluate('const node=document.querySelector(".engine-status");return {visible:node.clientWidth,content:node.scrollWidth}');
+          assert.ok(statusWidth.content<=statusWidth.visible+1, 'Engine status remains readable with expanded narrow navigation: ' + JSON.stringify(statusWidth));
+          await check(theme + '/' + view + '/narrow-expanded-menu');
+          await shot('habbo-' + view + '-' + theme + '-narrow');
+          await cdp('Emulation.clearDeviceMetricsOverride');
+          if (await evaluate('return document.documentElement.dataset.sidebar') !== original.sidebar) await click('#sidebar-toggle');
+          if (view === 'history') {
+            await click('[data-focus=filter-cancelled]'); await check(theme + '/history-cancelled-or-empty');
+            await click('[data-focus=filter-all]');
+          } else if (view === 'settings') {
+            await evaluate('document.querySelectorAll(".settings-layout details").forEach(node=>node.open=true);');
+            await check(theme + '/settings-expanded');
+          }
+        }
       }
       await click('[data-view=layers]');
       await click('[data-focus=new-binding]');
@@ -35,8 +53,10 @@ module.exports = async function accessibilityUI({ cdp, evaluate, click, until })
       if (await evaluate('return document.querySelector("#confirm-dialog").open')) await click('#confirm-dialog .dialog-actions button:last-child');
       await until('!document.querySelector("#editor-drawer")', 'Rascunho de acessibilidade descartado');
     }
-    console.log('Accessibility UI passed: axe-core ' + require('axe-core/package.json').version + ', ' + scenarios + ' states, light/dark, four views and three action drawers; zero WCAG A/AA violations.');
+    console.log('Accessibility UI passed: axe-core ' + require('axe-core/package.json').version + ', ' + scenarios + ' states, light/dark, four views, narrow expanded navigation, history filters, expanded settings and three action drawers; zero WCAG A/AA violations.');
   } finally {
+    await cdp('Emulation.clearDeviceMetricsOverride');
+    if (await evaluate('return document.documentElement.dataset.sidebar') !== original.sidebar) await click('#sidebar-toggle');
     await evaluate('window.dobraAppearance.set(' + JSON.stringify(original.theme) + ');document.querySelector("[data-view=' + original.view + ']").click();');
   }
 };

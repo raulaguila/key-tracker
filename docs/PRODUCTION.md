@@ -130,6 +130,8 @@ há certificação de instalação/hardware.
 | Instalar em máquina limpa | Instala/abre pelo atalho normal sem ferramentas de desenvolvimento |
 | Identidade pública | Editor/assinatura e notarização verificados; permissões do app instalado |
 | Primeira abertura | Ações e rastreio pausados; permissões pedidas somente no uso apropriado |
+| Guia inicial | Criar/testar/ativar; teste manual e atalho em qualquer janela própria não concluem. Sucesso pelo atalho em outro app conclui; falha/cancelamento permitem tentar novamente |
+| Retomar guia | Negar autorização, instalar/reabrir e trocar teclado preservam ação/teste; editar a ação exige reteste e autorizar não ativa ações |
 | Permissões | Negar, conceder e revogar entrada/notificações; estado explícito e recuperação |
 | Teclado físico | Press/hold/release, modificadores, ABNT2/ANSI/ISO e layout ativo corretos |
 | Outros aplicativos | Ações globais em foco externo; conflitos detectados e pausa disponível |

@@ -41,6 +41,7 @@ isolados e não devem ser apontados para um perfil pessoal.
 | `npm test` | Configuração, motor, ações, armazenamento e integrações controladas |
 | `npm run test:soak` | Carga limitada com arquivos temporários e HTTP em loopback |
 | `npm run test:ui` | Smoke da interface Electron com CDP e axe |
+| `npm run test:orca` | Orca real, anúncios e árvore AT-SPI; navegação, erros e diálogos nos dois temas, em sessão isolada |
 | `npm run test:lifecycle` | Electron real: cofre pendente, fechar durante carga, gravação/HTTP na saída, ocultação e reabertura; Xvfb no Linux |
 | `npm run test:input` | Teclas sintéticas XTest no Electron/Linux X11 |
 | `npm run pack` | Empacota para o sistema atual sem gerar instalador |
@@ -61,9 +62,18 @@ npm run test:soak -- --duration-seconds 1800
 O limite é 3.600 segundos. Tempos/heap observados não comprovam ausência de
 vazamento, desempenho de hardware ou entrega de teclas físicas por horas.
 
-O smoke de UI executa axe-core em 14 estados, aguardando transições de tema
+O smoke de UI executa axe-core em 24 estados, além de 44 verificações de regressão,
+aguardando transições de tema
 antes de avaliar WCAG A/AA. O axe é dependência de desenvolvimento e não integra
 o renderer distribuído. As sondas separam a pasta de efeitos da pasta de perfil.
+
+O teste com Orca requer Linux, `orca`, `speech-dispatcher`, `xvfb-run`,
+`dbus-run-session`, `/usr/bin/python3` com `gi.repository.Atspi`, libX11 e libXtst.
+O comando cria o próprio display, barramento D-Bus e preferências temporárias;
+não substitui um Orca aberto na sessão de trabalho. Os anúncios gerados pelo
+leitor e as árvores nativas ficam em `artifacts/screen-reader/`. A captura usa o
+log do Orca; não representa uma avaliação humana da inteligibilidade do áudio
+nem valida NVDA, JAWS, VoiceOver ou uma linha Braille física.
 
 ## Gerar instaladores de desenvolvimento
 

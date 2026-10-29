@@ -78,8 +78,15 @@ Veja o [guia de desenvolvimento](docs/DEVELOPMENT.md).
 
 ## Primeiro uso
 
-1. Abra **Camadas** e crie uma ação. Por padrão, a camada 1 associa `A` a copiar
-   texto; a camada 2 usa `A` para criar uma nota em `Documentos/Dobra`.
+Na tela **Camadas**, escolha **Criar minha automação** para personalizar um texto,
+salvar, conferir a prévia e executar um teste. Depois de um teste bem-sucedido,
+o guia oferece a ativação explícita e orienta sobre permissões quando necessário,
+preservando o teste ao reabrir. Para concluir, pressione o atalho em outro aplicativo
+e volte ao Dobra: o guia confirma a execução real bem-sucedida fora de foco.
+Você pode dispensá-lo e retomá-lo em **Configurações → Criar uma automação guiada**.
+
+1. Abra **Camadas** e crie uma ação. Por padrão, `Ctrl+Alt+A` (`⌘+Alt+A` no macOS)
+   copia texto na camada 1 e cria uma nota em `Documentos/Dobra` na camada 2.
 2. Confira a ação em **Testar**. A prévia não executa; **Executar teste** realiza
    uma execução real, mesmo com os atalhos pausados.
 3. Clique em **Ativar ações**. `F8` alterna camadas; `Ctrl+Shift+F12` pausa/retoma

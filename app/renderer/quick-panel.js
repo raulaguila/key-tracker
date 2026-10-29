@@ -7,12 +7,13 @@ let lastRevision = -1;
 function createLayout() {
   const name = el('h1'); const status = el('span');
   const dot = el('span', { class: 'status-dot', 'aria-hidden': 'true' });
-  const list = el('ul', { class: 'quick-bindings' });
+  const list = el('ul', { class: 'quick-bindings', tabindex: '0', 'aria-label': 'Atalhos da camada em uso' });
+  const statusNode = el('p', { class: 'quick-status status-indicator', role: 'status' }, dot, status);
   const empty = el('p', { class: 'quick-empty' }, 'Esta camada ainda não tem ações. Abra o Dobra para configurar uma tecla.');
   main.replaceChildren(el('header', { class: 'quick-heading' }, el('div', {}, el('p', { class: 'quick-eyebrow' }, 'dobra · camada em uso'), name), button('Fechar painel', () => api.hide(), 'quiet', { symbol: 'close', iconOnly: true })),
-    el('p', { class: 'quick-status', role: 'status' }, dot, status), list, empty,
-    el('footer', { class: 'quick-footer' }, el('span', { class: 'hint' }, 'Escape fecha · Somente consulta'), button('Abrir Dobra', () => api.showMain(), '', { symbol: 'layers' })));
-  return { name, status, dot, list, empty };
+    statusNode, list, empty,
+    el('footer', { class: 'quick-footer' }, el('span', { class: 'hint' }, 'Escape fecha · Somente consulta'), button('Abrir Dobra', () => api.showMain(), 'primary', { symbol: 'layers' })));
+  return { name, status, statusNode, dot, list, empty };
 }
 const setText = (node, value) => { if (node.textContent !== value) node.textContent = value; };
 function render(state) {
@@ -21,10 +22,13 @@ function render(state) {
   if (document.documentElement.dataset.theme !== theme) document.documentElement.dataset.theme = theme;
   main.removeAttribute('aria-busy');
   layout ||= createLayout();
-  setText(layout.name, state.layer?.name || 'Nenhuma camada');
+  const layerName = state.layer?.name || 'Nenhuma camada';
+  setText(layout.name, layerName);
+  if (layout.name.title !== layerName) layout.name.title = layerName;
   const mode = state.stopping ? 'starting' : !state.enabled ? 'paused' : state.editing ? 'suspended' : state.input?.mode === 'global' ? 'active' : state.input?.mode === 'starting' ? 'starting' : 'unavailable';
   const labels = { active: 'Ações ativas', paused: 'Ações pausadas', suspended: 'Ações suspensas durante a edição', starting: state.stopping ? 'Parando ações…' : 'Preparando observação…', unavailable: 'Entrada indisponível' };
   setText(layout.status, labels[mode]);
+  if (layout.statusNode.dataset.status !== mode) layout.statusNode.dataset.status = mode;
   if (layout.dot.dataset.state !== mode) layout.dot.dataset.state = mode;
   const bindings = state.bindings || [];
   const ids = new Set(bindings.map(binding => binding.id));

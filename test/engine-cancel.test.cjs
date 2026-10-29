@@ -119,7 +119,7 @@ test('cancelar serviço nativo não libera vaga prematuramente nem sobrepõe efe
 test('cancelAll pausa e bloqueia hold mantido, inclusive após retomar até soltura real', async t => {
   const { engine } = fixture(t, { type: 'sequence', stepDelayMs: 60000, steps: [{ type: 'clipboard', text: 'um' }, { type: 'clipboard', text: 'dois' }] }, { desktopActions: { clipboard: () => {} } });
   const binding = engine.activeLayer.bindings[0];
-  binding.trigger = 'hold'; binding.keyCode = 'KeyA'; binding.repeatMs = 100; binding.holdDelayMs = 0;
+  binding.key = 'A'; binding.trigger = 'hold'; binding.keyCode = 'KeyA'; binding.repeatMs = 100; binding.holdDelayMs = 0;
   engine.inputGroupCache.clear();
   engine.setEnabled(true); engine.updateInput({ mode: 'global' });
   const input = direction => engine.handleInput({ code: 'KeyA', direction });

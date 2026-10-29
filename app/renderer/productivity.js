@@ -1,25 +1,28 @@
 import { createLinuxInstallHelp } from './linux-install.js';
-import { el, button, field, shortcut } from './ui.js';
+import { el, button, field, shortcut, icon } from './ui.js';
 
 // Native dialogs supply focus containment and Escape; data never becomes HTML.
-export function createProductivity({ api, getState, applyState, guard, editBinding, editLayer, selectLayer, onModalChange, notify }) {
+export function createProductivity({ api, getState, applyState, guard, editBinding, editLayer, selectLayer, onModalChange, notify, startAutomation }) {
   let active = null;
+  let activeReturnFocus = null;
+  let dialogSequence = 0;
   const wizardKey = 'dobra.setup-progress';
   const readProgress = () => { try { const step = Number(localStorage.getItem(wizardKey)); return Number.isInteger(step) && step >= 0 && step <= 3 ? step : 0; } catch { return 0; } };
   const remember = step => { try { localStorage.setItem(wizardKey, String(step)); } catch { /* Session flow still works. */ } };
-  function dialog(title, description, className = '') {
+  function dialog(title, description, className = '', symbol = 'layers') {
+    const returnFocus = active ? activeReturnFocus : document.activeElement;
     if (active) active.close();
-    const returnFocus = document.activeElement;
-    const titleId = 'productivity-title';
-    const node = el('dialog', { class: 'productivity-dialog ' + className, 'aria-labelledby': titleId },
-      el('div', { class: 'productivity-heading' }, el('div', {}, el('h2', { id: titleId }, title), el('p', { class: 'hint' }, description)), button('Fechar', () => node.close(), 'quiet', { symbol: 'close', iconOnly: true })),
+    const titleId = 'productivity-title-' + ++dialogSequence;
+    const descriptionId = titleId + '-description';
+    const node = el('dialog', { class: 'productivity-dialog ' + className, 'aria-labelledby': titleId, 'aria-describedby': descriptionId },
+      el('div', { class: 'productivity-heading' }, el('div', {}, el('h2', { id: titleId }, icon(symbol), title), el('p', { id: descriptionId, class: 'hint' }, description)), button('Fechar', () => node.close(), 'quiet', { symbol: 'close', iconOnly: true })),
       el('div', { class: 'productivity-content' }));
     const content = node.lastElementChild;
-    node.addEventListener('close', () => { if (active === node) active = null; node.remove(); onModalChange(); if (returnFocus?.isConnected) returnFocus.focus(); }, { once: true });
+    node.addEventListener('close', () => { const current = active === node; if (current) { active = null; activeReturnFocus = null; } node.remove(); onModalChange(); if (current && returnFocus?.isConnected) returnFocus.focus(); }, { once: true });
     content.inert = true;
     const readiness = el('p', { class: 'productivity-readiness hint', role: 'status' }, 'Pausando atalhos para configurar…');
     node.insertBefore(readiness, content);
-    document.body.append(node); active = node; node.showModal();
+    document.body.append(node); active = node; activeReturnFocus = returnFocus; node.showModal();
     void Promise.resolve().then(() => onModalChange()).then(() => {
       if (!node.isConnected) return;
       content.inert = false; readiness.remove();
@@ -35,7 +38,7 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
   }
   function openSearch() {
     guard(() => {
-      const { node, content } = dialog('Buscar no Dobra', 'Encontre uma ação, uma camada ou um comando.', 'command-palette');
+      const { node, content } = dialog('Buscar no Dobra', 'Encontre uma ação, uma camada ou um comando.', 'command-palette', 'search');
       const search = field('command-search', 'Buscar comandos', '', { type: 'search', placeholder: 'Nome, tecla, camada…', autocomplete: 'off' });
       const results = el('div', { id: 'command-results', class: 'command-results', 'aria-label': 'Resultados da busca' });
       const count = el('p', { class: 'hint', role: 'status' }); search.input.setAttribute('aria-controls', results.id);
@@ -43,10 +46,10 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
       function update() {
         const state = getState(); const query = search.input.value.trim().toLocaleLowerCase();
         const commands = [
-          { name: 'Biblioteca de modelos', detail: 'Criar a partir de exemplos', action: openLibrary },
-          { name: 'Importar camadas', detail: 'Revisar e mesclar um arquivo', action: () => openImport() },
-          { name: 'Assistente inicial', detail: 'Permissões e teste do teclado', action: openWizard },
-          { name: 'Painel rápido', detail: 'Consultar a camada em uso', action: () => api.showQuickPanel() }
+          { name: 'Biblioteca de modelos', detail: 'Criar a partir de exemplos', symbol: 'layers', action: openLibrary },
+          { name: 'Importar camadas', detail: 'Revisar e mesclar um arquivo', symbol: 'upload', action: () => openImport() },
+          { name: 'Configurar teclado', detail: 'Permissões e teste de detecção', symbol: 'keyboard', action: openWizard },
+          { name: 'Painel rápido', detail: 'Consultar a camada em uso', symbol: 'list', action: () => api.showQuickPanel() }
         ];
         if (state.configHistory?.canUndo) commands.push({ name: 'Desfazer configuração', detail: 'Reverter a última alteração; ações permanecem pausadas', action: async () => { applyState(await api.undoConfig()); notify('Alteração desfeita. Ações pausadas.'); } });
         if (state.configHistory?.canRedo) commands.push({ name: 'Refazer configuração', detail: 'Reaplicar a alteração; ações permanecem pausadas', action: async () => { applyState(await api.redoConfig()); notify('Alteração refeita. Ações pausadas.'); } });
@@ -60,8 +63,12 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
           const labels = key.replaceAll('CommandOrControl', 'Ctrl Cmd ⌘').replaceAll('Control', 'Ctrl').replaceAll('Command', 'Cmd ⌘').replaceAll('Super', 'Win ⌘').replaceAll('Space', 'Espaço');
           return (item.name + ' ' + item.detail + ' ' + key + ' ' + labels).toLocaleLowerCase().includes(query);
         });
-        results.replaceChildren(...matches.slice(0, 40).map(item => button(item.name, () => choose(item.action), 'quiet command-result', { title: item.detail })));
-        [...results.children].forEach((row, index) => { const item = matches[index]; row.append(el('small', {}, item.detail), item.key ? shortcut(item.key, state.platform) : null); });
+        results.replaceChildren(...matches.slice(0, 40).map(item => button(item.name, () => choose(item.action), 'quiet command-result', { title: item.detail, symbol: item.symbol || (item.key ? 'keyboard' : 'layers') })));
+        [...results.children].forEach((row, index) => {
+          const item = matches[index], copy = row.querySelector('span');
+          copy.classList.add('command-copy'); copy.append(el('small', {}, item.detail));
+          if (item.key) row.append(shortcut(item.key, state.platform));
+        });
         count.textContent = !matches.length ? 'Nenhum resultado. Tente o nome de uma camada ou uma tecla.' : matches.length > 40 ? 'Mostrando 40 de ' + matches.length + '. Refine sua busca.' : matches.length + ' resultado(s)';
       }
       search.input.addEventListener('input', update);
@@ -71,16 +78,20 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
           event.preventDefault(); const index = rows.indexOf(document.activeElement); const next = index < 0 ? event.key === 'ArrowDown' ? 0 : rows.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length; rows[next].focus();
         } else if (event.key === 'Enter' && document.activeElement === search.input) { event.preventDefault(); results.querySelector('button')?.click(); }
       });
-      content.append(search.wrapper, results, count); update(); search.input.focus();
+      const help = el('p', { class: 'command-help hint' }, el('kbd', {}, '↑'), el('kbd', {}, '↓'), ' navegar · ', el('kbd', {}, 'Enter'), ' abrir · ', el('kbd', {}, 'Esc'), ' fechar');
+      content.append(search.wrapper, results, el('div', { class: 'command-footer' }, count, help)); update(); search.input.focus();
     });
   }
   async function openLibrary() {
-    const { node, content } = dialog('Biblioteca de modelos', 'Revise as camadas antes de adicionar. As ações permanecem pausadas.');
+    const { node, content } = dialog('Biblioteca de modelos', 'Revise as camadas antes de adicionar. As ações permanecem pausadas.', 'template-library');
     const errors = errorBox(); const list = el('div', { class: 'template-list', 'aria-busy': 'true' }, el('p', { role: 'status' }, 'Carregando modelos…'));
-    content.append(list, errors, button('Importar camadas de um arquivo', () => { node.close(); void openImport(); }, '', { symbol: 'upload' }));
+    content.append(list, errors, el('div', { class: 'productivity-footer' }, button('Importar camadas de um arquivo', () => { node.close(); void openImport(); }, '', { symbol: 'upload' })));
     try {
       const templates = await api.getTemplates(); if (!node.isConnected) return;
-      list.replaceChildren(...templates.map(template => el('div', { class: 'template-row' }, el('div', {}, el('h3', {}, template.name), el('p', { class: 'hint' }, template.description)), button('Revisar modelo', () => { node.close(); void openImport(template.id); }, '', { 'aria-label': 'Revisar modelo: ' + template.name }))));
+      list.replaceChildren(...templates.map(template => el('div', { class: 'template-row' },
+        el('span', { class: 'template-symbol', 'aria-hidden': 'true' }, icon({ notes: 'file', clipboard: 'copy', webhook: 'http' }[template.id] || 'layers')),
+        el('div', { class: 'template-copy' }, el('h3', {}, template.name), el('p', { class: 'hint' }, template.description)),
+        button('Revisar modelo', () => { node.close(); void openImport(template.id); }, '', { 'aria-label': 'Revisar modelo: ' + template.name }))));
     } catch (error) { list.replaceChildren(); errors.textContent = error.message; errors.hidden = false; }
     finally { list.removeAttribute('aria-busy'); }
   }
@@ -141,7 +152,7 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
   }
   async function openWizard() {
     guard(async () => {
-      const { node, content } = dialog('Primeiros passos', 'Prepare o teclado com as ações pausadas.', 'setup-dialog');
+      const { node, content } = dialog('Configurar teclado', 'Confira permissões e detecção com as ações pausadas.', 'setup-dialog', 'keyboard');
       const initialTracking = getState().tracking.enabled;
       let step = Math.min(readProgress(), 2); let trackingStarted = false; let trackingRequest; let lastKey = ''; let unsubscribe; let unsubscribeState;
       const errors = errorBox();
@@ -181,7 +192,7 @@ export function createProductivity({ api, getState, applyState, guard, editBindi
             applyState(next); trackingStarted = true; status.textContent = getState().tracking.mode === 'global' ? 'Pressione uma tecla, inclusive fora desta janela.' : getState().tracking.mode === 'starting' ? 'Preparando a observação global…' : 'Entrada global indisponível. Uma tecla nesta janela confirma apenas a detecção local.'; test.dataset.locked = 'true'; test.querySelector('span').textContent = 'Teste em andamento';
           }), '', { disabled: trackingStarted });
           content.append(el('h3', {}, 'Confirmar a detecção'), el('p', {}, 'O teste não dispara ações. A tecla detectada aparece só aqui e não é salva.'), test, status);
-        } else content.append(el('h3', {}, 'Criar sua primeira ação'), el('p', {}, 'Escolha um modelo, revise as camadas e personalize a tecla e o destino antes de ativar.'), button('Escolher um modelo', () => { node.close(); void openLibrary(); }, 'primary', { symbol: 'layers' }));
+        } else content.append(el('h3', {}, 'Continue com sua automação'), el('p', {}, 'Volte ao guia para criar, testar e ativar sua automação. A autorização do teclado não ativa ações sozinha.'), button('Continuar no guia', () => { remember(3); node.close(); if (startAutomation) startAutomation(); else void openLibrary(); }, 'primary', { symbol: 'layers' }));
         content.append(errors, el('div', { class: 'dialog-actions' }, step ? button('Voltar', event => void run(event.currentTarget, errors, () => moveTo(step - 1))) : null,
           button(step === 2 ? 'Concluir assistente' : 'Continuar', event => void run(event.currentTarget, errors, async () => { if (step === 2) { remember(3); node.close(); } else await moveTo(step + 1); }), step === 2 ? '' : 'primary')));
       }

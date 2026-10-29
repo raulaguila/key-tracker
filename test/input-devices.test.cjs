@@ -92,7 +92,7 @@ test('changing selection blocks a key already observed down on the newly selecte
 
 test('Tracker integrates native selection, pauses on loss and keeps panel observer after visual off',async t=>{
  const {Engine}=require('../app/engine.cjs');const {Tracker}=require('../app/tracking.cjs');
- const {input,children,events}=fixture(t);const config=defaultConfig();config.layers[0].bindings[0].keyCode='KeyA';
+ const {input,children,events}=fixture(t);const config=defaultConfig();Object.assign(config.layers[0].bindings[0],{key:'A',keyCode:'KeyA'});
  const calls=[];const engine=new Engine({config,platform:'win32',session:'native',documents:'C:\\Documents',storage:{directory:'/tmp/data',logPath:'/tmp/log',save:async value=>value,appendLog:async()=>{}},execute:async()=>{calls.push('run');return 'OK';}});
  const tracker=new Tracker({engine,nativeInput:input,fork:()=>{throw new Error('RawInput has its own native process');}});t.after(async()=>{await tracker.dispose();engine.dispose();});
  tracker.set(true);assert.equal(engine.panelArmed,true);assert.equal(engine.enabled,false);assert.equal(children.length,1);

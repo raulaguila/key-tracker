@@ -29,7 +29,7 @@ async function main() {
   await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
   const port = listener.address().port;
   await new Promise(resolve => listener.close(resolve));
-  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.DOBRA_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.DOBRA_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
+  const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.DOBRA_UI_SCREEN_READER_ONLY === '1' ? ['--force-renderer-accessibility'] : []), ...(process.env.DOBRA_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.DOBRA_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
     cwd: root,
     env: { ...process.env, DOBRA_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -147,6 +147,31 @@ async function main() {
     await cdp('Page.enable');
     await until('Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Initial UI');
     const initial = await nativeState();
+    if (process.env.DOBRA_UI_SCREEN_READER_ONLY === '1') {
+      await require('./screen-reader-ui.cjs')({ cdp, evaluate, click, fill, press, until, nativeState, nativeEvaluate });
+      assert.deepEqual(exceptions, [], 'No renderer exceptions with Orca');
+      return;
+    }
+    if (process.env.DOBRA_UI_ADAPTATION_ONLY === '1') {
+      await require('./accessibility-regression-ui.cjs')({ cdp, evaluate, click, select, press, until, nativeState, nativeEvaluate });
+      assert.deepEqual(exceptions, [], 'No renderer exceptions during accessibility regressions');
+      return;
+    }
+    if (process.env.DOBRA_UI_VISUAL_ONLY === '1') {
+      await require('./visual-polish-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
+      assert.deepEqual(exceptions, [], 'No renderer exceptions during visual review');
+      return;
+    }
+    if (process.env.DOBRA_UI_ACCESSIBILITY_ONLY === '1') {
+      await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until, shot });
+      assert.deepEqual(exceptions, [], 'No renderer exceptions in accessibility UI');
+      return;
+    }
+    if (process.env.DOBRA_UI_FIRST_AUTOMATION_ONLY === '1') {
+      await require('./first-automation-ui.cjs')({ cdp, evaluate, click, fill, until, nativeState, nativeEvaluate, shot });
+      assert.deepEqual(exceptions, [], 'No renderer exceptions in first automation UI');
+      return;
+    }
     if (process.env.DOBRA_UI_WAYLAND_ONLY === '1') {
       await until('Boolean(document.querySelector("#layer-title"))', 'Initial renderer ready');
       await require('./wayland-ui.cjs')({ evaluate, click, until, nativeState, nativeEvaluate, shot });
@@ -166,6 +191,7 @@ async function main() {
     assert.equal(initial.enabled, false);
     assert.equal(initial.tracking.enabled, false);
     await shot('layers');
+    await require('./first-automation-ui.cjs')({ cdp, evaluate, click, fill, until, nativeState, nativeEvaluate, shot });
     assert.equal(await evaluate('return document.documentElement.dataset.themePreference'), 'system');
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
     await until('document.documentElement.dataset.theme === "dark"', 'System dark theme applies');
@@ -749,6 +775,14 @@ async function main() {
             await click('[data-view="' + name + '"]');
             const dimensions = await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth}');
             assert.ok(dimensions.scroll <= dimensions.width, 'No page overflow at ' + width + 'px, ' + name + ', theme=' + theme + ', collapsed=' + collapsed + ': ' + JSON.stringify(dimensions));
+            if (width <= 580 && name === 'history') {
+              const message = await evaluate('const message=document.querySelector(".event-message");return message?{width:message.getBoundingClientRect().width,available:document.querySelector("#events").clientWidth}:null');
+              if (message) assert.ok(message.width >= Math.min(260, message.available - 16), 'History message keeps readable width with narrow navigation: ' + JSON.stringify(message));
+            }
+            if (width <= 580 && name === 'settings') {
+              const clipped = await evaluate('return [...document.querySelectorAll("main .button")].filter(node=>node.getClientRects().length).map(node=>({label:node.textContent.trim(),right:node.getBoundingClientRect().right})).filter(item=>item.right>innerWidth)');
+              assert.deepEqual(clipped, [], 'Settings buttons remain visible with narrow navigation');
+            }
             if ([1280, 800, 390].includes(width)) await shot(name + '-' + width + (collapsed ? '-collapsed' : '-expanded') + '-' + theme);
           }
         }
@@ -802,9 +836,13 @@ async function main() {
     await require('./renderer-performance-ui.cjs')({ evaluate, click, fill, until, nativeState, data: effects });
     await require('./key-moments-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
     await require('./production-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, shot, nativeEvaluate, data: effects });
+    await require('./config-import-ui.cjs')({ evaluate, until, nativeState, nativeEvaluate, data: effects });
     await require('./wayland-ui.cjs')({ evaluate, click, until, nativeState, nativeEvaluate, shot });
     await require('./productivity-expansion-ui.cjs')({ cdp, evaluate, click, fill, select, until, nativeState, save, shot, nativeEvaluate });
-    await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until });
+    await require('./accessibility-ui.cjs')({ cdp, evaluate, click, until, shot });
+    await require('./visual-polish-ui.cjs')({ cdp, evaluate, click, until, nativeState, nativeEvaluate, shot });
+    await require('./accessibility-regression-ui.cjs')({ cdp, evaluate, click, select, press, until, nativeState, nativeEvaluate });
+    assert.deepEqual(exceptions, [], 'No renderer exceptions after complete UI audit');
     console.log('UI smoke passed: keyboard editor/focus/persistence/6 responsive cases, action enable/duplicate, layer copy/association isolation, quick layer picker, optional application profiles, frozen preview without I/O + explicit test results, native close draft guard, compact table/editor, sidebar keyboard control/persistence/draft protection, five layouts + three sizes + geometry override, 90 keyboard geometry/theme/viewport combinations, unavailable/paused/suspended indicators in both themes and explicit Wayland limitation, preview persistence, automatic layout fallback/races, international simultaneous keys, CRUD, native IPC persistence, HTTP pairs/drafts, real HTTP success/error, pending feedback, unsaved guards, settings, dark/light/system theme persistence, modal drawer focus/backdrop/Escape/unsaved guards, 14 drawer sizes, and 112 responsive combinations.');
     console.log('Screenshots: ' + screenshots);
   } finally {

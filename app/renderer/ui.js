@@ -107,11 +107,10 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirmar', canc
   if (previous.open) return Promise.resolve(false);
   // Each invocation owns its close event. A queued event from an earlier dialog
   // must never resolve a newly opened confirmation.
-  const dialog = el('dialog', { id: 'confirm-dialog', 'aria-labelledby': 'dialog-title', 'aria-describedby': 'dialog-description' });
+  const dialog = el('dialog', { id: 'confirm-dialog', 'aria-labelledby': 'dialog-title', 'aria-describedby': 'dialog-description', 'data-intent': danger ? 'danger' : 'confirm' });
   previous.replaceWith(dialog);
   dialog.replaceChildren(
-    el('div', { class: 'dialog-symbol' }, icon(danger ? 'alert' : 'upload')),
-    el('h2', { id: 'dialog-title' }, title),
+    el('div', { class: 'confirmation-heading' }, el('div', { class: 'dialog-symbol' }, icon(danger ? 'alert' : 'upload')), el('h2', { id: 'dialog-title' }, title)),
     el('p', { id: 'dialog-description' }, message),
     el('div', { class: 'dialog-actions' },
       button(cancelLabel, () => dialog.close('cancel'), '', { 'data-cancel': '' }),

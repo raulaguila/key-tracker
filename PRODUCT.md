@@ -29,12 +29,16 @@ sem escrever scripts ou editar JSON. A interface é em português.
 - Iniciar pausado, suspender ações durante edição e manter um controle de pausa disponível.
 - Mostrar a conclusão real de “Parar todas”, bloqueando reativação enquanto houver efeitos/registros pendentes.
 - Persistir configuração, preservar backup e permitir importação/exportação explícitas.
+- Na importação completa, cancelar e aguardar execuções e registros antes de substituir a configuração, mantendo ações pausadas.
 - Proteger headers com o cofre do sistema, limitar suas operações e recusar gravação desprotegida quando indisponível.
 - Impedir que ações de arquivo alterem o perfil interno, configuração ou backup.
 - Oferecer rastreio opt-in sem registrar a digitação e informar o modo global/local.
 - Suportar temas claro/escuro/sistema, sidebar recolhível e formulários sobrepostos.
 - Informar conflitos, falta de permissões e limitações de plataforma no contexto de uso.
 - Assistente retomável de configuração, diagnóstico de entrada e primeira ação por modelo.
+- Guia destacado em Camadas para criar, testar, ativar e confirmar a primeira
+  automação pelo atalho com o Dobra fora de foco. Recuperação específica de
+  permissões/instalação/dispositivo preserva a ação e o teste, inclusive ao reabrir.
 - Camada temporária enquanto um controle está mantido, com retorno seguro à camada anterior.
 - Painel rápido separado e busca Ctrl/Cmd+K para localizar ações e camadas sem executar efeitos.
 - Biblioteca local e importação por camada com revisão, mescla e resolução de conflitos.

@@ -137,8 +137,8 @@ async function main() {
   ] }];
   const storage = new Storage(path.join(profile, 'data'));
   const initialConfig = defaultConfig();
-  initialConfig.layers.forEach(layer => layer.bindings.forEach(binding => { binding.action = action('cold press-only fixture'); }));
-  engine = new Engine({ config: initialConfig, storage, documents: profile, session: 'x11' });
+  initialConfig.layers.forEach(layer => layer.bindings.forEach(binding => { binding.key = 'A'; binding.action = action('cold press-only fixture'); }));
+  engine = new Engine({ config: initialConfig, storage, documents: profile, session: 'x11', isAppFocused: () => BrowserWindow.getAllWindows().some(win => win.isFocused()) });
   tracker = new Tracker({ engine, fork: (...args) => { forks++; return utilityProcess.fork(...args); } });
   engine.on('key', event => observed.push(event));
   assert.equal(forks, 0, 'o hook não deve iniciar antes de ativação explícita');
@@ -151,6 +151,9 @@ async function main() {
   await tap();
   await until(() => engine.events.some(event => event.kind === 'action' && event.status === 'success'), 'press-only deve iniciar o hook e disparar fora do Dobra');
   assert.equal(engine.events.filter(event => event.kind === 'action').length, 1);
+  assert.equal(engine.events.find(event => event.kind === 'action').origin, 'shortcut');
+  assert.equal(engine.events.find(event => event.kind === 'action').outsideApp, true);
+  evidence.passiveObservation.externalOriginVerified = true;
   assert.equal((await receiverSnapshot()).characters, 1, 'uma tecla produz um único caractere no outro aplicativo');
   evidence.passiveObservation.coldPressOnly = true;
   await engine.saveConfig(config);
@@ -235,7 +238,7 @@ async function main() {
   // Legacy press-only configurations also use the observer, including controls.
   const pressOnly = defaultConfig();
   pressOnly.settings.cooldownMs = 100;
-  pressOnly.layers.forEach(layer => layer.bindings.forEach(binding => { binding.action = action('legacy press fixture'); }));
+  pressOnly.layers.forEach(layer => layer.bindings.forEach(binding => { binding.key = 'A'; binding.action = action('legacy press fixture'); }));
   await engine.saveConfig(pressOnly);
   engine.setEnabled(true);
   const prior = engine.events.filter(event => event.kind === 'action').length;

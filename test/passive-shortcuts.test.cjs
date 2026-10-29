@@ -48,7 +48,43 @@ test('Plus usa Shift+Equal e remoção de assinatura não permite repetição da
   assert.equal(calls, 1);
 });
 
-function fixture(t, config = defaultConfig()) {
+// Single-key gesture fixtures are independent of the new-install examples.
+function singleKeyConfig() {
+  const config = defaultConfig();
+  for (const layer of config.layers) layer.bindings[0].key = 'A';
+  return config;
+}
+
+test('exemplos iniciais e portáteis exigem Ctrl/⌘ e Alt nas duas camadas', async t => {
+  for (const platform of ['linux', 'win32', 'darwin']) {
+    for (const config of [defaultConfig(), require('../docs/examples/quick-start.json')]) {
+      const calls = [];
+      const engine = new Engine({ config, platform, documents: '/documents',
+        storage: { directory: '/data', logPath: '/data/log', appendLog: async () => {} },
+        execute: async (_action, context) => { calls.push(context); return 'OK'; }
+      });
+      t.after(() => engine.dispose());
+      engine.setEnabled(true); engine.updateInput({ mode: 'global' });
+      for (const [index, layer] of engine.config.layers.entries()) {
+        engine.setLayer(layer.id);
+        const command = platform === 'darwin' ? { metaKey: true } : { ctrlKey: true };
+        for (const flags of [{}, command, { altKey: true }]) {
+          engine.handleInput(event('down', 'KeyA', flags));
+          engine.handleInput(event('up', 'KeyA', flags));
+        }
+        await tick();
+        assert.equal(calls.length, index, platform + ': digitação e modificadores incompletos não executam');
+        engine.handleInput(event('down', 'KeyA', { ...command, altKey: true }));
+        engine.handleInput(event('up', 'KeyA', { ...command, altKey: true }));
+        await tick();
+        assert.equal(calls.length, index + 1, platform + ': combinação completa executa uma vez');
+        assert.equal(calls[index].layer, layer.name);
+      }
+    }
+  }
+});
+
+function fixture(t, config = singleKeyConfig()) {
   const calls = [];
   let now = 1000;
   const engine = new Engine({ config, platform: 'linux', documents: '/documents', now: () => now,
@@ -88,7 +124,7 @@ test('configuração só de pressionar inicia observação e controla camadas/pa
 });
 
 test('pressionar capturado respeita posição de outro layout e não dispara pelo fallback US', async t => {
-  const config = defaultConfig();
+  const config = singleKeyConfig();
   config.layers[0].bindings[0].keyCode = 'KeyQ';
   const { engine, calls, tap } = fixture(t, config);
   engine.setEnabled(true); engine.updateInput({ mode: 'global' });
@@ -101,7 +137,7 @@ test('pressionar capturado respeita posição de outro layout e não dispara pel
 
 test('pressionar que muda camada não executa também a ação da camada de destino', async t => {
   for (const captured of [false, true]) {
-    const config = defaultConfig();
+    const config = singleKeyConfig();
     const binding = config.layers[0].bindings[0];
     binding.action = { type: 'layer', layerId: config.layers[1].id };
     if (captured) binding.keyCode = 'KeyA';
@@ -133,7 +169,7 @@ test('pausa e edição não rearmam uma tecla de pressionar mantida, mesmo após
 
 test('posição física importada não consegue interceptar os controles de pausa ou camada', async t => {
   for (const pause of [false, true]) {
-    const config = defaultConfig();
+    const config = singleKeyConfig();
     Object.assign(config.layers[0].bindings[0], { key: pause ? 'Control+Shift+A' : 'A', keyCode: pause ? 'F12' : 'F8' });
     const { engine, calls, tap } = fixture(t, config);
     engine.setEnabled(true); engine.updateInput({ mode: 'global' });

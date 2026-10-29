@@ -8,6 +8,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function fixture(t, options = {}) {
   const config = defaultConfig();
+  // This fixture exercises single-key gestures, independently of install defaults.
+  for (const layer of config.layers) layer.bindings[0].key = 'A';
   config.settings.momentaryShortcut = 'F9';
   config.settings.momentaryLayerId = config.layers[1].id;
   const writes = [];

@@ -15,15 +15,15 @@ function fixture(options = {}) {
   return { engine, registrations, calls };
 }
 
-test('inicia pausado e A muda de log para arquivo ao alternar camada pelo F8', async () => {
+test('inicia pausado e Ctrl/⌘+Alt+A muda de log para arquivo ao alternar camada pelo F8', async () => {
   const { engine, registrations, calls } = fixture();
   assert.equal(engine.state().enabled, false);
   assert.equal(registrations.size, 0);
   engine.setEnabled(true);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   registrations.get('F8')();
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(calls.map(call => call.action.type), ['log', 'file']);
   assert.equal(engine.events.filter(event => event.kind === 'action').length, 2);
@@ -38,14 +38,14 @@ test('edição suspende ações; pausa mantém controles para retomar e abrir pa
   engine.setEditing(true);
   assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+Space', 'CommandOrControl+Shift+F12']);
   engine.setEditing(false);
-  assert.ok(registrations.has('A'));
+  assert.ok(registrations.has('CommandOrControl+Alt+A'));
   registrations.get('CommandOrControl+Shift+F12')();
   assert.equal(engine.enabled, false);
   assert.deepEqual([...registrations.keys()], ['CommandOrControl+Shift+Space', 'CommandOrControl+Shift+F12']);
   now += 400;
   registrations.get('CommandOrControl+Shift+F12')();
   assert.equal(engine.enabled, true);
-  assert.ok(registrations.has('A'));
+  assert.ok(registrations.has('CommandOrControl+Alt+A'));
 });
 
 test('conflito do atalho de emergência impede ativação', () => {
@@ -57,10 +57,10 @@ test('conflito do atalho de emergência impede ativação', () => {
 });
 
 test('conflito de uma ação aparece no estado, preservando pausa e demais teclas', () => {
-  const { engine, registrations } = fixture({ fail: 'A' });
+  const { engine, registrations } = fixture({ fail: 'CommandOrControl+Alt+A' });
   engine.setEnabled(true);
   assert.equal(engine.enabled, true);
-  assert.equal(engine.state().shortcuts.failed[0].key, 'A');
+  assert.equal(engine.state().shortcuts.failed[0].key, 'CommandOrControl+Alt+A');
   assert.ok(registrations.has('F8'));
 });
 
@@ -69,8 +69,8 @@ test('cooldown impede chamadas em sequência; ação em voo não é duplicada', 
   let count = 0;
   const { engine, registrations } = fixture({ execute: () => { count++; return new Promise(resolve => { release = resolve; }); } });
   engine.setEnabled(true);
-  registrations.get('A')();
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
+  registrations.get('CommandOrControl+Alt+A')();
   assert.equal(count, 1);
   const layer = engine.activeLayer;
   await assert.rejects(engine.runBinding(layer.id, layer.bindings[0].id), /ainda está/);
@@ -97,7 +97,7 @@ test('falha ao salvar preserva configuração anterior e registros existentes', 
   config.layers[0].bindings[0].key = 'B';
   await assert.rejects(engine.saveConfig(config), /disco/);
   assert.deepEqual(engine.config, before);
-  assert.ok(registrations.has('A'));
+  assert.ok(registrations.has('CommandOrControl+Alt+A'));
   assert.equal(registrations.has('B'), false);
 });
 
@@ -122,12 +122,12 @@ test('histórico em memória é limitado e estado retornado não altera o motor'
 test('desabilitar ação remove registro e impede callbacks antigos, mantendo teste manual', async () => {
   const { engine, registrations, calls } = fixture();
   engine.setEnabled(true);
-  const stale = registrations.get('A');
+  const stale = registrations.get('CommandOrControl+Alt+A');
   const config = engine.state().config;
   const layer = config.layers[0];
   layer.bindings[0].enabled = false;
   await engine.saveConfig(config);
-  assert.equal(registrations.has('A'), false);
+  assert.equal(registrations.has('CommandOrControl+Alt+A'), false);
   stale();
   assert.equal(calls.length, 0);
   await engine.runBinding(layer.id, layer.bindings[0].id);
@@ -236,10 +236,10 @@ test('edição adia contexto até terminar; salvar ação mantém override manua
   engine.setEditing(true);
   engine.updateApplication({ status: 'ready', current: { name: 'Editor', path: '/opt/editor' } });
   assert.equal(engine.activeLayerId, manual.id);
-  assert.equal(registrations.has('A'), false);
+  assert.equal(registrations.has('CommandOrControl+Alt+A'), false);
   engine.setEditing(false);
   assert.equal(engine.activeLayerId, associated.id);
-  assert.equal(registrations.has('A'), true);
+  assert.equal(registrations.has('CommandOrControl+Alt+A'), true);
   engine.setLayer(manual.id);
   const config = engine.state().config;
   config.layers[0].bindings[0].name = 'Editada';
@@ -495,13 +495,13 @@ test('cooldown da sequência sobrevive à etapa que seleciona a própria camada'
   let now = 1000;
   const { engine, registrations } = fixture({ config, execute: executeAction, now: () => now, desktopActions: { clipboard: () => { copies++; } } });
   engine.setEnabled(true);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(copies, 1);
   now += 10000;
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(copies, 2);
 });
@@ -515,24 +515,24 @@ test('cooldown pertence ao binding e à camada de origem nas trocas manuais e au
   const { engine, registrations, calls } = fixture({ config, now: () => now });
   const [first, second] = engine.config.layers;
   engine.setEnabled(true);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   engine.setLayer(second.id);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 2, 'outro binding da mesma tecla pode executar na camada de destino');
   engine.setLayer(first.id);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 2, 'retornar manualmente não apaga intervalo da origem');
   engine.setLayer(second.id);
   engine.updateApplication({ status: 'ready', current: { name: 'Editor', path: '/apps/editor' } });
   assert.equal(engine.activeLayerId, first.id);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 2, 'retornar por aplicativo também preserva intervalo');
   now += 10000;
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 3);
 });
@@ -543,7 +543,7 @@ test('pausar é imediato após retomar ou executar ação, independente do inter
   let now = 1000;
   const { engine, registrations, calls } = fixture({ config, now: () => now });
   engine.setEnabled(true);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   const pause = registrations.get('CommandOrControl+Shift+F12');
   pause();
@@ -566,7 +566,7 @@ test('alternância global de camada mantém seu intervalo após trocar e salvar 
   const { engine, registrations } = fixture({ now: () => now });
   const [first, second] = engine.config.layers;
   engine.setEnabled(true);
-  registrations.get('A')();
+  registrations.get('CommandOrControl+Alt+A')();
   await new Promise(resolve => setImmediate(resolve));
   registrations.get('F8')();
   assert.equal(engine.activeLayerId, second.id);
