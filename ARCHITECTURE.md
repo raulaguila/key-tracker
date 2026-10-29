@@ -23,6 +23,11 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/actions.cjs`: preparação pura e execução das ações simples e sequências.
 - `app/desktop-actions.cjs`: borda nativa para clipboard, abertura de destino e
   notificações; injetada pelo main, sem exposição arbitrária no preload.
+- `app/macro-service.cjs`: proprietário de autorização, gravação e reprodução
+  de fluxos de entrada; limita recursos, cancela operações e restaura a janela.
+- `app/macro-input/`: drivers nativos com comandos JSON validados; gravação
+  isolada do processo principal. Wayland usa o portal de desktop com capacidades
+  reais, sem confundir XWayland com entrada em aplicativos Wayland.
 - `app/storage.cjs`: configuração atômica, backup diferido, cofre, flush de filas e log serializado com rotação.
 - `app/shutdown.cjs`: cancela serviços e aguarda execuções e operações aceitas; prazo global de espera.
 - `app/state-delivery.cjs`: agrupa progresso visual em até 16 ms e retém um estado enquanto a janela está oculta.
@@ -40,6 +45,9 @@ inclui os prebuilds e os extrai do ASAR.
 - `app/renderer/ui.js`: controles, ícones, campos, diálogos e feedback compartilhados.
 - `app/renderer/action-editor.js`: campos de cada tipo de ação e editor de etapas;
   rascunhos de tipos alternados permanecem em DOM desconectado, sem JSON manual.
+- `app/renderer/macro-editor.js`: etapas editáveis de mouse/teclado, recuperação
+  de permissões e revisão explícita de gravações; eventos nativos atualizam
+  somente os controles, sem reconstruir o rascunho.
 - `app/renderer/first-automation.js`: guia de criar/testar/ativar/confirmar. Progresso
   local por IDs e SHA-256 da binding/camada testada; edição invalida a prova.
   Conclusão aceita apenas resultado novo de sucesso, da revisão armada ao ativar,
@@ -65,8 +73,9 @@ Falha mantém a configuração anterior e libera a parada, com ações pausadas.
 
 ## Atalhos
 
-O observador nativo alimenta `PassiveShortcuts` e `KeyGestures`. Não há uso de
-`globalShortcut`, supressão ou reinjeção: o aplicativo em foco recebe as teclas.
+O observador nativo alimenta `PassiveShortcuts` e `KeyGestures`. A observação de
+atalhos não usa reserva exclusiva, supressão ou reinjeção: o aplicativo em foco
+recebe as teclas. A reprodução de fluxos é uma operação explícita separada.
 As assinaturas em memória cobrem a camada ativa e os controles globais. Ao editar,
 ações e alternância são retiradas; a pausa permanece. Na primeira abertura o hook
 não inicia sem ativação explícita de ações ou rastreio. Depois da primeira ativação,
@@ -84,6 +93,32 @@ congela a prévia completa; headers de etapas HTTP também são mascarados. Even
 guardam só metadados de resultado por etapa, sem textos privados ou payload HTTP.
 Um HTTP lento não bloqueia o comando de pausa. Pausar impede novos disparos;
 ações que já começaram continuam, salvo cancelamento explícito.
+
+Fluxos de mouse/teclado usam uma vaga exclusiva durante toda a ação/sequência.
+`MacroService` possui autorização, gravação e reprodução; `NativeMacroDriver`
+possui um utility process libuiohook e um helper de ponteiro (XTest/Python no X11,
+SendInput no Windows e Quartz no macOS). O protocolo do helper aceita somente
+comandos fixos/inteiros, sem shell. Requests/startup têm limite de quatro segundos;
+o encerramento fecha stdin e recolhe o processo. Helpers Win/mac são compilados
+em `beforePack` no SO de destino e extraídos do ASAR. Wayland mantém sessão do
+portal somente enquanto autorizada, sem ler frames da tela.
+
+Cada operação escolhe uma combinação de parada livre entre Ctrl+Shift+F1–F24 e
+Ctrl+Alt+Shift+F1–F24, excluindo controles/bindings e teclas do próprio fluxo.
+Mensagens de parada incluem tecla e geração; mensagens antigas não cancelam uma
+nova operação. A reprodução aguarda a soltura física, respeita a espera inicial
+e recusa injetar no Dobra. Texto substitui o clipboard, cola e aguarda 150 ms antes
+da próxima etapa. A pausa de emergência interrompe entrada durante um fluxo.
+
+Ao encerrar uma sessão de entrada, `Tracker.quarantineInput()` troca a geração do
+worker X11 antes de liberar novos disparos; mensagens retidas do worker antigo
+são ignoradas. NativeInput/Wayland preservam o timestamp monotônico do evento e
+descartam entrada anterior ao corte de término. Mantidas observadas continuam
+bloqueadas até soltar; no caso conservador de uma soltura sintética descartada,
+pode ser necessário soltar/pressionar novamente. Não se usa somente um atraso
+fixo para impedir ciclos de automação. Mudanças de tela/escala e bloqueio da sessão
+cancelam os recursos e exigem autorização novamente. Substituir configuração
+aguarda também gravação/consentimento pendente, além das execuções do motor.
 
 ## Rastreio
 

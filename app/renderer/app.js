@@ -20,6 +20,9 @@ let state;
 let view = 'layers';
 let selectedLayerId;
 let editor = null;
+let activeActionEditor;
+let nativeMacroState;
+let macroAuthorizationPending = false;
 let capture = null;
 let actionQuery = '';
 let historyQuery = '';
@@ -259,6 +262,7 @@ function updateStatus() {
   editor?.triggerControls?.setInputState(state.input, state.enabled);
   updateInputStatus();
   if (runningPanel?.node.isConnected) runningPanel.update(state.running);
+  updateMacroRuntime();
   updateStorageStatus(state.storage);
   const closeToTray = document.querySelector('#field-closeToTray');
   if (closeToTray) {
@@ -298,6 +302,8 @@ function render(focusKey) {
   document.querySelector('#page-name').textContent = { layers: 'Camadas', tracking: 'Rastreio', history: 'Histórico', settings: 'Configurações' }[view];
   const feedback = document.querySelector('#toast');
   if (feedback?.closest('#editor-drawer')) document.body.append(feedback);
+  activeActionEditor?.dispose();
+  activeActionEditor = null;
   main.replaceChildren();
   ({ layers: renderLayers, tracking: renderTracking, history: renderHistory, settings: renderSettings })[view]();
   // Populate the status before showModal forces layout, so rebuilding a long
@@ -530,6 +536,7 @@ function renderLayers() {
     const form = editor.kind === 'layer' ? layerForm() : editor.kind === 'test' ? testPreviewPanel(layer) : bindingForm(layer);
     const header = form.querySelector('.editor-heading');
     header.querySelector('h2').id = 'drawer-title';
+    header.querySelector('h2').tabIndex = -1;
     header.querySelector('p').id = 'drawer-description';
     header.prepend(el('p', { class: 'editor-context' }, editor.kind !== 'layer' ? 'Camada: ' + layer.name : 'Organização das camadas'));
     header.append(button('Fechar editor', closeEditor, 'quiet drawer-close', { symbol: 'close', iconOnly: true, 'data-drawer-close': '' }));
@@ -564,6 +571,7 @@ function actionSummary(action) {
   if (action.type === 'notification') return action.title;
   if (action.type === 'layer') return 'Usar ' + (layerById(action.layerId)?.name || 'camada de destino');
   if (action.type === 'sequence') return action.steps.length + ' etapas · ' + sequenceDelayLabel(action.stepDelayMs) + ' · ' + action.steps.map(step => actionTypeLabels[step.type]).join(' → ');
+  if (action.type === 'macro') return action.steps.length + ' etapas de mouse e teclado · espera inicial de ' + ((action.startDelayMs ?? 3000) / 1000) + ' s';
   return action.message;
 }
 
@@ -691,6 +699,13 @@ function testPreviewPanel(layer) {
 }
 
 function actionPreview(action) {
+  if (action.type === 'macro') return el('section', { class: 'sequence-preview' },
+    el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem. Você terá ' + ((action.startDelayMs ?? 3000) / 1000) + ' s para selecionar outro aplicativo. A execução controla o mouse e o teclado de verdade. ' + (state.session === 'wayland' ? 'Volte ao Dobra para interromper pelo painel de execuções.' : 'O atalho de parada disponível aparece durante a execução. Volte ao Dobra para interromper pelo painel.')),
+    el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {},
+      el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + ({ click: 'Clique', text: 'Inserir texto', key: 'Pressionar teclas', wait: 'Esperar' }[step.kind])),
+      step.delayBeforeMs ? el('p', { class: 'hint' }, 'Espera antes: ' + step.delayBeforeMs + ' ms') : null,
+      step.kind === 'text' ? el('pre', {}, step.text) : el('p', {}, step.kind === 'click' ? (step.clicks === 2 ? 'Clique duplo' : 'Clique') + ' com botão ' + ({ left: 'esquerdo', right: 'direito', middle: 'do meio' }[step.button]) + ' em X ' + step.x + ', Y ' + step.y : step.kind === 'key' ? step.key : step.ms + ' ms')))),
+    el('p', { class: 'hint' }, 'Texto é inserido por colagem e substitui a área de transferência. Coordenadas dependem da posição das janelas e das telas. Esta prévia não realiza cliques nem digitação.'));
   if (action.type === 'sequence') return el('section', { class: 'sequence-preview' },
     el('p', { class: 'context-note' }, action.steps.length + ' etapas em ordem · ' + sequenceDelayLabel(action.stepDelayMs) + '. A primeira falha interrompe as próximas; efeitos concluídos não são desfeitos.'),
     el('ol', { class: 'preview-sequence' }, action.steps.map((step, index) => el('li', {}, el('h3', {}, 'Etapa ' + (index + 1) + ' · ' + actionTypeLabels[step.type]), step.delayBeforeMs ? el('p', { class: 'hint' }, 'Espera adicional: ' + step.delayBeforeMs + ' ms') : null, step.condition ? el('p', { class: 'hint' }, 'Condição: ' + step.condition.path + ' · ' + step.condition.operator) : null, step.resultName ? el('p', { class: 'hint' }, 'Resultado disponível como steps.' + step.resultName) : null, step.dynamic ? el('p', { class: 'context-note' }, 'Valores definidos durante a execução a partir de resultados anteriores. Esta prévia não faz requisições.') : null, actionPreview(step)))));
@@ -704,13 +719,32 @@ function actionPreview(action) {
   return el('dl', { class: 'preview-values' }, entries.map(([label, value]) => [el('dt', {}, label), el('dd', {}, el('pre', {}, value))]));
 }
 
+const containsMacro = action => action?.type === 'macro' || action?.type === 'sequence' && action.steps.some(containsMacro);
+
+function updateMacroRuntime() {
+  let notice = document.querySelector('#macro-runtime-notice');
+  if (!nativeMacroState?.playing) {
+    if (notice?.contains(document.activeElement)) document.querySelector('#drawer-title, #running-title, #layer-title')?.focus({ preventScroll: true });
+    notice?.remove(); return;
+  }
+  if (!notice) {
+    notice = el('div', { id: 'macro-runtime-notice', class: 'context-note macro-runtime' },
+      el('p', { role: 'status', 'aria-atomic': 'true' }),
+      button('Interromper fluxo', () => void perform(() => api.cancelAllExecutions()), 'danger', { 'data-macro-interrupt': '' }));
+  }
+  const target = editor?.kind === 'test' ? document.querySelector('#test-preview-content') : main;
+  if (target && notice.parentNode !== target) target.prepend(notice);
+  const message = nativeMacroState.stopShortcut ? 'Fluxo de mouse e teclado em execução. Parar: ' + nativeMacroState.stopShortcut + '.' : 'Fluxo de mouse e teclado em execução. Volte a esta janela e escolha Interromper fluxo.';
+  if (notice.querySelector('p').textContent !== message) notice.querySelector('p').textContent = message;
+}
+
 function executionSteps(steps, open = false, total, eventId, stepDelayMs) {
   if (!steps?.length) return null;
   const interrupted = steps.some(step => step.status === 'error');
   return el('details', { class: 'execution-steps', open, 'data-event-steps': eventId },
     el('summary', {}, 'Etapas · ' + steps.length + (total ? ' de ' + total + ' registradas' : ' registradas') + ' · ' + sequenceDelayLabel(stepDelayMs)),
     el('ol', {}, steps.map(step => el('li', { value: step.index, class: 'execution-step ' + step.status },
-      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'cancelled' || step.status === 'skipped' ? 'close' : step.status === 'error' ? 'alert' : 'check'), step.status === 'cancelled' ? 'Cancelada' : step.status === 'skipped' ? 'Ignorada' : step.status === 'error' ? 'Falhou' : 'Concluída')),
+      el('div', { class: 'execution-step-heading' }, el('strong', {}, 'Etapa ' + step.index + ' · ' + (actionTypeLabels[step.type] || { click: 'Clique', text: 'Inserir texto', key: 'Pressionar teclas', wait: 'Esperar' }[step.type] || 'Ação')), el('span', { class: 'event-status ' + step.status }, icon(step.status === 'cancelled' || step.status === 'skipped' ? 'close' : step.status === 'error' ? 'alert' : 'check'), step.status === 'cancelled' ? 'Cancelada' : step.status === 'skipped' ? 'Ignorada' : step.status === 'error' ? 'Falhou' : 'Concluída')),
       el('p', {}, step.message), el('p', { class: 'hint' }, [Number.isFinite(step.durationMs) ? step.durationMs + ' ms' : null, step.httpStatus ? 'HTTP ' + step.httpStatus : null].filter(Boolean).join(' · '))))),
     interrupted || steps.some(step => step.status === 'cancelled') ? el('p', { class: 'hint' }, (interrupted ? 'A sequência parou nesta falha.' : 'A sequência foi cancelada.') + ' As etapas anteriores não foram desfeitas.' + (total && total > steps.length ? ' ' + (total - steps.length) + ' etapa(s) não iniciada(s).' : '')) : null);
 }
@@ -719,10 +753,11 @@ function updateTestPreview() {
   const target = editor;
   const content = document.querySelector('#test-preview-content');
   if (!content || target?.kind !== 'test') return;
+  const restoreMacroPermissionFocus = document.activeElement?.matches('[data-macro-preview-authorize]');
   content.replaceChildren();
   const execute = document.querySelector('[data-focus="execute-preview"]');
   const refresh = document.querySelector('[data-focus="refresh-preview"]');
-  execute.disabled = !target.preview || target.running || target.loading;
+  execute.disabled = !target.preview || target.running || target.loading || containsMacro(target.resolvedAction) && !nativeMacroState?.capabilities?.playback;
   execute.setAttribute('aria-busy', String(Boolean(target.running)));
   execute.querySelector('span').textContent = target.running ? 'Executando…' : 'Executar teste';
   refresh.disabled = target.running || target.loading;
@@ -736,17 +771,25 @@ function updateTestPreview() {
   if (target.result) content.append(el('section', { class: 'test-result ' + target.result.status, 'data-test-result': target.result.status }, el('h3', {}, target.result.status === 'cancelled' ? 'Execução cancelada' : target.result.status === 'error' ? 'Falha na execução' : 'Teste concluído'),
     el('p', {}, target.result.message), el('p', { class: 'hint' }, [Number.isFinite(target.result.durationMs) ? target.result.durationMs + ' ms' : null, target.result.httpStatus ? 'HTTP ' + target.result.httpStatus : null].filter(Boolean).join(' · ')),
     el('p', { class: 'hint' }, guidedSuccess ? 'O teste funcionou. Continue para ativar seu atalho.' : 'Atualize a prévia para executar outro teste.'),
-    executionSteps(target.result.steps, true, target.resolvedAction?.type === 'sequence' ? target.resolvedAction.steps.length : undefined, undefined, target.result.stepDelayMs)));
+    executionSteps(target.result.steps, true, ['sequence', 'macro'].includes(target.resolvedAction?.type) ? target.resolvedAction.steps.length : undefined, undefined, target.result.stepDelayMs)));
   if (target.error) content.append(el('div', { class: 'form-errors', role: 'alert' }, icon('alert'), target.error));
   if (target.resolvedAction) {
     const action = target.resolvedAction;
     content.append(actionPreview(action),
       el('p', { class: 'hint' }, guidedSuccess ? 'Conteúdo usado no teste concluído.' : target.preview ? 'Valores fixos nesta prévia por até 5 minutos.' : 'Valores da última prévia. Atualize para preparar outra execução.'),
       ...(action.type === 'http' || action.type === 'sequence' && action.steps.some(step => step.type === 'http') ? [el('p', { class: 'hint' }, 'Valores de headers ficam ocultos. A execução usa os valores completos.')] : []));
+    if (containsMacro(action)) content.append(el('section', { class: 'context-note', 'aria-label': 'Permissões do fluxo' },
+      el('p', {}, nativeMacroState?.message || 'Prepare o controle de mouse e teclado antes do teste. A autorização mantém esta prévia.'),
+      button(macroAuthorizationPending ? 'Aguardando autorização…' : 'Rever permissões', () => {
+        macroAuthorizationPending = true; updateTestPreview();
+        void api.authorizeMacros().then(value => { nativeMacroState = value; }).catch(error => toast(error.message, 'error')).finally(() => { macroAuthorizationPending = false; updateTestPreview(); });
+      }, '', { disabled: macroAuthorizationPending || target.running, 'data-macro-preview-authorize': '' })));
   }
   if (target.running) content.append(el('p', { class: 'context-note' }, icon('play'), 'Executando a ação… Você pode fechar este painel; o resultado ficará no Histórico.'));
 
   if (!target.preview && !target.loading && !target.running && !target.result && !target.error) content.append(el('p', { class: 'hint' }, 'Aguardando a prévia…'));
+  updateMacroRuntime();
+  if (restoreMacroPermissionFocus) document.querySelector('[data-macro-preview-authorize]:not(:disabled)')?.focus({ preventScroll: true });
 }
 
 async function removeBinding(layer, binding) {
@@ -892,7 +935,8 @@ function bindingForm(layer) {
   const triggers = createBindingTrigger({ initial, platform: state.platform, shortcutField, onDirty: syncEditing, invalid, getInputState: key => ({ input: state.input, enabled: state.enabled, groupRequiresInput: layer.bindings.some(binding => binding.key === key && binding.enabled !== false && triggerFor(binding) !== 'press') }) });
   editor.triggerControls = triggers;
   const actionEditor = createActionEditor({ initial: initial?.action || { type: 'clipboard', text: '' }, layers: state.config.layers, api,
-    defaultDirectory: defaultFilesPath(), onDirty: syncEditing, onError: message => toast(message, 'error'), invalid });
+    platform: state.platform, shortcutField, cancelShortcutCapture: stopCapture, defaultDirectory: defaultFilesPath(), onDirty: syncEditing, onError: message => toast(message, 'error'), invalid });
+  activeActionEditor = actionEditor;
   const form = formShell(onboarding ? 'Criar sua primeira automação' : current ? 'Editar ação' : editor.seed?.action ? 'Duplicar ação' : 'Nova ação', 'Configure a tecla e depois escolha o que ela executa.', async form => {
     const data = new FormData(form);
     const name = String(data.get('name')).trim();
@@ -1313,6 +1357,13 @@ if (!api) {
 } else {
   try {
     state = await api.getState();
+    let receivedMacroState = false;
+    api.onMacroState?.(value => {
+      receivedMacroState = true; nativeMacroState = value;
+      if (editor?.kind === 'test' && containsMacro(editor.resolvedAction)) updateTestPreview();
+      else updateMacroRuntime();
+    });
+    if (api.getMacroState) void api.getMacroState().then(value => { if (!receivedMacroState) { nativeMacroState = value; if (editor?.kind === 'test') updateTestPreview(); else updateMacroRuntime(); } }).catch(() => {});
     for (const item of document.querySelectorAll('#navigation button')) item.disabled = false;
     api.onCloseRequested?.(async ({ toTray }) => {
       if (isDirty() && !await confirmDialog({ title: toTray ? 'Ocultar sem salvar?' : 'Sair sem salvar?', message: 'Você tem alterações que ainda não foram salvas.', confirmLabel: toTray ? 'Descartar e ocultar' : 'Descartar e sair', cancelLabel: 'Continuar editando', danger: true })) { await api.cancelClose(); return; }

@@ -213,3 +213,20 @@ pendente, falha e cancelada têm texto explícito nos dois temas.
 Desfazer/refazer afeta configuração e deixa isso expresso; campos de texto mantêm
 seu histórico nativo. Escolha de teclado informa suporte real, origem ausente e
 permissões sem sugerir que um layout visual identifica o dispositivo físico.
+
+## Fluxos de cliques e teclas
+
+O editor oferece gravação explícita e montagem manual no mesmo formulário.
+Etapas usam expansíveis ordenados, resumos curtos e controles de mover/remover
+com nomes acessíveis. Status e contagem da gravação ficam separados para evitar
+anúncios contínuos no leitor de tela. Parar restaura o editor; acrescentar ou
+substituir uma gravação exige escolha explícita e salvar continua separado.
+Permissões e atualizações nativas não recriam campos nem apagam o rascunho.
+Coordenadas, colagem pelo clipboard e tempo para selecionar outro aplicativo
+são explicados onde configurados. Capacidades indisponíveis mostram uma
+alternativa manual. A superfície, foco, contraste e alvos de toque seguem os
+mesmos tokens dos temas claro e escuro e o mínimo de 44 px em toque.
+No drawer de fluxo, somente os campos rolam; cabeçalho e salvamento ocupam
+regiões próprias para não cobrir controles das etapas. Foco e toque na borda
+inferior são verificados com o botão inteiro visível. Em altura reduzida, o
+conteúdo volta à rolagem contínua sem sobreposição de cabeçalho/rodapé.

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Notification, Menu, utilityProcess, systemPreferences, powerMonitor, safeStorage, nativeTheme, screen } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Storage, readConfigFile, exportConfigSafe } = require('./storage.cjs');
@@ -20,6 +20,8 @@ const { ApplicationMonitor } = require('./application-monitor.cjs');
 const { DesktopTray, trayHostAvailable } = require('./desktop-tray.cjs');
 const { WindowLifecycle } = require('./window-lifecycle.cjs');
 const { DesktopActions, chooseActionTarget, exportSessionHistory } = require('./desktop-actions.cjs');
+const { MacroService } = require('./macro-service.cjs');
+const { actionErrorMessage } = require('./actions.cjs');
 
 if (!app.isPackaged && process.env.DOBRA_DATA_DIR) app.setPath('userData', path.resolve(process.env.DOBRA_DATA_DIR));
 app.setName('Dobra');
@@ -43,6 +45,7 @@ else {
   let tray;
   let lifecycle;
   let desktopActions;
+  let macroService;
   let servicesStopping = false;
   let servicesStopped = false;
   let sentConfigRevision = null;
@@ -110,8 +113,8 @@ else {
       shouldHide: () => engine?.config.settings.closeToTray ? tray?.revalidate() ?? false : false,
       requestConfirmation: payload => { if (engine) send('close-requested', payload); else { lifecycle.allowClose = true; window.close(); } },
       beforeHide: () => engine?.setEditing(false), quit: () => app.quit() });
-    window.webContents.on('render-process-gone', () => { engine?.dispose(); tracker?.set(false); lifecycle.forceQuit(); });
-    window.webContents.on('did-start-loading', () => { sentConfigRevision = null; engine?.setEnabled(false); engine?.setEditing(false); });
+    window.webContents.on('render-process-gone', () => { engine?.dispose(); void macroService?.suspend(); tracker?.set(false); lifecycle.forceQuit(); });
+    window.webContents.on('did-start-loading', () => { sentConfigRevision = null; engine?.cancelAllExecutions(); void macroService?.suspend(); engine?.setEditing(false); });
     window.once('ready-to-show', () => { if (!window?.isDestroyed()) window?.show(); });
     window.on('show', () => visualState.flush());
     window.on('restore', () => visualState.flush());
@@ -135,7 +138,7 @@ else {
     rejectStartup(new Error('Inicialização cancelada.'));
     visualState.dispose();
     quickPanel?.dispose(); productServices?.dispose();
-    const draining = drainServices({ engine, tracker, desktopActions, tray, monitor, storage, configuration: Promise.allSettled([configWrite, ...pendingOperations]) });
+    const draining = drainServices({ engine, tracker, desktopActions, macroService, tray, monitor, storage, configuration: Promise.allSettled([configWrite, ...pendingOperations]) });
     void (async () => {
       while (!await waitForShutdown(draining)) {
         const answer = await dialog.showMessageBox({ type: 'warning', title: 'Encerramento em andamento',
@@ -165,14 +168,27 @@ else {
     if (servicesStopping) return;
     if (!config) { app.quit(); return; }
     desktopActions = new DesktopActions({ clipboard, shell, Notification });
-    engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions,
-      isAppFocused: () => BrowserWindow.getAllWindows().some(win => win.isFocused() || win.webContents.isDevToolsFocused()) });
+    const isAppFocused = () => BrowserWindow.getAllWindows().some(win => win.isFocused() || win.webContents.isDevToolsFocused());
+    let inputSessionActive = false;
+    macroService = new MacroService({ session, clipboard, screen, getWindow: () => window, isAppFocused,
+      getReservedShortcuts: () => engine ? [engine.config.settings.layerShortcut, engine.config.settings.pauseShortcut, engine.config.settings.momentaryShortcut, engine.panelShortcut, ...engine.config.layers.flatMap(layer => layer.bindings.map(binding => binding.key))].filter(Boolean) : [],
+      onChange: state => {
+        const active = Boolean(state.recording || state.playing);
+        if (active !== inputSessionActive) {
+          inputSessionActive = active; engine?.resetInput();
+          if (!active) tracker?.quarantineInput();
+        }
+        send('macro-state', state);
+      } });
+    engine = new Engine({ config, storage, documents: app.getPath('documents'), session, desktopActions, macroService, isAppFocused });
     tracker = new Tracker({ engine, fork: (...args) => utilityProcess.fork(...args), accessibility: () => systemPreferences.isTrustedAccessibilityClient(true),
       wayland: process.platform === 'linux' ? new WaylandInput() : undefined,
       nativeInput: ['win32', 'darwin'].includes(process.platform) ? new NativeInput() : undefined });
     const suspendActions = () => {
       const wasEnabled = engine.enabled;
       tracker.suspend();
+      engine.cancelAllExecutions();
+      void macroService.suspend({ reauthorize: true, message: 'A sessão foi bloqueada ou suspensa. Reveja as permissões antes de usar o fluxo novamente.' });
       if (wasEnabled) {
         engine.record('info', 'Atalhos pausados ao bloquear ou suspender o sistema. Ative novamente quando estiver pronto.');
         engine.publish();
@@ -182,19 +198,48 @@ else {
     powerMonitor.on('lock-screen', suspendActions);
     powerMonitor.on('resume', () => engine.resetInput());
     powerMonitor.on('unlock-screen', () => engine.resetInput());
+    const screensChanged = () => {
+      if (macroService.state().playing) engine.requestStop();
+      void macroService.suspend({ reauthorize: true, message: 'A disposição das telas mudou. Reveja as permissões e as posições antes de executar.' });
+    };
+    screen.on('display-added', screensChanged);
+    screen.on('display-removed', screensChanged);
+    screen.on('display-metrics-changed', screensChanged);
     engine.on('state', state => visualState.push(state));
     // A fresh tracking snapshot must reach the renderer before its key stream,
     // including the initial held-key snapshot from the Wayland service.
     engine.on('key', key => { visualState.flush(); send('key', key); });
 
     handle('save-config', stateResult(config => serialConfig(() => engine.saveConfig(config))));
-    handle('set-enabled', stateResult(enabled => engine.setEnabled(enabled)));
+    handle('set-enabled', stateResult(enabled => {
+      if (enabled && macroService.state().recording) throw new Error('Encerre a gravação antes de ativar os atalhos.');
+      return engine.setEnabled(enabled);
+    }));
     handle('set-layer', stateResult(id => engine.setLayer(id)));
-    handle('set-editing', stateResult(editing => engine.setEditing(editing)));
+    handle('set-editing', stateResult(async editing => {
+      if (editing === false && macroService.state().recording) await macroService.stopRecording({ cancel: true });
+      return engine.setEditing(editing);
+    }));
     handle('preview-binding', (layerId, bindingId) => engine.previewBinding(layerId, bindingId));
     handle('run-binding', stateResult((layerId, bindingId, previewId) => engine.runBinding(layerId, bindingId, previewId)));
     handle('cancel-execution', stateResult(bindingId => engine.cancelExecution(bindingId)));
-    handle('cancel-all-executions', stateResult(() => engine.requestStop()));
+    handle('cancel-all-executions', stateResult(async () => { engine.requestStop(); await macroService.suspend(); return engine.state(); }));
+    handle('get-macro-state', () => macroService.state());
+    const macroOperation = async operation => {
+      try { return await operation(); }
+      catch (error) { throw new Error(actionErrorMessage('macro', error)); }
+    };
+    handle('authorize-macros', () => macroOperation(() => macroService.authorize()));
+    handle('start-macro-recording', async () => {
+      if (!engine.editing) throw new Error('Abra o editor de fluxo para iniciar uma gravação.');
+      if (engine.executions.size) throw new Error('Aguarde ou cancele as execuções antes de gravar.');
+      engine.setEnabled(false);
+      return macroOperation(() => macroService.startRecording());
+    });
+    handle('stop-macro-recording', (options = {}) => {
+      if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'cancel') || options.cancel !== undefined && typeof options.cancel !== 'boolean') throw new Error('Opção de parada da gravação inválida.');
+      return macroOperation(() => macroService.stopRecording(options));
+    });
     productServices = registerProductServices({ engine, storage, handle, stateResult, serialConfig, dialog, getWindow: () => window });
     const linuxInstall = createLinuxInstall({ shell, dialog, getWindow: () => window, beforeInstaller: async () => { await engine.setEnabled(false); tracker.set(false); } });
     handle('open-linux-download', () => linuxInstall.openDownload());
@@ -264,6 +309,7 @@ else {
         engine.stopping = true;
         engine.cancelAllExecutions();
         try {
+          await macroService.suspend();
           await engine.whenIdle();
           await engine.saveConfig(config);
         } finally {
@@ -276,7 +322,7 @@ else {
     const template = [
       ...(process.platform === 'darwin' ? [{ label: 'Dobra', submenu: [{ role: 'about', label: 'Sobre Dobra' }, { type: 'separator' }, { role: 'quit', label: 'Sair de Dobra' }] }] : []),
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => engine.requestStop() }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
+      { label: 'Aplicativo', submenu: [{ label: 'Pausar atalhos', click: () => engine.setEnabled(false) }, { label: 'Parar execuções e pausar', click: () => { engine.requestStop(); void macroService.suspend(); } }, { label: 'Desligar rastreio', click: () => tracker.set(false) }, { type: 'separator' }, { label: 'Sair', click: requestQuit }] }
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
     resolveStartup();

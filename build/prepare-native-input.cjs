@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 module.exports = async context => {
   await require('./prepare-linux-input.cjs')(context);
+  await require('./prepare-native-macros.cjs')(context);
   const platform = context.electronPlatformName;
   if (!['win32', 'darwin'].includes(platform)) return;
   if (platform !== process.platform) throw new Error('Compile o componente nativo no sistema de destino.');

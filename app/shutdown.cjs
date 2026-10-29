@@ -1,8 +1,8 @@
 // One owner for accepted operations. The deadline only bounds waiting; it never
 // pretends an OS write or an external effect can be rolled back.
-function drainServices({ engine, tracker, desktopActions, tray, monitor, storage, configuration }) {
+function drainServices({ engine, tracker, desktopActions, macroService, tray, monitor, storage, configuration }) {
   const call = operation => { try { return operation(); } catch (error) { return Promise.reject(error); } };
-  const cleanup = [() => engine?.dispose(), () => tracker?.stop(), () => desktopActions?.dispose(), () => tray?.dispose(), () => monitor?.dispose()].map(call);
+  const cleanup = [() => engine?.dispose(), () => tracker?.stop(), () => desktopActions?.dispose(), () => macroService?.dispose(), () => tray?.dispose(), () => monitor?.dispose()].map(call);
   return Promise.allSettled([
     ...cleanup,
     (async () => {

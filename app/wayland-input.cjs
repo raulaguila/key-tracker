@@ -117,7 +117,7 @@ class WaylandInput extends EventEmitter {
       const age = this.now() - event.monotonicMs;
       if (!Number.isFinite(event.monotonicMs) || !Number.isFinite(age) || Math.abs(age) > 1000) { this.fail('delayed'); return; }
       const code = keyboardCode(event.code); if (!code) return;
-      this.emit('key', { code, key: code, direction: event.down ? 'down' : 'up', ctrlKey: Boolean(event.modifiers & 1), altKey: Boolean(event.modifiers & 2), shiftKey: Boolean(event.modifiers & 4), metaKey: Boolean(event.modifiers & 8), source: 'global' });
+      this.emit('key', { code, key: code, direction: event.down ? 'down' : 'up', ctrlKey: Boolean(event.modifiers & 1), altKey: Boolean(event.modifiers & 2), shiftKey: Boolean(event.modifiers & 4), metaKey: Boolean(event.modifiers & 8), source: 'global', monotonicMs: event.monotonicMs });
     } else if (event.type === 'key' && this.connected && !this.selectionReady) {
       return;
     } else if (['error', 'ended'].includes(event.type)) {

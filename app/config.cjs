@@ -101,6 +101,27 @@ function validateActionBase(action, platform, nested) {
     case 'open': return { type: 'open', kind: action.kind, target: nested && resultReferences(action.target).length ? text(action.target, 'Destino', 4000) : validateOpenTarget(action.kind, action.target, platform) };
     case 'notification': return { type: 'notification', title: text(action.title, 'Título da notificação', 120), message: text(action.message ?? '', 'Mensagem da notificação', 4000, true) };
     case 'layer': return { type: 'layer', layerId: text(action.layerId, 'Camada de destino', 100) };
+    case 'macro': {
+      const integer = (value, label, min = 0, max = 60000) => {
+        if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} deve ser um inteiro entre ${min} e ${max}.`);
+        return value;
+      };
+      if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 200) throw new Error('Configure entre 1 e 200 etapas no fluxo de cliques e teclas.');
+      return { type: 'macro', startDelayMs: integer(action.startDelayMs ?? 3000, 'Tempo para escolher o aplicativo'), steps: action.steps.map(step => {
+        if (!step || typeof step !== 'object' || Array.isArray(step)) throw new Error('Etapa do fluxo inválida.');
+        const timing = step.delayBeforeMs === undefined ? {} : { delayBeforeMs: integer(step.delayBeforeMs, 'Espera antes da etapa') };
+        switch (step.kind) {
+          case 'click': {
+            if (!['left', 'right', 'middle'].includes(step.button) || ![1, 2].includes(step.clicks)) throw new Error('Escolha um botão do mouse e um ou dois cliques.');
+            return { kind: 'click', x: integer(step.x, 'Posição X', -100000, 100000), y: integer(step.y, 'Posição Y', -100000, 100000), button: step.button, clicks: step.clicks, ...timing };
+          }
+          case 'text': return { kind: 'text', text: text(step.text, 'Texto da etapa', 64000), ...timing };
+          case 'key': return { kind: 'key', key: normalizeShortcut(step.key), ...timing };
+          case 'wait': return { kind: 'wait', ms: integer(step.ms, 'Espera') };
+          default: throw new Error('Use clique, texto, tecla ou espera nas etapas do fluxo.');
+        }
+      }) };
+    }
     case 'sequence': {
       if (nested) throw new Error('Sequências não podem conter outras sequências.');
       if (!Array.isArray(action.steps) || !action.steps.length || action.steps.length > 10) throw new Error('Configure entre 1 e 10 etapas na sequência.');

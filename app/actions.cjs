@@ -22,6 +22,7 @@ function prepareActionBase(action, context, { documents, layers = [], platform =
     case 'open': return { type: 'open', kind: action.kind, target: validateOpenTarget(action.kind, interpolate(action.target, vars), platform) };
     case 'notification': return { type: 'notification', title: interpolate(action.title, vars), message: interpolate(action.message, vars) };
     case 'layer': return { type: 'layer', layerId: action.layerId, layerName: layers.find(layer => layer.id === action.layerId)?.name ?? action.layerId };
+    case 'macro': return validateAction({ ...action, steps: action.steps.map(step => step.kind === 'text' ? { ...step, text: interpolate(step.text, vars) } : { ...step }) }, platform, true);
     case 'sequence': return { type: 'sequence', stepDelayMs: action.stepDelayMs ?? 0, steps: action.steps.map(step => prepareAction(step, context, { documents, layers, platform }, now)) };
     case 'file': {
       const directory = action.directory || path.join(documents, 'Dobra');
@@ -103,6 +104,19 @@ function actionErrorMessage(type, error, httpStatus) {
   if (type === 'clipboard') return 'Não foi possível copiar o texto.';
   if (type === 'open') return 'Não foi possível abrir o destino.';
   if (type === 'layer') return 'A camada de destino não está mais disponível.';
+  if (type === 'macro') {
+    const messages = {
+      MACRO_BUSY: 'Já existe uma gravação ou reprodução de entrada em andamento.',
+      MACRO_PERMISSION: 'Autorize o controle de mouse e teclado no editor e tente novamente. Seu fluxo foi preservado.',
+      MACRO_UNAVAILABLE: 'O controle de mouse e teclado não está disponível neste ambiente. Confira as permissões no editor.',
+      MACRO_FOCUSED: 'Selecione outro aplicativo durante a espera inicial para executar o fluxo.',
+      MACRO_KEYS_HELD: 'Solte as teclas antes de executar o fluxo.',
+      MACRO_COORDINATES: 'A posição do clique não está disponível nas telas atuais. Revise as coordenadas.',
+      MACRO_STOPPED: 'O fluxo foi interrompido. Efeitos já concluídos foram preservados.',
+      MACRO_STOP_CONFLICT: 'Libere uma combinação Ctrl+Shift+F1–F24 ou Ctrl+Alt+Shift+F1–F24 para interromper o fluxo.'
+    };
+    return messages[error.code] || 'Não foi possível executar o fluxo de mouse e teclado. Confira as permissões e o aplicativo de destino.';
+  }
   if (['EACCES', 'EPERM'].includes(error.code)) return 'Sem permissão para acessar o arquivo.';
   if (error.message === 'Escolha um destino diferente dos arquivos internos do aplicativo.') return error.message;
   // Native I/O errors can include paths or user content; only known messages survive.
@@ -122,7 +136,7 @@ async function validateFileTargets(prepared, storage) {
 }
 
 async function executeAction(action, context, options = {}) {
-  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, onResult, desktopActions = {}, setLayer, now = Date.now, onStep, onProgress, signal } = options;
+  const { documents, storage, fetchImpl = fetch, preparedAction, onHttpStatus, onResult, desktopActions = {}, macroService, setLayer, now = Date.now, onStep, onProgress, signal } = options;
   checkCancellation(signal);
   const prepared = preparedAction ?? prepareAction(action, context, options);
   switch (prepared.type) {
@@ -145,6 +159,12 @@ async function executeAction(action, context, options = {}) {
       if (typeof setLayer !== 'function') throw new Error('Camada de destino indisponível.');
       await setLayer(prepared.layerId);
       return 'Camada selecionada.';
+    }
+    case 'macro': {
+      if (typeof macroService?.run !== 'function') throw Object.assign(new Error('Controle de entrada indisponível.'), { code: 'MACRO_UNAVAILABLE' });
+      await macroService.run(prepared, { signal, onStep, onProgress });
+      checkCancellation(signal);
+      return `Fluxo concluído: ${prepared.steps.length} ${prepared.steps.length === 1 ? 'etapa' : 'etapas'}.`;
     }
     case 'sequence': {
       const results = Object.create(null);
@@ -182,9 +202,9 @@ async function executeAction(action, context, options = {}) {
           onStep?.(details('success', message));
           lastCompleted = index + 1;
         } catch (error) {
-          if (signal?.aborted) {
+          if (signal?.aborted || error.code === 'EXECUTION_CANCELLED') {
             onStep?.(details('cancelled', 'Execução cancelada.'));
-            checkCancellation(signal);
+            throw Object.assign(new Error('Execução cancelada.'), { code: 'EXECUTION_CANCELLED' });
           }
           if (Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
           const message = actionErrorMessage(step.type, error, httpStatus);

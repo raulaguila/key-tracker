@@ -36,6 +36,9 @@ jobs:
       - name: Verify Wayland service on a private bus
         if: runner.os == 'Linux'
         run: npm run test:wayland
+      - name: Verify Wayland macro portal contract on a private bus
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- /usr/bin/python3 -I -B scripts/wayland-macro-portal-smoke.py
       - name: Verify lifecycle on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:lifecycle
@@ -61,6 +64,11 @@ jobs:
       - name: Verify native key moments in isolated X11
         if: runner.os == 'Linux'
         run: npm run test:input
+        env:
+          DOBRA_UI_NO_SANDBOX: '1'
+      - name: Verify macro editor and native replay/recording in isolated X11
+        if: runner.os == 'Linux'
+        run: npm run test:macros
         env:
           DOBRA_UI_NO_SANDBOX: '1'
       - name: Build native installer

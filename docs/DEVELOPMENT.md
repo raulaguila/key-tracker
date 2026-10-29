@@ -44,6 +44,7 @@ isolados e não devem ser apontados para um perfil pessoal.
 | `npm run test:orca` | Orca real, anúncios e árvore AT-SPI; navegação, erros e diálogos nos dois temas, em sessão isolada |
 | `npm run test:lifecycle` | Electron real: cofre pendente, fechar durante carga, gravação/HTTP na saída, ocultação e reabertura; Xvfb no Linux |
 | `npm run test:input` | Teclas sintéticas XTest no Electron/Linux X11 |
+| `npm run test:macros` | Cria Xvfb isolado; editor, gravação e reprodução real em outro aplicativo, claro/escuro e axe |
 | `npm run pack` | Empacota para o sistema atual sem gerar instalador |
 | `node scripts/platform-audit.cjs` | Sonda de integração nativa no source |
 
@@ -52,6 +53,12 @@ depende de `xdotool` e X11; no CI Linux, ambos rodam via Xvfb. Consulte os coman
 e bibliotecas exatos em [desktop.yml](../.github/workflows/desktop.yml).
 A opção `--packaged` da auditoria é usada pelo CI em usuário descartável, pois o
 executável empacotado usa o perfil real da conta, não `DOBRA_DATA_DIR`.
+
+O contrato do portal de reprodução Wayland também tem prova GIO/D-Bus isolada:
+`dbus-run-session -- /usr/bin/python3 -I -B scripts/wayland-macro-portal-smoke.py`.
+Ela não injeta entrada num compositor real. Win/mac compilam os sidecars de
+ponteiro em `npm run native:build`/`beforePack`; o self-test de build não concede
+permissões nem certifica efeitos em aplicativos instalados.
 
 Para observar estabilidade por mais tempo:
 

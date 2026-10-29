@@ -1,8 +1,8 @@
 const path = require('node:path');
 
 class Tracker {
-  constructor({ engine, fork, accessibility = () => true, startupMs = 5000, wayland, nativeInput }) {
-    Object.assign(this, { engine, fork, accessibility, startupMs, wayland, nativeInput });
+  constructor({ engine, fork, accessibility = () => true, startupMs = 5000, wayland, nativeInput, now = () => Number(process.hrtime.bigint()) / 1e6 }) {
+    Object.assign(this, { engine, fork, accessibility, startupMs, wayland, nativeInput, now });
     this.linuxRequested = engine.session === 'wayland';
     this.lastDeviceId = engine.config.settings.inputDeviceId || '';
     this.worker = null;
@@ -20,7 +20,13 @@ class Tracker {
     const integration = nativeInput || wayland;
     if (integration) {
       this.onLinuxState = () => this.configure();
-      this.onLinuxKey = event => { if (this.disposed) return; engine.handleInput?.(event); if (this.visualEnabled) engine.emit('key', event); };
+      this.onLinuxKey = event => {
+        if (this.disposed) return;
+        // Native device streams carry the OS capture time. An event queued
+        // during a flow remains stale even when the pipe delivers it later.
+        if (this.inputCutoff !== undefined && (!Number.isFinite(event?.monotonicMs) || event.monotonicMs <= this.inputCutoff)) return;
+        engine.handleInput?.(event); if (this.visualEnabled) engine.emit('key', event);
+      };
       this.onLinuxReset = pressed => { engine.synchronizeInput?.(pressed); if (this.visualEnabled) engine.emit('key', { reset: true, pressed }); };
       this.onLinuxInterrupted = () => { engine.resetInput?.(); engine.synchronizeInput?.([]); if (engine.enabled) engine.setEnabled(false); };
       integration.on('state', this.onLinuxState); integration.on('key', this.onLinuxKey);
@@ -57,6 +63,26 @@ class Tracker {
   }
 
   integration() { return this.nativeInput || (this.wayland && this.linuxRequested ? this.wayland : undefined); }
+
+  quarantineInput() {
+    if (this.disposed) return;
+    this.inputCutoff = this.now();
+    const integration = this.integration();
+    // A fresh libuiohook process can first see autorepeat for a key that was
+    // already held. Preserve observed holds as blocked until a real keyup;
+    // synchronizing this baseline never creates an active release gesture.
+    const held = integration ? [] : [...(this.engine.shortcutsAPI?.down || this.engine.gestures?.down || [])];
+    // Reset is synchronization, not a fabricated keyup/release action.
+    this.engine.resetInput?.(); this.engine.synchronizeInput?.(held);
+    if (this.visualEnabled) this.engine.emit('key', { reset: true, pressed: [] });
+    if (!integration) {
+      // libuiohook does not provide a trustworthy capture clock here. Replace
+      // the utility process: its identity guard rejects every queued message
+      // from the retired generation, however late the message arrives.
+      this.stopWorker();
+      this.configure();
+    }
+  }
 
   suspend() {
     this.engine.resetInput?.();

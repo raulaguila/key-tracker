@@ -843,3 +843,55 @@ body:has(.productivity-dialog[open]) { overflow: hidden; }
 .linux-install-help { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
 .linux-install-help > p, .linux-install-help > .button-row { margin-top: 8px; }
 .linux-install-help .button { white-space: normal; text-align: left; }
+
+.macro-editor { min-width: 0; }
+/* Long flows scroll between the editor heading and save bar. Neither bar
+   overlays partly visible step controls at the edge of the viewport. */
+.editor-drawer:has(.macro-editor) { overflow: clip; scroll-padding: 0; }
+.editor-drawer:has(.macro-editor) > .editor { height: 100%; min-height: 0; overflow: clip; }
+.editor-drawer:has(.macro-editor) > .editor > .editor-heading { position: relative; flex: 0 0 auto; }
+.editor-drawer:has(.macro-editor) > .editor > .form-errors { flex: 0 0 auto; max-height: 25dvh; overflow-y: auto; }
+.editor-drawer:has(.macro-editor) > .editor > .form-fields { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; }
+.editor-drawer:has(.macro-editor) > .editor > .form-footer { position: static; flex: 0 0 auto; margin: 0; }
+.macro-runtime { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.macro-runtime > p { min-width: 0; overflow-wrap: anywhere; }
+.macro-runtime > .button { min-height: 44px; flex-shrink: 0; white-space: normal; }
+@media (max-width: 580px) { .macro-runtime { align-items: stretch; flex-direction: column; } }
+.macro-recording-controls { padding-block: 0 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.macro-recording-controls h3, .macro-recording-review h3 { font-size: 13px; margin-bottom: 6px; }
+.macro-recording-controls > .button-row { margin-top: 12px; }
+.macro-editor .button { white-space: normal; overflow-wrap: anywhere; }
+.macro-recording-controls .button { min-height: 44px; }
+.macro-native-status { margin-top: 10px; font-size: 12px; line-height: 1.55; color: var(--muted); overflow-wrap: anywhere; }
+.macro-native-status[data-status="recording"] { color: var(--primary); }
+.macro-native-status[data-status="error"], .macro-native-status[data-status="denied"] { color: var(--error); }
+.macro-recorded-count { margin-top: 4px; font-variant-numeric: tabular-nums; }
+.macro-recording-help { margin-top: 8px; }
+.macro-recording-review { padding-block: 14px; margin-bottom: 16px; border-block: 1px solid var(--primary); }
+.macro-recording-review > p { font-size: 12px; line-height: 1.55; margin-bottom: 12px; }
+.macro-editor > .context-note { margin: 0 0 16px; }
+.macro-empty { padding: 12px 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.macro-steps { margin-bottom: 12px; }
+.macro-step { border-block: 1px solid var(--line); margin-top: -1px; }
+.macro-step > summary { min-height: 44px; display: list-item; padding: 10px 0; }
+.macro-step-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
+.macro-step-toolbar > .hint { font-size: 11px; }
+.macro-step-toolbar .button { min-width: 44px; min-height: 44px; }
+.macro-coordinate-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.macro-step-fields > div > .hint { margin-bottom: 12px; }
+.macro-step-delay { margin-bottom: 12px; }
+.macro-step-delay > summary { min-height: 44px; padding-block: max(8px, calc((44px - 1lh) / 2)); font-size: 12px; }
+.macro-add-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.macro-add-row > .field { flex: 1 1 160px; margin: 0; }
+.macro-add-row > .button { min-height: 32px; }
+.macro-add-row > .sequence-count { width: 100%; }
+@media (max-width: 380px) { .macro-coordinate-fields { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+@media (pointer: coarse) {
+  .macro-editor .button, .macro-editor .field input, .macro-editor .field select { min-height: 44px; }
+  .macro-add-row > .button { min-height: 44px; }
+}
+@media (max-height: 360px) {
+  .editor-drawer:has(.macro-editor) { overflow-y: auto; }
+  .editor-drawer:has(.macro-editor) > .editor { height: auto; min-height: 100%; overflow: visible; }
+  .editor-drawer:has(.macro-editor) > .editor > .form-fields { flex: 0 0 auto; overflow: visible; }
+}

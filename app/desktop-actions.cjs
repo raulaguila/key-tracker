@@ -167,7 +167,7 @@ function historySnapshot(events) {
   ]);
   return events.slice(0, 100).map(event => ({
     ...pick(event, strings, numbers),
-    ...(Array.isArray(event.steps) ? { steps: event.steps.slice(0, 10).map(step => pick(step, ['type', 'status', 'message'], ['index', 'durationMs', 'httpStatus'])) } : {})
+    ...(Array.isArray(event.steps) ? { steps: event.steps.slice(0, 200).map(step => pick(step, ['type', 'status', 'message'], ['index', 'durationMs', 'httpStatus'])) } : {})
   }));
 }
 

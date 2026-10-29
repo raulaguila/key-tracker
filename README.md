@@ -37,6 +37,8 @@ real fazem parte do [processo de distribuição](docs/PRODUCTION.md).
   requisições HTTP e criar ou acrescentar conteúdo em arquivos.
 - Executar sequências com até dez etapas, esperas individuais, condições e dados
   de respostas HTTP entre etapas.
+- Criar [fluxos de cliques e teclas](docs/MACROS.md), gravando em ambientes
+  compatíveis ou editando posições, textos, combinações e esperas diretamente.
 - Manter uma tecla para usar uma camada temporária e consultar um painel rápido.
 - Começar por modelos locais, importar/mesclar camadas com prévia e desfazer alterações.
 - Localizar ações com Ctrl/Cmd+K e selecionar o teclado físico em backends compatíveis.
@@ -118,8 +120,9 @@ logind/Polkit. [Instalação e limites](docs/WAYLAND.md).
 
 ## Dados e privacidade
 
-O Dobra não grava as teclas rastreadas, não reconstrói texto digitado e não envia
-telemetria. Ações HTTP acessam os destinos configurados; abrir uma URL a encaminha
+O rastreio visual não grava teclas nem reconstrói texto digitado. A gravação de
+fluxos é separada e explícita: cliques e combinações ficam no rascunho até você
+salvar a ação. Não há telemetria. Ações HTTP acessam os destinos configurados; abrir uma URL a encaminha
 ao navegador/sistema. Configurações com headers HTTP usam o cofre seguro do sistema;
 configurações sem headers podem ficar em JSON legível. A exportação portátil
 remove todos os headers HTTP, inclusive nas sequências.

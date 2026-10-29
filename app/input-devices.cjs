@@ -159,7 +159,7 @@ class NativeInput extends EventEmitter {
     const aggregate = new Set([...this.held.values()].flatMap(value=>[...value]));
     if (!event.down && aggregate.has(code)) return;
     if (event.down && [...this.held].some(([id,value])=>id!==device.id && value.has(code))) return;
-    this.emit('key',{code,key:code,direction:event.down?'down':'up',...flags(aggregate),source:'global'});
+    this.emit('key',{code,key:code,direction:event.down?'down':'up',...flags(aggregate),source:'global',monotonicMs:event.monotonicMs});
   }
   fail() { this.failure = true; this.emit('interrupted'); this.reset(); this.retire(); this.devices=[]; this.rawDevices.clear(); this.publish('unavailable'); }
   retire() {

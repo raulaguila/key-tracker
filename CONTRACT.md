@@ -71,9 +71,56 @@ legadas de pressionar. [Semântica de gestos](docs/KEY_MOMENTS.md).
 
 ### Ações
 
+#### Fluxo de mouse e teclado
+
+O tipo `macro` é configurável manualmente ou a partir
+de gravação explícita. O fluxo tem `startDelayMs` inteiro de 0 a 60.000 (padrão
+3.000) e `steps` de 1 a 200 itens. Cada item é um destes formatos:
+
+- `{ kind: "click", x, y, button: "left"|"right"|"middle", clicks: 1|2, delayBeforeMs }`;
+- `{ kind: "text", text, delayBeforeMs }`, até 64.000 caracteres;
+- `{ kind: "key", key, delayBeforeMs }`, acelerador normalizado pelo mesmo validador dos atalhos;
+- `{ kind: "wait", ms }`, inteiro de 0 a 60.000.
+
+Coordenadas são inteiras entre -100.000 e 100.000; `delayBeforeMs` é opcional,
+inteiro 0–60.000. O limite global do JSON continua valendo. O mesmo fluxo pode ser
+uma etapa da sequência existente, sem permitir fluxos dentro de fluxos. Prévia
+é pura, mostra as etapas e não move o ponteiro, digita ou inicia gravação.
+Resultados e histórico não incluem textos/teclas gravados. Cancelar interrompe
+as próximas operações e libera recursos de entrada; efeitos já realizados não
+são desfeitos. Há no máximo uma reprodução/gravação de entrada por vez.
+
+O owner nativo `MacroService` fornece `state()`, `authorize()`, `startRecording()`,
+`stopRecording({ cancel })`, `run(action, { signal, onProgress, onStep })` e `dispose()`.
+Sua construção recebe `{ platform, session, clipboard, screen, getWindow,
+isAppFocused, onChange, getReservedShortcuts }`. O último callback fornece os
+controles/bindings atuais para escolher uma parada sem conflito. `state()` é
+`{ status, message, recording, playing, count, stopShortcut, capabilities:
+{ playback, recording }, backend }`. `stopRecording` devolve
+`{ steps, reason }`, nunca salva a configuração. A gravação é limitada a cinco
+minutos/200 etapas e não persiste antes de salvar o editor. Um atalho temporário
+de parada e o botão da interface encerram a gravação e restauram a janela.
+
+IPC autorizado do main: `get-macro-state`, `authorize-macros`,
+`start-macro-recording`, `stop-macro-recording`; preload expõe
+`getMacroState()`, `authorizeMacros()`, `startMacroRecording()`,
+`stopMacroRecording(options)` e `onMacroState(callback)` no canal
+`dobra:macro-state`. Não se aceitam comandos de SO arbitrários pelo renderer.
+A autorização/gravação preserva o rascunho. Recursos indisponíveis, autorização
+negada ou revogada e limitação do compositor são apresentados como estados reais,
+sem simular sucesso nem descartar o fluxo editado.
+
+O driver nativo recebe comandos estruturados e validados. Windows/macOS/X11
+usam integrações próprias. Wayland usa autorização de desktop/captura do sistema;
+não se promete suporte quando o compositor não fornece as capacidades necessárias.
+Testes podem substituir o driver para verificar contrato/erro/cancelamento, mas
+a prova funcional de clique/texto/teclas deve usar outro aplicativo real em X11.
+Validação nativa de Windows/macOS/Wayland é registrada separadamente.
+
 | `type` | Campos |
 | --- | --- |
 | `clipboard` | `text` |
+| `macro` | `startDelayMs`, `steps`: 1–200 etapas de clique/texto/tecla/espera |
 | `open` | `kind`: `url`, `path` ou `application`; `target` |
 | `notification` | `title`, `message` |
 | `layer` | `layerId` de uma camada existente |
@@ -82,7 +129,7 @@ legadas de pressionar. [Semântica de gestos](docs/KEY_MOMENTS.md).
 | `file` | `directory`, `filename`, `content`, `mode`: `create` ou `append` |
 | `log` | `message`; compatibilidade com arquivos existentes/importados |
 
-A UI oferece os sete primeiros tipos. `log` não é opção de criação/substituição
+A UI oferece os oito primeiros tipos. `log` não é opção de criação/substituição
 nem de nova etapa. O editor mantém uma ação legada sem editar sua mensagem e
 permite substituí-la por um tipo atual. Não confundir esse tipo com o histórico
 automático de execuções.
@@ -128,6 +175,9 @@ Não há Node, `ipcRenderer` arbitrário ou acesso genérico a arquivos no rende
 | `exportHistory()`, `exportDiagnostics()` | Diálogo de salvar; sem envio automático |
 | `openDataDirectory()` | Abre a pasta de dados pelo sistema |
 | `openInputSettings()` | macOS: abre Ajustes do Sistema em destino fixo; sem argumentos ou concessão de permissão |
+| `getMacroState()`, `authorizeMacros()` | Capacidades reais de mouse/teclado; autorização explícita pelo sistema |
+| `startMacroRecording()`, `stopMacroRecording({ cancel? })` | Gravação limitada, somente no editor; parada devolve rascunho, sem salvar |
+| `onMacroState(callback)` | Atualizações de gravação/reprodução/permissões; devolve unsubscribe |
 | `showWindow()`, `confirmClose()`, `cancelClose()` | Controle explícito do ciclo de vida |
 | `onState(callback)`, `onKey(callback)`, `onCloseRequested(callback)` | Retornam função de unsubscribe |
 

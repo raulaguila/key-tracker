@@ -19,11 +19,17 @@ sem escrever scripts ou editar JSON. A interface é em português.
 
 - Criar, editar, duplicar e remover camadas/ações pela tabela ou teclado visual.
 - Alternar camadas manualmente, por atalho, por ação ou por aplicativo associado.
-- Oferecer clipboard, abertura de destino, notificação, troca de camada,
+- Oferecer clipboard, fluxo de cliques e teclas, abertura de destino, notificação, troca de camada,
   sequência, HTTP e arquivo; manter leitura de log legado sem oferecê-lo no editor.
 - Configurar pressionar, manter e soltar, com delays explícitos e limites de repetição.
 - Apresentar prévia sem efeitos antes do teste manual, que é uma execução real.
 - Executar sequências ordenadas, com até dez etapas, interrompendo na primeira falha.
+- Gravar cliques e combinações de teclas explicitamente em ambientes compatíveis;
+  revisar, editar e adicionar clique, texto, tecla e espera num fluxo de até 200 etapas.
+  Autorizar/rever permissões sem perder o rascunho. Texto usa colagem pelo sistema.
+- Executar fluxos com espera inicial para selecionar outro aplicativo, cancelamento
+  e bloqueio de disparos recursivos pelas teclas produzidas. Capacidade de Wayland
+  depende do portal do compositor; gravação global não é prometida nesse ambiente.
 - Mostrar resultados/erros, progresso e cancelamento no Histórico, sem ocultar falhas.
 - Mostrar a janela durante a preparação, com ações indisponíveis; permitir sair sem ativar serviços tardiamente.
 - Iniciar pausado, suspender ações durante edição e manter um controle de pausa disponível.
@@ -63,6 +69,6 @@ Configurações de terceiros precisam ser revisadas antes de ativar.
 
 ## Fora do escopo atual
 
-Execução de shell, injeção de texto/macros, drivers de teclado, conta, sincronização
+Execução de shell, drivers de teclado do kernel, conta, sincronização
 em nuvem, telemetria e atualização automática. Não há promessa de suporte global
 integral em todo compositor, layout, IME ou hardware. [Limitações por SO](docs/INSTALLATION.md).

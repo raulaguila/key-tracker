@@ -31,7 +31,7 @@ async function main() {
   await new Promise(resolve => listener.close(resolve));
   const electron = spawn(require('electron'), [root, '--inspect=127.0.0.1:0', '--ozone-platform=x11', '--disable-gpu', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=' + port, ...(process.env.DOBRA_UI_SCREEN_READER_ONLY === '1' ? ['--force-renderer-accessibility'] : []), ...(process.env.DOBRA_UI_BASIC_STORE === '1' ? ['--password-store=basic'] : []), ...(process.env.DOBRA_UI_NO_SANDBOX === '1' ? ['--no-sandbox'] : [])], {
     cwd: root,
-    env: { ...process.env, DOBRA_DATA_DIR: data, XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'qa-wayland' },
+    env: { ...process.env, DOBRA_DATA_DIR: data, XDG_SESSION_TYPE: process.env.DOBRA_UI_MACRO_ONLY === '1' ? 'x11' : 'wayland', WAYLAND_DISPLAY: process.env.DOBRA_UI_MACRO_ONLY === '1' ? '' : 'qa-wayland' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';
@@ -147,6 +147,13 @@ async function main() {
     await cdp('Page.enable');
     await until('Boolean(document.querySelector("[data-focus=\\"new-layer\\"]"))', 'Initial UI');
     const initial = await nativeState();
+    if (process.env.DOBRA_UI_MACRO_ONLY === '1') {
+      const helpers = { cdp, evaluate, click, fill, select, press, until, nativeState, nativeEvaluate, save, shot };
+      await require('./macro-editor-ui.cjs')(helpers);
+      await require('./macro-native-ui.cjs')(helpers);
+      assert.deepEqual(exceptions, [], 'No renderer exceptions during macro editor/native proof');
+      return;
+    }
     if (process.env.DOBRA_UI_SCREEN_READER_ONLY === '1') {
       await require('./screen-reader-ui.cjs')({ cdp, evaluate, click, fill, press, until, nativeState, nativeEvaluate });
       assert.deepEqual(exceptions, [], 'No renderer exceptions with Orca');

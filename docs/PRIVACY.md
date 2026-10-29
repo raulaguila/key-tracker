@@ -38,6 +38,23 @@ soltar/pressionar uma vez quando outro teclado mantinha a mesma tecla.
 A detecção opcional de aplicativo em foco usa nome/caminho/bundle do processo.
 Não coleta títulos de janelas, URLs ou histórico de programas utilizados.
 
+### Gravação explícita de fluxos
+
+**Gravar cliques e teclas** é uma função separada do Rastreio. Enquanto você grava,
+o Dobra coleta posições/botões de cliques e combinações de teclas nos aplicativos
+utilizados. Não identifica campos de senha: evite incluir conteúdo sensível.
+A gravação termina por comando de parada, limite de 200 etapas ou cinco minutos.
+As etapas ficam na memória até você revisá-las e salvar a ação; cancelar descarta
+a gravação. Permissões e falhas preservam as etapas já editadas no formulário.
+
+Reproduzir um fluxo gera entrada no aplicativo selecionado. Uma etapa de texto
+usa a área de transferência e colagem; seu conteúdo substitui o clipboard atual.
+Textos e combinações gravados são parte da configuração salva e da exportação
+portátil, com a mesma proteção dos outros conteúdos de ações. Não são copiados
+para resultados, diagnóstico ou histórico automático. O serviço opcional de
+teclado do Wayland permanece passivo; reprodução usa outra autorização, pelo
+portal de desktop. [Capacidades e limites](MACROS.md).
+
 ## Arquivos locais
 
 Em Configurações, use a opção de abrir a pasta de dados para localizar os arquivos.

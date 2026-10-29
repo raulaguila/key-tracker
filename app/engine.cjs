@@ -16,7 +16,7 @@ function freezeTree(value) {
 const triggerDetails = binding => ({ trigger: binding.trigger || 'press', ...(binding.keyCode ? { keyCode: binding.keyCode } : {}), ...(binding.trigger === 'hold' ? { repeatMs: binding.repeatMs ?? 400, holdDelayMs: binding.holdDelayMs ?? binding.repeatMs ?? 400 } : {}) });
 
 class Engine extends EventEmitter {
-  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, now = Date.now, isAppFocused = () => true }) {
+  constructor({ config, shortcuts, storage, documents, platform = process.platform, session = 'native', execute = executeAction, desktopActions = {}, macroService, now = Date.now, isAppFocused = () => true }) {
     super();
     this.config = validateConfig(config, platform);
     this.serializedConfig = JSON.stringify(this.config);
@@ -30,6 +30,7 @@ class Engine extends EventEmitter {
     this.session = session;
     this.execute = execute;
     this.desktopActions = desktopActions;
+    this.macroService = macroService;
     this.now = now;
     this.isAppFocused = isAppFocused;
     this.activeLayerId = this.config.layers[0].id;
@@ -62,12 +63,17 @@ class Engine extends EventEmitter {
     this.inputGroupCache = new Map();
     this.gestures = new KeyGestures({
       findGroup: event => this.inputGroups().find(group => group.keyCode === event.code && matchesModifiers(event, group.modifiers)),
-      isActive: group => this.enabled && !this.editing && this.input.mode === 'global' && this.activeLayerId === group.layerId && this.registrations.has(group.effective),
+      isActive: group => this.enabled && !this.editing && !this.inputSessionActive() && this.input.mode === 'global' && this.activeLayerId === group.layerId && this.registrations.has(group.effective),
       run: (group, binding) => this.runInputBinding(group, binding)
     });
   }
 
   get activeLayer() { return this.config.layers.find(layer => layer.id === this.activeLayerId); }
+
+  inputSessionActive() {
+    const state = this.macroService?.state();
+    return Boolean(state?.recording || state?.playing);
+  }
 
   state({ sharedConfig = false } = {}) {
     const snapshot = structuredClone({ stopping: this.stopping, configHistory: { canUndo: this.undoStack.length > 0, canRedo: this.redoStack.length > 0 }, configRevision: this.configRevision, stateRevision: this.stateRevision, activeLayerId: this.activeLayerId, enabled: this.enabled, editing: this.editing, platform: this.platform, session: this.session, paths: { data: this.storage.directory, documents: this.documents, log: this.storage.logPath }, shortcuts: { panelShortcut: this.panelShortcut, registered: [...this.registrations.values()], failed: this.failed }, tracking: this.tracking, input: this.input, inputDevices: this.inputDevices, linuxInput: this.linuxInput, application: this.application, desktop: this.desktop, storage: this.storage.status?.() ?? { encryptionAvailable: false, protection: 'unavailable', backupAvailable: false, message: 'Proteção indisponível.' }, running: [...this.executions.values()].map(entry => entry.state), events: this.events });
@@ -176,6 +182,13 @@ class Engine extends EventEmitter {
   async saveConfig(config, { history = 'edit' } = {}) {
     const valid = validateConfig(config, this.platform);
     const serialized = JSON.stringify(valid);
+    if (this.inputSessionActive() || this.macroService?.state().status === 'authorizing') {
+      const stopping = this.stopping;
+      this.stopping = true;
+      this.cancelAllExecutions();
+      try { await this.macroService.suspend(); await this.whenIdle(); }
+      finally { this.stopping = stopping; if (!this.disposed) this.publish(); }
+    }
     await this.storage.save(valid);
     if (serialized !== this.serializedConfig) {
       if (history === 'undo') { this.undoStack.pop(); this.redoStack.push(structuredClone(this.config)); }
@@ -266,6 +279,15 @@ class Engine extends EventEmitter {
 
   handleShortcut(effective) {
     const settings = this.config.settings;
+    if (this.inputSessionActive()) {
+      // Synthesized keys must never launch another action, layer or panel.
+      // Keep the existing emergency pause able to stop native input as well.
+      if (effective === effectiveShortcut(settings.pauseShortcut, this.platform)) {
+        this.requestStop();
+        void this.macroService.suspend();
+      }
+      return;
+    }
     if (this.panelShortcut && effective === effectiveShortcut(this.panelShortcut, this.platform)) {
       if (!this.disposed && !this.stopping && this.input.mode === 'global' && (this.armed || this.panelArmed)) this.emit('quick-panel');
       return;
@@ -345,6 +367,10 @@ class Engine extends EventEmitter {
     const settings = this.config.settings;
     const momentary = shortcut && settings.momentaryShortcut && effectiveShortcut(settings.momentaryShortcut, this.platform) === shortcut.effective;
     const control = shortcut && [settings.pauseShortcut, settings.layerShortcut, this.panelShortcut, settings.momentaryShortcut].filter(Boolean).some(key => effectiveShortcut(key, this.platform) === shortcut.effective);
+    if (this.inputSessionActive()) {
+      if (shortcut && effectiveShortcut(settings.pauseShortcut, this.platform) === shortcut.effective) shortcut.callback();
+      return;
+    }
     // Controls take priority even over a conflicting imported physical position.
     // Resolve the shortcut before a gesture can change layers on this same event.
     if (momentary) {
@@ -377,7 +403,7 @@ class Engine extends EventEmitter {
   }
 
   async runInputBinding(group, binding) {
-    if (!this.enabled || this.editing || this.input.mode !== 'global' || group.layerId !== this.activeLayerId || !this.registrations.has(group.effective)) return;
+    if (!this.enabled || this.editing || this.inputSessionActive() || this.input.mode !== 'global' || group.layerId !== this.activeLayerId || !this.registrations.has(group.effective)) return;
     const trigger = binding.trigger || 'press';
     if (trigger === 'hold' && (this.inFlight.has(binding.id) || this.inFlight.size >= 4)) return;
     if (trigger !== 'hold') {
@@ -418,8 +444,11 @@ class Engine extends EventEmitter {
   async runBinding(layerId, bindingId, previewId, { origin = 'manual' } = {}) {
     if (this.disposed) throw new Error('O aplicativo está encerrando.');
     if (this.stopping) throw new Error('Aguarde a parada das execuções.');
+    if (this.inputSessionActive()) throw new Error('Aguarde ou encerre a gravação/reprodução de mouse e teclado.');
     const { layer, binding } = this.findBinding(layerId, bindingId);
     if (this.inFlight.has(binding.id)) throw new Error('Esta ação ainda está em execução.');
+    const inputFlow = binding.action.type === 'macro' || binding.action.type === 'sequence' && binding.action.steps.some(step => step.type === 'macro');
+    if (inputFlow && this.inFlight.size || [...this.executions.values()].some(execution => execution.inputFlow)) throw new Error('Aguarde o fluxo de mouse e teclado ou as outras execuções terminarem.');
     if (this.inFlight.size >= 4) throw new Error('Limite de quatro ações simultâneas atingido.');
     let prepared;
     if (previewId !== undefined) {
@@ -436,7 +465,7 @@ class Engine extends EventEmitter {
     if (origin === 'shortcut') { try { outsideApp = this.isAppFocused() === false; } catch { /* Unknown focus cannot prove an external shortcut. */ } }
     const provenance = { origin: origin === 'shortcut' ? 'shortcut' : 'manual', outsideApp, layerId, configRevision: this.configRevision };
     const controller = new AbortController();
-    const execution = { controller, state: { bindingId, layerId, name: binding.name, key: binding.key, startedAt: new Date(started).toISOString(), stepIndex: 1, stepCount: binding.action.type === 'sequence' ? binding.action.steps.length : 1, phase: 'running' } };
+    const execution = { controller, inputFlow, state: { bindingId, layerId, name: binding.name, key: binding.key, startedAt: new Date(started).toISOString(), stepIndex: 1, stepCount: ['sequence', 'macro'].includes(binding.action.type) ? binding.action.steps.length : 1, phase: 'running' } };
     execution.done = new Promise(resolve => { execution.resolveDone = resolve; });
     this.executions.set(binding.id, execution);
     const progress = next => {
@@ -447,11 +476,11 @@ class Engine extends EventEmitter {
     this.publish();
     let httpStatus;
     const steps = [];
-    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), ...provenance, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0, steps: structuredClone(steps) } : {}) });
+    const details = () => ({ kind: 'action', bindingId: binding.id, layer: layer.name, key: binding.key, ...triggerDetails(binding), ...provenance, durationMs: Math.max(0, this.now() - started), ...(httpStatus === undefined ? {} : { httpStatus }), ...(binding.action.type === 'sequence' ? { stepDelayMs: prepared?.stepDelayMs ?? binding.action.stepDelayMs ?? 0 } : {}), ...(['sequence', 'macro'].includes(binding.action.type) ? { steps: structuredClone(steps) } : {}) });
     try {
       prepared ??= prepareAction(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, layers: this.config.layers, platform: this.platform }, new Date(started));
       const message = await this.execute(binding.action, { key: binding.key, layer: layer.name }, { documents: this.documents, storage: this.storage, platform: this.platform,
-        desktopActions: this.desktopActions, setLayer: id => this.setLayer(id), now: this.now, preparedAction: prepared, signal: controller.signal, onProgress: progress,
+        desktopActions: this.desktopActions, macroService: this.macroService, setLayer: id => this.setLayer(id), now: this.now, preparedAction: prepared, signal: controller.signal, onProgress: progress,
         onStep: step => steps.push(step), onHttpStatus: value => { if (Number.isInteger(value) && value >= 100 && value <= 599) httpStatus = value; } });
       if (controller.signal.aborted) throw new Error('Execução cancelada.');
       execution.finished = true;
@@ -462,7 +491,7 @@ class Engine extends EventEmitter {
       // Keep request secrets and content out of the execution history.
       if (binding.action.type === 'http' && Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599) httpStatus = error.httpStatus;
       const failedStep = steps.find(step => step.status === 'error');
-      const cancelled = controller.signal.aborted;
+      const cancelled = controller.signal.aborted || error.code === 'EXECUTION_CANCELLED';
       execution.finished = true;
       const message = cancelled ? 'Execução cancelada. Efeitos já concluídos foram preservados.' : binding.action.type === 'sequence'
         ? failedStep ? `Sequência interrompida na etapa ${failedStep.index} de ${binding.action.steps.length}: ${failedStep.message}` : 'Não foi possível preparar ou executar a sequência.'

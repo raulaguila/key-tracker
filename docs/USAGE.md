@@ -25,6 +25,7 @@ uma combinação livre; duplicar uma camada não copia associações de aplicati
 | Tipo | Configuração e resultado |
 | --- | --- |
 | Copiar texto | Copia o texto para a área de transferência; não cola automaticamente |
+| Fluxo de cliques e teclas | Grava ou edita até 200 etapas de clique, texto, tecla e espera |
 | Abrir destino | Abre URL HTTP(S), arquivo/pasta ou aplicativo pelo sistema |
 | Notificação | Solicita uma notificação com título e mensagem ao sistema |
 | Trocar camada | Seleciona uma camada existente |
@@ -63,6 +64,19 @@ Não há sequências dentro de sequências. **Delay entre etapas** aceita de 0 a
 espera antes da primeira ou depois da última. A primeira falha interrompe o fluxo;
 efeitos anteriores não são desfeitos. O histórico informa a etapa e o resultado.
 
+### Fluxos de cliques e teclas
+
+Em **Nova ação**, escolha **Fluxo de cliques e teclas**. Use **Gravar cliques e
+teclas** em outro aplicativo ou **Adicionar etapa** para montar o fluxo. Ao parar,
+revise a gravação e escolha acrescentar ou substituir as etapas. A substituição
+exige confirmação quando há etapas no rascunho. Nada é salvo automaticamente.
+
+Defina a posição e o botão de cada clique, textos, combinações como `Control+A`
+e esperas. Texto é inserido por colagem e substitui a área de transferência.
+A espera inicial dá tempo para selecionar outro aplicativo. Salve e confira
+**Testar**; a prévia não controla o computador, **Executar teste** realiza o fluxo.
+As permissões e capacidades reais aparecem no editor. [Plataformas e detalhes](MACROS.md).
+
 ### Pressionar, manter e soltar
 
 Uma combinação pode ter uma ação por momento em cada camada. **Enquanto
@@ -86,6 +100,8 @@ uma configuração é salva. Se necessário, abra uma nova prévia para repetir.
 O Histórico mostra os últimos 100 eventos da sessão, resultados por etapa,
 duração, status HTTP e execuções atuais. Até quatro ações distintas podem executar
 simultaneamente; uma mesma ação não se sobrepõe a si mesma e não existe fila ilimitada.
+Fluxos de mouse e teclado executam isoladamente das outras ações para evitar
+interferência. Suas teclas geradas não disparam novas automações no Dobra.
 
 **Pausar** impede novos disparos. **Cancelar** aborta esperas/HTTP e impede as
 próximas etapas; uma operação nativa já iniciada pode precisar terminar.

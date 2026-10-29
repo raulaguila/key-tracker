@@ -1,15 +1,16 @@
 import { el, button, field } from './ui.js';
+import { createMacroEditor } from './macro-editor.js';
 
 export const actionLabels = {
   clipboard: 'Copiar texto', open: 'Abrir URL, arquivo ou aplicativo', notification: 'Mostrar notificação',
-  layer: 'Trocar camada', sequence: 'Executar sequência', http: 'Requisição HTTP', file: 'Criar ou acrescentar em arquivo', log: 'Registro em log (legado)'
+  layer: 'Trocar camada', macro: 'Fluxo de cliques e teclas', sequence: 'Executar sequência', http: 'Requisição HTTP', file: 'Criar ou acrescentar em arquivo', log: 'Registro em log (legado)'
 };
-export const actionTypeLabels = { clipboard: 'Copiar', open: 'Abrir', notification: 'Notificação', layer: 'Camada', sequence: 'Sequência', http: 'HTTP', file: 'Arquivo', log: 'Log legado' };
+export const actionTypeLabels = { clipboard: 'Copiar', open: 'Abrir', notification: 'Notificação', layer: 'Camada', macro: 'Fluxo', click: 'Clique', text: 'Texto', key: 'Teclas', wait: 'Espera', sequence: 'Sequência', http: 'HTTP', file: 'Arquivo', log: 'Log legado' };
 export const sequenceDelayLabel = value => (value ?? 0) + ' ms entre etapas';
 
 // Each type retains its own DOM while detached. Switching types therefore keeps
 // incomplete pairs, field values, expanded sections and sequence order intact.
-export function createActionEditor({ initial = { type: 'clipboard', text: '' }, prefix = '', layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence = true }) {
+export function createActionEditor({ initial = { type: 'clipboard', text: '' }, prefix = '', layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence = true, shortcutField, cancelShortcutCapture }) {
   const name = value => prefix + value;
   const makeField = (key, label, value = '', options = {}) => field(name(key), label, value, options);
   const legacyLog = initial.type === 'log';
@@ -22,6 +23,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
     for (let parent = event.target.parentElement; parent && parent !== node.parentElement; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
   }, true);
   const cache = new Map();
+  let shownKind;
   const fail = (message, key) => invalid(message, name(key));
   const text = input => input.value;
   function choose(task, input) {
@@ -68,6 +70,8 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
     const value = kind === initial.type ? initial : {};
     const content = el('div');
     let read;
+    let deactivate;
+    let dispose;
     if (kind === 'clipboard') {
       const item = makeField('text', 'Texto para copiar', value.text || '', { required: true, multiline: true, maxlength: 64000, placeholder: 'Olá! Aqui está a informação que você pediu.', hint: 'Copia para a área de transferência. Você decide onde colar.' });
       content.append(item.wrapper); read = () => ({ type: kind, text: text(item.input) });
@@ -128,6 +132,8 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       const contents = makeField('content', 'Conteúdo do arquivo', value.content || '', { multiline: true, placeholder: 'Criado pela tecla {{key}} em {{date}}.' });
       content.append(directory.wrapper, el('div', { class: 'form-grid' }, filename.wrapper, mode.wrapper), contents.wrapper);
       read = () => ({ type: kind, directory: directory.input.value.trim(), filename: filename.input.value.trim(), mode: mode.input.value, content: contents.input.value });
+    } else if (kind === 'macro') {
+      return createMacroEditor({ initial: value, prefix, api, shortcutField, cancelShortcutCapture, onDirty, onError, invalid });
     } else if (!kind && legacyLog) {
       // Imported configurations remain intact unless another action is chosen.
       content.append(el('p', { class: 'context-note' }, 'Esta ação antiga de log está disponível apenas para leitura. Escolha outro tipo para substituí-la. O histórico das execuções é registrado automaticamente. Resultados HTTP anteriores não podem ser gravados em logs legados.'));
@@ -169,7 +175,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         if (steps.length >= 10) return;
         const step = {};
         const id = 'step-' + crypto.randomUUID() + '-';
-        step.editor = createActionEditor({ initial: action, prefix: id, layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence: false });
+        step.editor = createActionEditor({ initial: action, prefix: id, layers, api, defaultDirectory, onDirty, onError, invalid, allowSequence: false, shortcutField, cancelShortcutCapture });
         const stepField = (key, label, initialValue, options = {}) => field(id + key, label, initialValue, options);
         const before = stepField('delayBeforeMs', 'Espera antes desta etapa (ms)', action.delayBeforeMs ?? 0, { type: 'number', min: 0, max: 60000, step: 1, required: true, hint: 'Soma ao intervalo entre etapas. Zero não acrescenta espera.' });
         const result = stepField('resultName', 'Nome do resultado HTTP', action.resultName || '', { maxlength: 32, placeholder: 'consulta', hint: 'Opcional. Use nas próximas etapas: {{steps.consulta.status}} ou {{steps.consulta.json.nome}}.' });
@@ -205,7 +211,7 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         step.down = button('Mover etapa para baixo', () => move(step, 1), 'quiet', { symbol: 'down', iconOnly: true, 'data-step-down': '' });
         step.remove = button('Remover etapa', () => {
           const index = steps.indexOf(step); if (steps.length <= 1) return;
-          steps.splice(index, 1); updateSteps(); const target = steps[Math.min(index, steps.length - 1)]; if (!steps.some(item => item.node.open)) openStep(target); target.summary.focus(); onDirty();
+          step.editor.dispose(); steps.splice(index, 1); updateSteps(); const target = steps[Math.min(index, steps.length - 1)]; if (!steps.some(item => item.node.open)) openStep(target); target.summary.focus(); onDirty();
         }, 'quiet danger', { symbol: 'trash', iconOnly: true, 'data-step-remove': '' });
         step.node = el('details', { class: 'sequence-step', name: accordionName, 'data-sequence-step': '', open: focus || steps.length === 0 }, step.summary,
           el('div', { class: 'sequence-step-toolbar' }, el('span', { class: 'hint' }, 'Ordem da execução'), el('div', { class: 'button-row' }, step.up, step.down, step.remove)), step.editor.node, advanced);
@@ -224,13 +230,17 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
         const values = steps.map(step => { const action = step.read(names); if (action.resultName) names.add(action.resultName); return action; });
         return { type: kind, stepDelayMs, steps: values };
       };
+      deactivate = () => { for (const step of steps) step.editor.deactivate(); };
+      dispose = () => { for (const step of steps) step.editor.dispose(); };
     }
-    return { node: content, read };
+    return { node: content, read, deactivate, dispose };
   }
   function show() {
     const kind = type.input.value;
+    if (shownKind !== undefined && shownKind !== kind) cache.get(shownKind)?.deactivate?.();
     if (!cache.has(kind)) cache.set(kind, createFields(kind));
     host.replaceChildren(cache.get(kind).node); node.dataset.actionType = kind;
+    shownKind = kind;
   }
   type.input.addEventListener('change', show); show();
   function describe() {
@@ -247,8 +257,12 @@ export function createActionEditor({ initial = { type: 'clipboard', text: '' }, 
       case 'http': return value('method') + ' · ' + destination(value('url'));
       case 'file': return (value('mode') === 'append' ? 'Acrescentar · ' : 'Criar · ') + (value('filename') || 'Defina o nome');
       case 'sequence': return sequenceDelayLabel(value('stepDelayMs') || 0);
+      case 'macro': return cache.get('macro')?.describe() || 'Configure as etapas';
       default: return legacyLog ? 'Ação existente · somente leitura' : 'Configure as etapas';
     }
   }
-  return { node, read: () => cache.get(type.input.value).read(), describe, get type() { return type.input.value || initial.type; } };
+  return { node, read: () => cache.get(type.input.value).read(), describe,
+    deactivate: () => cache.get(type.input.value)?.deactivate?.(),
+    dispose: () => { for (const fields of cache.values()) fields.dispose?.(); },
+    get type() { return type.input.value || initial.type; } };
 }

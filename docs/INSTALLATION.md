@@ -38,6 +38,8 @@ As teclas são observadas sem reservar atalhos de outros programas. Notificaçõ
 devem ser conferidas na versão instalada, pois dependem do atalho e da identidade
 registrados pelo instalador, além das configurações de notificações do Windows.
 Na configuração atual, desinstalar pelo NSIS preserva os dados do usuário.
+Fluxos de mouse/teclado usam entrada nativa. Aplicativos elevados ou áreas
+protegidas do sistema podem recusar entrada de um Dobra sem o mesmo privilégio.
 
 ## macOS
 
@@ -52,6 +54,9 @@ Monitoramento de Entrada**. Acessibilidade pode ser necessária para a detecçã
 Negar ou revogar acesso limita as funções; o estado é informado no Dobra.
 Após alterar permissões, reabra o aplicativo se a entrada continuar indisponível.
 Notificações precisam ser validadas na distribuição assinada.
+Para reproduzir [fluxos de cliques e teclas](MACROS.md), autorize também
+**Acessibilidade**. **Rever permissões**, no editor, solicita a autorização do
+sistema sem apagar as etapas editadas. Gravação exige entrada global disponível.
 
 ## Linux
 
@@ -81,6 +86,11 @@ permissões**. O componente Linux usa Polkit, logind e leitura passiva evdev;
 ações e Rastreio usam o mesmo motor. O AppImage precisa desse componente instalado
 no sistema. Sem autorização, mantém rastreio local e execução manual, sem reservar
 atalhos pelo portal. [Passo a passo e limites](WAYLAND.md).
+
+A reprodução de fluxos usa uma autorização independente pelos portais
+RemoteDesktop/ScreenCast do desktop, com Python 3/GIO. A disponibilidade depende
+do compositor. A gravação global de cliques não está disponível nessa sessão;
+use a edição manual ou X11. [Detalhes do portal](WAYLAND_MACROS.md).
 
 ## Primeiro início e atualização
 

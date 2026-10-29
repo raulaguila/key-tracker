@@ -9,6 +9,7 @@ real, assinatura ou todos os teclados/sistemas.
 
 | Registro | Assunto |
 | --- | --- |
+| [2026-10-29 — Fluxos de cliques e teclas](2026-10-29-macros.md) | Gravação/edição, 319 testes, prova nativa X11 em outro aplicativo e limites reais por sistema |
 | [2026-10-29 — Impeccable após alvos de toque](2026-10-29-impeccable/report.json) | 20/20 no escopo verificado: P2 resolvido; captura e expansíveis com pelo menos 44 px, 24 combinações de toque e 31 cenários Orca aprovados |
 | [2026-10-28 — Impeccable após Orca](2026-10-28-impeccable/report.json) | Avaliação técnica 19/20: acessibilidade, temas, desempenho e responsividade; 31 cenários Orca aprovados e um P2 de alvos de toque |
 | [2026-10-21 — Integração Wayland](2026-10-21-wayland-input/report.md) | Serviço passivo, autorização, sessão, IPC privado, UI e pacote; hardware instalado pendente |
