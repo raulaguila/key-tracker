@@ -7,6 +7,7 @@ const os = require('node:os');
 const http = require('node:http');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
+const { waitForRendererCondition } = require('./renderer-readiness.cjs');
 
 async function main() {
   if (process.platform !== 'linux' || !process.env.DISPLAY) throw new Error('Este teste de UI usa Linux/X11. Execute: xvfb-run -a npm run test:ui');
@@ -66,7 +67,7 @@ async function main() {
       const value = JSON.parse(event.data);
       if (value.id) {
         const task = pending.get(value.id);
-        if (task) { pending.delete(value.id); value.error ? task.reject(new Error(value.error.message)) : task.resolve(value.result); }
+        if (task) { pending.delete(value.id); value.error ? task.reject(Object.assign(new Error(value.error.message), { code: value.error.code, method: task.method })) : task.resolve(value.result); }
       } else if (value.method === 'Runtime.exceptionThrown') exceptions.push(value.params.exceptionDetails);
     });
     socket.addEventListener('close', () => {
@@ -78,7 +79,7 @@ async function main() {
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => { pending.delete(requestId); reject(new Error('CDP timeout: ' + method)); }, 10000);
         timer.unref();
-        pending.set(requestId, { resolve: result => { clearTimeout(timer); resolve(result); }, reject: error => { clearTimeout(timer); reject(error); } });
+        pending.set(requestId, { method, resolve: result => { clearTimeout(timer); resolve(result); }, reject: error => { clearTimeout(timer); reject(error); } });
         socket.send(JSON.stringify({ id: requestId, method, params }));
       });
     }
@@ -88,9 +89,7 @@ async function main() {
       return result.result.value;
     }
     async function until(expression, message) {
-      const end = Date.now() + 10000;
-      while (Date.now() < end) { if (await evaluate('return ' + expression)) return; await delay(50); }
-      throw new Error(message + '\n' + await evaluate('return document.body.innerText'));
+      await waitForRendererCondition({ evaluate, expression, message });
     }
     const click = selector => evaluate('document.querySelector(' + JSON.stringify(selector) + ').click();');
     async function pointerClick(selector) {
