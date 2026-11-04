@@ -49,7 +49,7 @@ jobs:
         run: npm run test:lifecycle
       - name: Upload lifecycle evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lifecycle-${{ runner.os }}-${{ runner.arch }}
           path: artifacts/lifecycle/*.json
@@ -78,7 +78,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Upload installers
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dobra-${{ runner.os }}-${{ runner.arch }}
           path: |
@@ -99,7 +99,7 @@ jobs:
       - name: Verify packaged runtime on Windows and macOS
         if: github.event_name != 'pull_request' && runner.os != 'Linux'
         run: node scripts/platform-audit.cjs --packaged
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && github.event_name != 'pull_request'
         with:
           name: packaged-runtime-${{ runner.os }}-${{ runner.arch }}

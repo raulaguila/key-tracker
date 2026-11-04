@@ -46,7 +46,7 @@ jobs:
       - name: Audit Windows and macOS runtime
         if: runner.os != 'Linux'
         run: node scripts/platform-audit.cjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: platform-audit-${{ runner.os }}-${{ runner.arch }}
